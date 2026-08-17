@@ -1,0 +1,8 @@
+node_modules
+.git
+.env
+data/*.db
+data/*.db-*
+*.log
+.DS_Store
+shop-app-21 (2).html
