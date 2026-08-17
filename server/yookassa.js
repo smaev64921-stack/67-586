@@ -157,16 +157,34 @@ async function createPayment({
     throw err;
   }
 
+  /* ЮKassa принимает только публичный https-адрес возврата: с localhost или
+     http она отвечает «Недопустимое значение параметра» без указания поля. */
+  const ret = String(returnUrl || '').trim();
+  let retOk = false;
+  try {
+    const u = new URL(ret);
+    retOk = u.protocol === 'https:' && u.hostname.includes('.') &&
+      !/^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.)/i.test(u.hostname);
+  } catch (_) { retOk = false; }
+  if (!retOk) {
+    const err = new Error(
+      'Онлайн-оплата работает только на боевом домене по https. ' +
+      `Сейчас сайт открыт как ${ret || 'без адреса'} — ЮKassa такой адрес возврата не принимает.`
+    );
+    err.status = 400;
+    err.code = 'RETURN_URL_NOT_PUBLIC';
+    throw err;
+  }
+
   const body = {
     amount: { value, currency: 'RUB' },
     capture: true,
     confirmation: {
       type: 'redirect',
-      return_url: returnUrl
+      return_url: ret
     },
     description: String(description || `Заказ №${orderNum}`).slice(0, 128),
-    metadata: Object.assign({ orderNum: String(orderNum) }, metadata || {}),
-    expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    metadata: Object.assign({ orderNum: String(orderNum) }, metadata || {})
   };
 
   const receipt = receiptEnabled()
@@ -186,10 +204,17 @@ async function createPayment({
   }
 
   if (!res.ok) {
-    const msg = (data && data.description) || (data && data.message) || 'Ошибка ЮKassa';
-    const err = new Error(msg);
+    /* ЮKassa кладёт имя поля в parameter — без него описание ошибки бесполезно */
+    const base = (data && data.description) || (data && data.message) || 'Ошибка ЮKassa';
+    const param = data && data.parameter ? ` Поле: ${data.parameter}.` : '';
+    /* самая частая причина: магазин с 54-ФЗ, а чек собрать не из чего */
+    const hint = (data && data.parameter === 'receipt' && !receipt)
+      ? ' Магазин требует чек, а у заказа нет email или телефона покупателя — заполните их на шаге «Получение».'
+      : '';
+    const err = new Error(base + param + hint);
     err.status = 502;
     err.details = data;
+    console.error('ЮKassa отклонила платёж:', JSON.stringify(data));
     throw err;
   }
   return data;

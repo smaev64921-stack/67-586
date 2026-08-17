@@ -99,6 +99,7 @@ migrate();
 try { db.exec('ALTER TABLE orders ADD COLUMN access_token TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE orders ADD COLUMN stock_reserved INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
 try { db.exec('ALTER TABLE products ADD COLUMN size_chart TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
+try { db.exec("ALTER TABLE products ADD COLUMN colors_json TEXT NOT NULL DEFAULT '[]'"); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN middle_name TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch (_) {}
 try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL AND google_id != \'\''); } catch (_) {}

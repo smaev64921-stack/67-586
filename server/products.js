@@ -5,9 +5,11 @@ function rowToProduct(row) {
   let sizes = [];
   let stock = {};
   let gal = [];
+  let colors = [];
   try { sizes = JSON.parse(row.sizes_json || '[]'); } catch (_) {}
   try { stock = JSON.parse(row.stock_json || '{}'); } catch (_) {}
   try { gal = JSON.parse(row.gal_json || '[]'); } catch (_) {}
+  try { colors = JSON.parse(row.colors_json || '[]'); } catch (_) {}
   return {
     id: row.id,
     name: row.name,
@@ -24,8 +26,25 @@ function rowToProduct(row) {
     desc: row.desc_text || '',
     badge: row.badge || '',
     tryon: row.tryon === 1,
-    sizeChart: row.size_chart || ''
+    sizeChart: row.size_chart || '',
+    colors: Array.isArray(colors) ? colors : []
   };
+}
+
+/** Цвета товара: [{name, hex}]. Любые — список задаёт админ. */
+function cleanColors(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const c of list) {
+    if (!c) continue;
+    const hex = String(c.hex || '').trim();
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) continue;
+    const name = String(c.name || '').trim().slice(0, 32) || hex.toUpperCase();
+    if (out.some((x) => x.hex.toLowerCase() === hex.toLowerCase())) continue;
+    out.push({ name, hex: hex.toLowerCase() });
+    if (out.length >= 20) break;
+  }
+  return out;
 }
 
 function listProducts({ all = false } = {}) {
@@ -61,7 +80,8 @@ function upsertProduct(p) {
     desc_text: p.desc || '',
     badge: p.badge || '',
     tryon: p.tryon === true ? 1 : 0,
-    size_chart: p.sizeChart || ''
+    size_chart: p.sizeChart || '',
+    colors_json: JSON.stringify(cleanColors(p.colors))
   };
 
   if (p.id) {
@@ -69,14 +89,15 @@ function upsertProduct(p) {
       UPDATE products SET
         name=@name, cat=@cat, gender=@gender, price=@price, old_price=@old_price, sku=@sku,
         sizes_json=@sizes_json, stock_json=@stock_json, on_sale=@on_sale, img=@img, gal_json=@gal_json,
-        desc_text=@desc_text, badge=@badge, tryon=@tryon, size_chart=@size_chart, updated_at=datetime('now')
+        desc_text=@desc_text, badge=@badge, tryon=@tryon, size_chart=@size_chart,
+        colors_json=@colors_json, updated_at=datetime('now')
       WHERE id=@id
     `).run({ ...payload, id: +p.id });
     return getProduct(+p.id);
   }
   const info = db.prepare(`
-    INSERT INTO products (name, cat, gender, price, old_price, sku, sizes_json, stock_json, on_sale, img, gal_json, desc_text, badge, tryon, size_chart)
-    VALUES (@name, @cat, @gender, @price, @old_price, @sku, @sizes_json, @stock_json, @on_sale, @img, @gal_json, @desc_text, @badge, @tryon, @size_chart)
+    INSERT INTO products (name, cat, gender, price, old_price, sku, sizes_json, stock_json, on_sale, img, gal_json, desc_text, badge, tryon, size_chart, colors_json)
+    VALUES (@name, @cat, @gender, @price, @old_price, @sku, @sizes_json, @stock_json, @on_sale, @img, @gal_json, @desc_text, @badge, @tryon, @size_chart, @colors_json)
   `).run(payload);
   return getProduct(info.lastInsertRowid);
 }

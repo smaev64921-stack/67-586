@@ -255,7 +255,11 @@ async function createCheckout({ items, guest, pvz, promoCode, user, publicUrl })
     .map((s) => String(s || '').trim()).filter(Boolean).join(' ');
   const name = String(g.name || fallbackName || (adminOrder ? 'Администратор' : '')).trim();
   const phone = String(g.phone || (user && user.phone) || '').trim();
-  const email = String(g.email || (user && user.email) || (adminOrder ? 'admin@luxecanvas.local' : '')).trim().toLowerCase();
+  /* .local в чек не годится: ЮKassa отбивает такой адрес вместе со всем чеком */
+  const adminFallbackEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const email = String(
+    g.email || (user && user.email) || (adminOrder ? adminFallbackEmail : '')
+  ).trim().toLowerCase();
   if (!adminOrder && !name) throw Object.assign(new Error('Укажите имя'), { status: 400 });
   if (!adminOrder && !phone) throw Object.assign(new Error('Укажите телефон'), { status: 400 });
   if (!email.includes('@')) throw Object.assign(new Error('Укажите email'), { status: 400 });

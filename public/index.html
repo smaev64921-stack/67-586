@@ -322,11 +322,13 @@ s{color:var(--muted2)}
    шапка. Текст и кнопка лежат поверх фото и не заходят под таб-бар. */
 .hs--hero{margin:0 0 16px;border-radius:0}
 #scr > .hs--hero:first-child{margin-top:0}
-.hs--hero .hs__track{border-radius:0;box-shadow:none;background:#111}
+.hs--hero .hs__track{border-radius:0;box-shadow:none;background:var(--photo)}
 /* фото видно целиком: высота по самой картинке, с потолком чуть меньше
    экрана — снизу должен выглядывать следующий блок */
+/* без min-height: одно фото занимает ровно свою высоту, полей не остаётся.
+   Если фото несколько и они разной высоты, поля будут в цвет карточки. */
 .hs--hero .hs__s{
-  aspect-ratio:auto;height:auto;min-height:300px;background:#111;
+  aspect-ratio:auto;height:auto;background:var(--photo);
   display:flex;align-items:center;justify-content:center
 }
 .hs--hero .hs__img{
@@ -480,10 +482,16 @@ s{color:var(--muted2)}
 }
 
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 12px;padding:4px var(--pad) 20px}
-.card{display:flex;flex-direction:column;gap:8px;text-align:left;position:relative}
-.card__ph{
-  position:relative;background:#fff;border-radius:var(--r-md);overflow:hidden;aspect-ratio:3/4
+/* товар — цельная белая карточка: фото сверху, под ним название и цена */
+.card{
+  display:flex;flex-direction:column;text-align:left;position:relative;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+  overflow:hidden;box-shadow:var(--sh-1)
 }
+.card__ph{
+  position:relative;background:#fff;border-radius:0;overflow:hidden;aspect-ratio:3/4
+}
+.card__meta{display:flex;flex-direction:column;gap:8px;padding:12px 12px 14px;flex:1}
 .card__track{
   display:flex;height:100%;overflow-x:auto;overflow-y:hidden;
   scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;
@@ -537,6 +545,19 @@ s{color:var(--muted2)}
   min-width:52px;height:44px;padding:0 14px;border:1.5px solid var(--line2);border-radius:12px;
   font-size:14px;font-weight:600;background:var(--card);transition:all var(--dur) var(--ease)
 }
+/* выбор цвета в карточке товара */
+.cols{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
+.col{
+  width:38px;height:38px;border-radius:var(--r-pill);padding:3px;
+  border:1.5px solid var(--line2);background:var(--card);
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color var(--dur) var(--ease), transform .14s var(--ease)
+}
+.col i{display:block;width:100%;height:100%;border-radius:var(--r-pill);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.col:hover{border-color:var(--muted)}
+.col:active{transform:scale(.94)}
+.col[aria-pressed="true"]{border-color:var(--ink);border-width:2px;padding:2px}
+
 .qsize__b:hover{border-color:var(--ink)}
 .qsize__b:active{transform:scale(.96)}
 .qsize__b[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -985,7 +1006,7 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
   padding:18px var(--pad) 16px;background:var(--card);
   border-bottom:1px solid var(--line)
 }
-.sbar__s{display:flex;flex-direction:column;align-items:center;gap:9px;flex:none;width:76px}
+.sbar__s{display:flex;flex-direction:column;align-items:center;gap:9px;flex:none;width:70px}
 .sbar__c{
   width:30px;height:30px;border-radius:var(--r-pill);
   background:var(--card);border:1.5px solid var(--line2);color:var(--muted2);
@@ -1022,33 +1043,6 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
   color:var(--muted2);margin-bottom:14px
 }
 .cosec__lead{font-size:13px;color:var(--muted);line-height:1.5;margin:-6px 0 14px}
-/* нижняя панель шага: сумма слева, действие справа — всегда на виду */
-.cobar{
-  position:sticky;bottom:0;z-index:22;margin-top:20px;
-  background:var(--card);border-top:1px solid var(--line);
-  padding:12px var(--pad) calc(12px + env(safe-area-inset-bottom));
-  box-shadow:0 -10px 34px rgba(0,0,0,.09)
-}
-.cobar__row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
-.cobar__l{font-size:12.5px;color:var(--muted)}
-.cobar__v{font-size:21px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.cobar .btn{padding:17px}
-.cobar .safe{margin-top:9px;font-size:11.5px}
-/* в корзине таб-бар остаётся, поэтому панель встаёт карточкой над ним */
-.cobar--cart{
-  bottom:calc(var(--tab-h) + 28px + env(safe-area-inset-bottom));
-  margin:16px var(--pad) 0;border:1px solid var(--line);
-  border-radius:var(--r-lg);box-shadow:0 8px 30px rgba(0,0,0,.12);
-  padding:14px 16px 16px
-}
-/* на шагах получения и оплаты нижняя панель ложится на самый низ экрана */
-#scr[data-screen="delivery"],#scr[data-screen="pay"]{
-  padding-bottom:0;display:flex;flex-direction:column;
-  min-height:calc(100vh - var(--hd-off));
-  min-height:calc(100svh - var(--hd-off))
-}
-#scr[data-screen="pay"] > .pay-scr{display:flex;flex-direction:column;flex:1}
-#scr[data-screen="delivery"] > .cobar,#scr[data-screen="pay"] .cobar{margin-top:auto}
 
 /* --- карточки выбора --- */
 .pmlist{display:flex;flex-direction:column;gap:10px;padding:8px var(--pad) 0}
@@ -1959,6 +1953,22 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   flex:none;width:26px;height:26px;border-radius:var(--r-pill);background:var(--ink);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700
 }
+/* цвета товара в админке */
+.ad__colors{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.ad__color{
+  display:inline-flex;align-items:center;gap:8px;padding:6px 8px 6px 6px;
+  border:1px solid var(--line2);border-radius:var(--r-pill);font-size:12.5px
+}
+.ad__color i{width:20px;height:20px;border-radius:var(--r-pill);flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ad__color button{display:flex;color:var(--muted2);padding:2px}
+.ad__color button:hover{color:var(--danger)}
+.ad__color .ic{width:14px;height:14px}
+.ad__color-add{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.ad__color-add input[type="color"]{
+  width:44px;height:44px;flex:none;padding:2px;border:1.5px solid var(--line2);
+  border-radius:var(--r-md);background:var(--card);cursor:pointer
+}
+.ad__color-add .ad__f{margin:0;flex:1;min-width:0}
 .ad__step-h b{display:block;font-size:15px;font-weight:700;margin-bottom:3px}
 .ad__step-h span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5}
 .ad__slidepv{
@@ -4063,7 +4073,7 @@ const persist = () => store.save(PRODUCTS);
 
 /* состояние приложения */
 const S = {
-  screen:'catalog', gender:'m', productId:null, size:null, galIdx:0,
+  screen:'catalog', gender:'m', productId:null, size:null, color:'', galIdx:0,
   cart:[], favs:[], user:null, authMode:'reg', authPanel:'main', authStep:1, orderTab:'Все заказы',
   authPhone:'', authOtpShown:false, authOtpState:'', authOtpSending:false, authOtpLink:'', authOtpOfficial:false,
   authCodeRequested:false, authBot:'',
@@ -4215,7 +4225,12 @@ const money = n => Number(n).toLocaleString('ru-RU') + '\u00a0₽';
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const byId = id => PRODUCTS.find(p => +p.id === +id);
 const cartCount = () => S.cart.reduce((s,i) => s + i.qty, 0);
-const cartKey = p => p.id + '-' + S.size;
+const cartKey = p => p.id + '-' + S.size + (S.color ? '-' + S.color : '');
+/* название цвета для строки корзины */
+function colorNameOf(p, hex){
+  const c = (p && Array.isArray(p.colors) ? p.colors : []).find(x => x && x.hex === hex);
+  return c ? c.name : '';
+}
 const inCart = p => !!S.size && S.cart.some(x => x.key === cartKey(p));
 const cardInCart = p => S.cart.some(x => x.id === p.id);
 /* закончившиеся позиции в сумму не идут — покупатель за них не платит */
@@ -4603,6 +4618,7 @@ function cardHTML(p){
         `<span class="card__dot${i ? '' : ' on'}"></span>`).join('')}</div>` : ''}
     </div>
     <button class="card__fav" data-a="fav:${p.id}" aria-pressed="${S.favs.includes(p.id)}" aria-label="В избранное">${svg('heart')}</button>
+    <div class="card__meta">
     <button class="card__n" data-a="open:${p.id}" style="text-align:left">${p.name}</button>
     ${rvCardHTML(p)}
     <div class="card__row">
@@ -4613,6 +4629,7 @@ function cardHTML(p){
       </button>
     </div>
     ${out ? `<span class="card__out">Нет в наличии</span>` : ''}
+    </div>
   </article>`;
 }
 
@@ -4664,6 +4681,11 @@ function scrProduct(){
      размер исчезает из выбора и вернётся, когда склад пополнят. */
   const sizes = SIZES.filter(s => (p.sizes || []).includes(s) && stockOf(p, s) > 0);
   if(sizes.length && !sizes.includes(S.size)) S.size = sizes[0];
+  /* цвета задаёт админ; если выбранного нет у товара — берём первый */
+  const colors = Array.isArray(p.colors) ? p.colors.filter(c => c && c.hex) : [];
+  if(colors.length && !colors.some(c => c.hex === S.color)) S.color = colors[0].hex;
+  if(!colors.length) S.color = '';
+  const cur = colors.find(c => c.hex === S.color) || null;
   const out = soldOut(p) || (!sizes.length && (p.sizes || []).length > 0);
   return `
   <div class="pd">
@@ -4692,6 +4714,11 @@ function scrProduct(){
         Артикул: <b>${p.sku}</b>${svg('copy','ic ic--xs')}</button>` : ''}
       <p class="pd__price">${money(p.price)}${p.old ? ` <s>${money(p.old)}</s>` : ''}</p>
       ${rvInlineHTML(p)}
+
+      ${colors.length ? `<p class="pd__lab">Цвет${cur ? ` · <b>${esc(cur.name)}</b>` : ''}</p>
+      <div class="cols">${colors.map(c => `<button class="col" data-a="color:${encodeURIComponent(c.hex)}"
+          aria-pressed="${S.color === c.hex}" aria-label="${esc(c.name)}" title="${esc(c.name)}">
+          <i style="background:${esc(c.hex)}"></i></button>`).join('')}</div>` : ''}
 
       ${sizes.length ? `<p class="pd__lab">Размер</p>
       <div class="sizes">${sizes.map(s => `<button class="size" data-a="size:${s}"
@@ -4735,7 +4762,8 @@ function scrCart(){
       <img class="ci__i" src="${i.img}" alt="">
       <div class="ci__b">
         <div style="display:flex;justify-content:space-between;gap:10px">
-          <div><p class="ci__n">${i.name}</p><p class="ci__m">Размер: ${i.size}</p></div>
+          <div><p class="ci__n">${i.name}</p>
+            <p class="ci__m">Размер: ${i.size}${i.colorName ? ` · ${esc(i.colorName)}` : ''}</p></div>
           <button class="ci__x" data-a="del:${i.key}" aria-label="Удалить">${svg('x','ic ic--sm')}</button>
         </div>
         ${i.gone
@@ -4766,19 +4794,12 @@ function scrCart(){
         ? `<p class="promo__msg is-ok">${isFreeShipPromo(S.promo) ? 'Доставка бесплатно' : 'Скидка −' + money(S.promo.discount)} по коду ${S.promo.code}</p>`
         : (S.promoMsg ? `<p class="promo__msg is-err">${esc(S.promoMsg)}</p>` : '')}
     </div>
-  </div>
-
-  <div class="cobar cobar--cart">
     ${cartBlocked()
       ? `<p class="cart__block">${svg('info','ic ic--sm')} Заказ не оформить: часть товаров закончилась. Уберите их из корзины — остальное сохранится.</p>
          <button class="btn" disabled>Оформить заказ</button>
          <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
-      : `<div class="cobar__row">
-           <span class="cobar__l">Итого</span>
-           <span class="cobar__v">${money(orderTotal())}</span>
-         </div>
-         <button class="btn" data-a="checkout">Оформить заказ</button>`}
-    ${!hasLiveSession() ? `<p class="gform__n" style="padding:10px 0 0;margin:0">В корзину можно без аккаунта. Оформить заказ — после регистрации.</p>` : ''}
+      : `<button class="btn" data-a="checkout">Оформить заказ · ${money(orderTotal())}</button>`}
+    ${!hasLiveSession() ? `<p class="gform__n" style="padding:10px 0 0">В корзину можно без аккаунта. Оформить заказ — после регистрации.</p>` : ''}
     <p class="safe">${svg('lock')} Безопасная оплата</p>
   </div>`;
 }
@@ -4808,7 +4829,7 @@ function scrPay(){
         <img class="ci__i" src="${i.img}" alt="">
         <div class="ci__b">
           <p class="ci__n">${i.name}</p>
-          <p class="ci__m">Размер: ${i.size}${i.qty > 1 ? ` · ${i.qty} шт.` : ''}</p>
+          <p class="ci__m">Размер: ${i.size}${i.colorName ? ` · ${esc(i.colorName)}` : ''}${i.qty > 1 ? ` · ${i.qty} шт.` : ''}</p>
           ${i.gone
             ? `<p class="ci__gone">${svg('info','ic ic--sm')} ${GONE_TEXT}</p>
                <button class="ci__drop" data-a="del:${i.key}">Убрать из заказа</button>`
@@ -4836,17 +4857,16 @@ function scrPay(){
     </div>
   </div>
 
-  ${cartBlocked()
-    ? `<div class="cobar">
-        <p class="cart__block">${svg('info','ic ic--sm')} Оформление недоступно: пока вы оформляли заказ, часть товаров разобрали. Уберите их — и продолжим.</p>
-        <button class="btn" disabled>${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}</button>
-        <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>
-      </div>`
-    : coBar(window.__LC_YK ? 'К оплате' : 'Сумма заказа',
-        `<button class="btn" data-a="paynow">${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}</button>
-         <p class="safe">${window.__LC_YK
-           ? svg('lock') + ' Безопасная оплата · данные защищены'
-           : svg('info','ic ic--sm') + ' Онлайн-оплата пока не подключена — заказ уйдёт в обработку'}</p>`)}
+  <div class="pay-scr__cta">
+    ${cartBlocked()
+      ? `<p class="cart__block">${svg('info','ic ic--sm')} Оформление недоступно: пока вы оформляли заказ, часть товаров разобрали. Уберите их — и продолжим.</p>
+         <button class="btn" disabled>${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}</button>
+         <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
+      : `<button class="btn" data-a="paynow">${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'} ${money(orderTotal())}</button>`}
+    <p class="safe">${window.__LC_YK
+      ? svg('lock') + ' Безопасная оплата · данные защищены'
+      : svg('info','ic ic--sm') + ' Онлайн-оплата пока не подключена — заказ уйдёт в обработку'}</p>
+  </div>
   </div>`;
 }
 
@@ -4856,8 +4876,8 @@ function emptyCart(){
     <button class="btn" style="margin-top:22px" data-a="go:catalog">В каталог</button></div>`;
 }
 
-/* --- индикатор шагов: корзина → получение → оплата --- */
-const STEP_NAMES = ['Корзина','Получение','Оплата'];
+/* --- индикатор шагов: корзина → получение → оплата → готово --- */
+const STEP_NAMES = ['Корзина','Получение','Оплата','Готово'];
 function stepBar(active){
   const n = STEP_NAMES.length;
   return `<div class="sbar" aria-label="Оформление заказа: шаг ${Math.min(active + 1, n)} из ${n}">
@@ -4872,16 +4892,6 @@ function stepBar(active){
   </div>`;
 }
 
-/* нижняя панель шага: сколько платить и что дальше */
-function coBar(label, btn){
-  return `<div class="cobar">
-    <div class="cobar__row">
-      <span class="cobar__l">${label}</span>
-      <span class="cobar__v">${money(orderTotal())}</span>
-    </div>
-    ${btn}
-  </div>`;
-}
 
 /* --- шаг 2: доставка --- */
 function scrDelivery(){
@@ -4915,7 +4925,9 @@ function scrDelivery(){
     ${contacts}
   </div>
 
-  ${coBar('К оплате', `<button class="btn" data-a="topay">Продолжить ${svg('chev','ic ic--sm')}</button>`)}`;
+  <div style="padding:4px var(--pad) 0">
+    <button class="btn" data-a="topay">Продолжить · ${money(orderTotal())}</button>
+  </div>`;
 }
 
 /* --- шаг 4: готово --- */
@@ -8628,6 +8640,12 @@ document.addEventListener('click', e => {
       });
       break;
     }
+    case 'color': {
+      S.color = decodeURIComponent(el.dataset.a.slice(6));
+      saveUser();
+      render(true);
+      break;
+    }
     case 'size':
       S.size = a;
       /* без полного render — иначе экран дёргается из‑за анимации смены экрана */
@@ -8666,7 +8684,8 @@ document.addEventListener('click', e => {
       if(!canAddMore(p, S.size)){
         return toast(stockOf(p, S.size) ? 'Весь остаток уже в корзине' : 'Этого размера нет в наличии');
       }
-      S.cart.push({key:cartKey(p), id:p.id, sku:p.sku || '', name:p.name, img:p.img, price:p.price, size:S.size, qty:1});
+      S.cart.push({key:cartKey(p), id:p.id, sku:p.sku || '', name:p.name, img:p.img, price:p.price,
+        size:S.size, color:S.color || '', colorName:colorNameOf(p, S.color), qty:1});
       const btn = document.querySelector('.pd__cta .btn');
       popBtn(btn);
       fly(btn, document.getElementById('cartIco'), p.img, false);
@@ -10949,6 +10968,16 @@ function pForm(p){
       return `<label style="${on?'':'opacity:.35'}">${s}
         <input class="ad__f xs" data-sz="${s}" type="text" inputmode="numeric" pattern="[0-9]*" min="0" placeholder="0" value="${qty}" ${on?'':'disabled'}></label>`;
     }).join('')}</div>
+    <label class="ad__l">Цвета</label>
+    <p class="ad__hint">Любой цвет: выберите оттенок, впишите название и нажмите «Добавить».
+      Покупатель выберет цвет в карточке товара.</p>
+    <div class="ad__colors" id="xColors"></div>
+    <div class="ad__color-add">
+      <input type="color" id="xColorHex" value="#000000" aria-label="Оттенок">
+      <input class="ad__f" id="xColorName" placeholder="Название: Чёрный" maxlength="32">
+      <button type="button" class="ad__b" id="xColorAdd">Добавить</button>
+    </div>
+
     <label class="ad__l">Описание</label>
     <textarea class="ad__f" id="xd" rows="3" placeholder="Состав, крой, детали">${d.desc||''}</textarea>
 
@@ -11001,6 +11030,36 @@ function pForm(p){
     });
   };
   w.querySelector('#xSz').onchange = syncStockEnabled;
+
+  /* цвета: список любой длины, оттенок + название */
+  let colorList = Array.isArray(d.colors) ? d.colors.filter(c => c && c.hex).slice(0, 20) : [];
+  const colorBox = w.querySelector('#xColors');
+  const paintColors = () => {
+    colorBox.innerHTML = colorList.length
+      ? colorList.map((c, i) => `
+        <span class="ad__color" title="${esc(c.hex)}">
+          <i style="background:${esc(c.hex)}"></i>${esc(c.name || c.hex)}
+          <button type="button" data-cdel="${i}" aria-label="Убрать цвет">${svg('x','ic')}</button>
+        </span>`).join('')
+      : `<span class="ad__hint" style="margin:0">Цвета не добавлены — в карточке выбора не будет.</span>`;
+  };
+  colorBox.onclick = e => {
+    const b = e.target.closest('[data-cdel]');
+    if(!b) return;
+    colorList.splice(+b.dataset.cdel, 1);
+    paintColors();
+  };
+  w.querySelector('#xColorAdd').onclick = () => {
+    const hex = String(w.querySelector('#xColorHex').value || '').toLowerCase();
+    const nameEl = w.querySelector('#xColorName');
+    if(!/^#[0-9a-f]{6}$/.test(hex)) return toast('Выберите оттенок');
+    if(colorList.some(c => String(c.hex).toLowerCase() === hex)) return toast('Такой цвет уже есть');
+    if(colorList.length >= 20) return toast('Больше 20 цветов не нужно');
+    colorList.push({hex, name: nameEl.value.trim() || hex.toUpperCase()});
+    nameEl.value = '';
+    paintColors();
+  };
+  paintColors();
 
   const grid = w.querySelector('#xGalGrid');
   const file = w.querySelector('#xf');
@@ -11103,6 +11162,7 @@ function pForm(p){
       desc:w.querySelector('#xd').value.trim(),
       img,
       gal: photos.length ? photos : [img],
+      colors: colorList,
       tryon: w.querySelector('#xtry').checked,
       on:w.querySelector('#xon').checked
     };
