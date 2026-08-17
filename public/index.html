@@ -1027,6 +1027,13 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 .cobar__v{font-size:21px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .cobar .btn{padding:17px}
 .cobar .safe{margin-top:9px;font-size:11.5px}
+/* в корзине таб-бар остаётся, поэтому панель встаёт карточкой над ним */
+.cobar--cart{
+  bottom:calc(var(--tab-h) + 28px + env(safe-area-inset-bottom));
+  margin:16px var(--pad) 0;border:1px solid var(--line);
+  border-radius:var(--r-lg);box-shadow:0 8px 30px rgba(0,0,0,.12);
+  padding:14px 16px 16px
+}
 /* на шагах получения и оплаты нижняя панель ложится на самый низ экрана */
 #scr[data-screen="delivery"],#scr[data-screen="pay"]{
   padding-bottom:0;display:flex;flex-direction:column;
@@ -4739,12 +4746,19 @@ function scrCart(){
         ? `<p class="promo__msg is-ok">${isFreeShipPromo(S.promo) ? 'Доставка бесплатно' : 'Скидка −' + money(S.promo.discount)} по коду ${S.promo.code}</p>`
         : (S.promoMsg ? `<p class="promo__msg is-err">${esc(S.promoMsg)}</p>` : '')}
     </div>
+  </div>
+
+  <div class="cobar cobar--cart">
     ${cartBlocked()
       ? `<p class="cart__block">${svg('info','ic ic--sm')} Заказ не оформить: часть товаров закончилась. Уберите их из корзины — остальное сохранится.</p>
          <button class="btn" disabled>Оформить заказ</button>
          <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
-      : `<button class="btn" data-a="checkout">Оформить заказ · ${money(orderTotal())}</button>`}
-    ${!hasLiveSession() ? `<p class="gform__n" style="padding:10px 0 0">В корзину можно без аккаунта. Оформить заказ — после регистрации.</p>` : ''}
+      : `<div class="cobar__row">
+           <span class="cobar__l">Итого</span>
+           <span class="cobar__v">${money(orderTotal())}</span>
+         </div>
+         <button class="btn" data-a="checkout">Оформить заказ</button>`}
+    ${!hasLiveSession() ? `<p class="gform__n" style="padding:10px 0 0;margin:0">В корзину можно без аккаунта. Оформить заказ — после регистрации.</p>` : ''}
     <p class="safe">${svg('lock')} Безопасная оплата</p>
   </div>`;
 }
