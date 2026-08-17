@@ -55,7 +55,8 @@
   --r-pill:999px;
 
   --pad:16px;
-  --tab-h:64px;
+  /* нижней панели больше нет: навигация вся в шапке и в шторке */
+  --tab-h:0px;
   --hd-h:58px;
   --hd-off:calc(var(--hd-h) + env(safe-area-inset-top));
   --dur:.2s;
@@ -113,12 +114,16 @@ s{color:var(--muted2)}
    Сплошная полоса во всю ширину, прижата к верху экрана. Раньше она
    «парила» карточкой с отступами — фото под ней обрезалось рамкой. */
 .hd{
-  position:sticky;top:0;z-index:30;background:var(--card);
+  position:fixed;top:0;left:0;right:0;z-index:40;background:var(--card);
   display:flex;align-items:center;gap:4px;
   padding:0 10px;padding-top:env(safe-area-inset-top);
-  min-height:var(--hd-off);margin:0;
+  min-height:var(--hd-off);margin:0 auto;max-width:520px;
   border-bottom:1px solid var(--line)
 }
+/* шапка вынута из потока — возвращаем экрану её высоту */
+.scr{padding-top:var(--hd-off)}
+/* нижняя панель убрана */
+.tabs{display:none !important}
 /* бургер и логотип держатся вместе */
 .hd__l{display:flex;align-items:center;gap:1px;flex:none}
 .hd__logo{
@@ -318,13 +323,17 @@ s{color:var(--muted2)}
 .hs--hero{margin:0 0 16px;border-radius:0}
 #scr > .hs--hero:first-child{margin-top:0}
 .hs--hero .hs__track{border-radius:0;box-shadow:none;background:#111}
+/* фото видно целиком: высота по самой картинке, с потолком чуть меньше
+   экрана — снизу должен выглядывать следующий блок */
 .hs--hero .hs__s{
-  aspect-ratio:auto;
-  height:calc(100vh - var(--hd-off));
-  height:calc(100svh - var(--hd-off));
-  min-height:420px;background:#111
+  aspect-ratio:auto;height:auto;min-height:300px;background:#111;
+  display:flex;align-items:center;justify-content:center
 }
-.hs--hero .hs__img{object-fit:cover}
+.hs--hero .hs__img{
+  width:100%;height:auto;object-fit:contain;
+  max-height:calc(100vh - var(--hd-off) - 96px);
+  max-height:calc(100svh - var(--hd-off) - 96px)
+}
 .hs__shade{
   position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(180deg,rgba(0,0,0,.34) 0%,rgba(0,0,0,0) 34%,rgba(0,0,0,.12) 58%,rgba(0,0,0,.62) 100%)
@@ -373,10 +382,10 @@ s{color:var(--muted2)}
 .hs__ar:hover{opacity:1}
 
 /* ===================== 4 БЛОКА ПРЕИМУЩЕСТВ ===================== */
+/* без карточки — иконки и подписи лежат прямо на фоне страницы */
 .usp{
   display:grid;grid-template-columns:repeat(4,1fr);gap:4px;
-  margin:0 var(--pad) 6px;padding:20px 6px 18px;
-  background:var(--card);border-radius:var(--r-lg);box-shadow:var(--sh-1)
+  margin:0 var(--pad);padding:24px 4px 20px
 }
 .usp__i{display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;padding:0 2px}
 .usp__ic{
@@ -503,36 +512,34 @@ s{color:var(--muted2)}
 .card__fav .ic{width:18px;height:18px;stroke-width:1.8}
 .card__fav[aria-pressed="true"] .ic{fill:var(--ink);stroke:var(--ink)}
 .card__n{font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;line-height:1.35}
-/* чёрная CTA под карточкой: цена сверху, действие снизу */
-.card__buy{
-  width:100%;margin-top:auto;padding:11px 8px 10px;border-radius:12px;
-  background:var(--ink);color:#fff;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-  transition:background .2s var(--ease), box-shadow .2s var(--ease);
-  box-shadow:0 8px 18px rgba(0,0,0,.12)
+/* под карточкой — цена и кружок «+»; в корзине он превращается в «−» */
+.card__row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}
+.card__pr{
+  display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;min-width:0;
+  font-size:14.5px;font-weight:700;letter-spacing:-.01em;line-height:1.2
 }
-.card__buy:active{transform:scale(.98)}
-.card__buy-pr{
-  display:flex;align-items:baseline;justify-content:center;gap:7px;flex-wrap:wrap;
-  font-size:14px;font-weight:500;letter-spacing:-.01em;line-height:1
+.card__pr s{font-size:11.5px;font-weight:400;color:var(--muted2);text-decoration:line-through}
+.card__add{
+  flex:none;width:34px;height:34px;border-radius:var(--r-pill);
+  border:1.5px solid var(--ink);background:var(--card);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease),
+             border-color var(--dur) var(--ease), transform .14s var(--ease)
 }
-.card__buy-pr s{
-  font-size:11px;font-weight:400;color:rgba(255,255,255,.48);text-decoration:line-through
-}
-.card__buy-a{
-  font-size:10px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
-  color:rgba(255,255,255,.7);line-height:1.25;text-align:center
-}
-.card__buy.is-in{background:#1a1a1a;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
-/* «Удалить из корзины» длиннее — поджимаем кегль и трекинг, чтобы влезло в строку */
-.card__buy.is-in .card__buy-a{color:rgba(255,255,255,.88);font-size:9.5px;letter-spacing:.04em}
+.card__addi{font-size:21px;line-height:1;font-weight:300;margin-top:-2px}
+.card__add:hover{background:var(--ink);color:#fff}
+.card__add:active{transform:scale(.9)}
+.card__add.is-in{background:var(--ink);color:#fff}
+.card__add:disabled{border-color:var(--line2);background:var(--chip);color:var(--muted2);cursor:not-allowed}
+.card__out{font-size:11px;color:var(--muted2);letter-spacing:.04em;text-transform:uppercase}
 .qsize{display:flex;flex-wrap:wrap;gap:8px;padding:6px 0 4px}
 .qsize__b{
   min-width:52px;height:44px;padding:0 14px;border:1.5px solid var(--line2);border-radius:12px;
   font-size:14px;font-weight:600;background:var(--card);transition:all var(--dur) var(--ease)
 }
 .qsize__b:hover{border-color:var(--ink)}
-.qsize__b:active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.qsize__b:active{transform:scale(.96)}
+.qsize__b[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
 
 
 .none{grid-column:1/-1;text-align:center;color:var(--muted);padding:60px 20px;line-height:1.8;font-size:14px}
@@ -1942,8 +1949,18 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .ad__pv .hs--hero .hs__cta{padding:11px 14px;font-size:11px;max-width:240px}
 .ad__pv .hs--hero .hs__dots{bottom:8px}
 .ad__pv .hs--hero .hs__over{padding:10px 10px 26px}
-.ad__usp{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px}
-.ad__usp select.ad__f,.ad__usp input.ad__f{margin:0}
+/* раздел «Главная» разложен по шагам: что сделать и в каком порядке */
+.ad__step{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:18px;margin-bottom:14px
+}
+.ad__step-h{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.ad__step-n{
+  flex:none;width:26px;height:26px;border-radius:var(--r-pill);background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700
+}
+.ad__step-h b{display:block;font-size:15px;font-weight:700;margin-bottom:3px}
+.ad__step-h span{display:block;font-size:12.5px;color:var(--muted);line-height:1.5}
 .ad__slidepv{
   position:relative;width:100%;aspect-ratio:16/10;border-radius:var(--r-md);overflow:hidden;
   background:var(--photo);border:1.5px solid var(--line);margin-bottom:12px;display:grid;place-items:center
@@ -4588,11 +4605,14 @@ function cardHTML(p){
     <button class="card__fav" data-a="fav:${p.id}" aria-pressed="${S.favs.includes(p.id)}" aria-label="В избранное">${svg('heart')}</button>
     <button class="card__n" data-a="open:${p.id}" style="text-align:left">${p.name}</button>
     ${rvCardHTML(p)}
-    <button class="card__buy${on ? ' is-in' : ''}${out ? ' card__buy--out' : ''}" data-a="quick:${p.id}"
-      ${out ? 'disabled' : ''} aria-label="${out ? 'Нет в наличии' : (on ? 'Удалить из корзины' : 'В корзину')}">
-      <span class="card__buy-pr"><span>${money(p.price)}</span>${p.old ? `<s>${money(p.old)}</s>` : ''}</span>
-      <span class="card__buy-a">${out ? 'Нет в наличии' : (on ? 'Удалить из корзины' : 'В корзину')}</span>
-    </button>
+    <div class="card__row">
+      <span class="card__pr"><span>${money(p.price)}</span>${p.old ? `<s>${money(p.old)}</s>` : ''}</span>
+      <button class="card__add${on ? ' is-in' : ''}" data-a="quick:${p.id}"
+        ${out ? 'disabled' : ''} aria-label="${out ? 'Нет в наличии' : (on ? 'Убрать из корзины' : 'Добавить в корзину')}">
+        <span class="card__addi">${out ? '×' : (on ? '−' : '+')}</span>
+      </button>
+    </div>
+    ${out ? `<span class="card__out">Нет в наличии</span>` : ''}
   </article>`;
 }
 
@@ -7749,10 +7769,6 @@ function sheetMenu(){
       <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button>
     </div>
     <div class="mnu__b">
-      <div class="mnu__g">
-        <button class="mnu__gen" data-a="gen:w">Женское</button>
-        <button class="mnu__gen" data-a="gen:m">Мужское</button>
-      </div>
       <div class="mnu__sec">
         ${item('go:catalog','grid','Каталог')}
         ${item('search','search','Поиск')}
@@ -7801,16 +7817,57 @@ function sheetQuickAdd(id){
     addFromCard(p, null);
     return;
   }
+  /* размеры, уже лежащие в корзине, отмечены — их можно и снять */
+  const inCartSizes = S.cart.filter(x => x.id === p.id).map(x => x.size);
   openOv(`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Размер">
     <div class="sheet__g"></div>
-    <div class="sheet__h"><span class="sheet__t">Выберите размер</span>
+    <div class="sheet__h"><span class="sheet__t">Выберите размеры</span>
       <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button></div>
     <div class="sheet__b">
-      <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.45">${p.name}</p>
-      <div class="qsize">
-        ${sizes.map(s => `<button class="qsize__b" data-a="qadd:${p.id}:${s}">${s}</button>`).join('')}
+      <p style="font-size:13px;color:var(--muted);margin:0 0 12px;line-height:1.45">${p.name} · можно отметить несколько</p>
+      <div class="qsize" id="qsRow">
+        ${sizes.map(s => `<button class="qsize__b" data-qs="${s}"
+          aria-pressed="${inCartSizes.includes(s) ? 'true' : 'false'}">${s}</button>`).join('')}
       </div>
+      <button class="btn" id="qsGo" style="margin-top:16px">Добавить в корзину</button>
     </div></div>`);
+
+  const row = document.getElementById('qsRow');
+  const go = document.getElementById('qsGo');
+  const picked = () => [...row.querySelectorAll('[aria-pressed="true"]')].map(b => b.dataset.qs);
+  const paint = () => {
+    const n = picked().length;
+    go.textContent = n
+      ? `Добавить в корзину · ${n} ${plural(n, ['размер','размера','размеров'])}`
+      : (inCartSizes.length ? 'Убрать из корзины' : 'Выберите размер');
+    go.disabled = !n && !inCartSizes.length;
+  };
+  row.onclick = e => {
+    const b = e.target.closest('[data-qs]');
+    if(!b) return;
+    b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+    paint();
+  };
+  go.onclick = () => quickAddSizes(p, picked(), inCartSizes);
+  paint();
+}
+
+/** Синхронизирует корзину с отмеченными размерами: отмеченные добавляет, снятые убирает. */
+function quickAddSizes(p, sizes, before){
+  const add = sizes.filter(s => !before.includes(s));
+  const drop = before.filter(s => !sizes.includes(s));
+  drop.forEach(s => { S.cart = S.cart.filter(x => !(x.id === p.id && x.size === s)); });
+  add.forEach(s => {
+    if(S.cart.some(x => x.id === p.id && x.size === s)) return;
+    S.cart.push({key:p.id + '-' + s, id:p.id, sku:p.sku || '', name:p.name,
+      img:p.img, price:p.price, size:s, qty:1});
+  });
+  closeOv();
+  saveUser();
+  renderTabs();
+  refreshCardBuys();
+  if(add.length) toast(`В корзине · ${add.join(', ')}`);
+  else if(drop.length) toast('Убрано из корзины');
 }
 
 function addFromCard(p, btn){
@@ -7825,20 +7882,20 @@ function addFromCard(p, btn){
   saveUser();
   renderTabs();
   refreshCardBuys();
-  const cartTab = document.querySelector('.tab[data-a="go:cart"]') || document.querySelectorAll('.tab')[4];
-  if(btn && cartTab) fly(btn, cartTab, p.img, false);
+  const cartIco = document.getElementById('cartIco');
+  if(btn && cartIco) fly(btn, cartIco, p.img, false);
   toast('В корзине · размер ' + S.size);
 }
 
 function refreshCardBuys(){
-  document.querySelectorAll('.card__buy[data-a^="quick:"]').forEach(btn => {
+  document.querySelectorAll('.card__add[data-a^="quick:"]').forEach(btn => {
     if(btn.disabled) return;                 // «Нет в наличии» не трогаем
     const id = +btn.dataset.a.split(':')[1];
     const on = cardInCart(byId(id) || {id});
     btn.classList.toggle('is-in', on);
-    btn.setAttribute('aria-label', on ? 'Удалить из корзины' : 'В корзину');
-    const lab = btn.querySelector('.card__buy-a');
-    if(lab) lab.textContent = on ? 'Удалить из корзины' : 'В корзину';
+    btn.setAttribute('aria-label', on ? 'Убрать из корзины' : 'Добавить в корзину');
+    const glyph = btn.querySelector('.card__addi');
+    if(glyph) glyph.textContent = on ? '−' : '+';
   });
 }
 
@@ -9669,54 +9726,48 @@ function viewSlider(){
   <div class="ad__panel">
     <div class="ad__hrow"><div>
       <h1 class="ad__h">Главная</h1>
-      <p class="ad__sub">Фото-слайдер в самом верху главной · ${list.length} из ${MAX_SLIDES}</p>
-    </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="ad__b ad__b--pri" id="aSlideNew"${full ? ' disabled' : ''}>+ Фото</button>
-        <button class="ad__b" id="aSlideLink"${full ? ' disabled' : ''}>Ссылкой</button>
+      <p class="ad__sub">Фото и текст на первом экране · ${list.length} из ${MAX_SLIDES}</p>
+    </div></div>
+
+    <div class="ad__step">
+      <div class="ad__step-h"><span class="ad__step-n">1</span>
+        <div><b>Фото первого экрана</b>
+          <span>Показываются по очереди, первое — сверху. Фото видно целиком, ничего не обрезается.</span></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="ad__b ad__b--pri" id="aSlideNew"${full ? ' disabled' : ''}>+ Загрузить фото</button>
+        <button class="ad__b" id="aSlideLink"${full ? ' disabled' : ''}>Добавить ссылкой</button>
         <input type="file" id="aSlideFiles" accept="image/*" multiple hidden>
       </div>
+      <div class="ad__list">${rows}</div>
     </div>
 
-    <div class="ad__box" style="margin-bottom:14px">
-      <div class="ad__box-t">Как это увидит покупатель</div>
+    <div class="ad__step">
+      <div class="ad__step-h"><span class="ad__step-n">2</span>
+        <div><b>Надпись поверх фото</b>
+          <span>Задаётся у каждого фото отдельно — нажмите карандаш в списке выше.
+            Например: НОВАЯ ЛЕТНЯЯ КОЛЛЕКЦИЯ.</span></div>
+      </div>
+      <label class="ad__l">Надпись на кнопке под текстом</label>
+      <input class="ad__f" id="hbTxt" value="${esc(heroBtnText())}" placeholder="Перейти в каталог">
+      <p class="ad__hint" style="margin:10px 0 14px">Кнопка видна всегда и ведёт в каталог.</p>
+      <button class="ad__b ad__b--pri" id="aHomeSave" style="width:100%">Сохранить</button>
+    </div>
+
+    <div class="ad__step">
+      <div class="ad__step-h"><span class="ad__step-n">3</span>
+        <div><b>Как это увидит покупатель</b>
+          <span>Так главная выглядит на телефоне прямо сейчас.</span></div>
+      </div>
       <div class="ad__pv">
         <div class="ad__pv-hd">${svg('menu','ic ic--sm')}${MARK('ad__pv-mark')}${svg('search','ic ic--sm')}${svg('user','ic ic--sm')}${svg('heart','ic ic--sm')}${svg('bag','ic ic--sm')}</div>
         ${list.length ? heroHTML(list, 'admSlider', (CMS.texts && CMS.texts.homeBanner) || '', true)
-          : `<div class="ad__pv-none">Здесь появится фото<br>на весь экран</div>`}
+          : `<div class="ad__pv-none">Здесь появится фото<br>первого экрана</div>`}
         ${uspHTML()}
       </div>
-      <p class="ad__hint" style="margin:12px 0 0">Фото открывает главную почти на весь экран. Заголовок поверх фото
-        задаётся у каждого снимка отдельно, кнопка «${esc(heroBtnText())}» видна всегда.
-        Текст на плашке меняется во вкладке «Промо».</p>
+      <p class="ad__hint" style="margin:12px 0 0">Плашка со скидкой меняется во вкладке «Промо»,
+        название и логотип — во вкладке «Лого».</p>
     </div>
-
-    <div class="ad__box" style="margin-bottom:14px">
-      <div class="ad__box-t">Кнопка на фото</div>
-      <label class="ad__l">Надпись на кнопке</label>
-      <input class="ad__f" id="hbTxt" value="${esc(heroBtnText())}" placeholder="Перейти в каталог">
-      <p class="ad__hint" style="margin:10px 0 0">Кнопка всегда ведёт в каталог.</p>
-    </div>
-
-    <div class="ad__box" style="margin-bottom:14px">
-      <div class="ad__box-t">Четыре блока над «Новинками»</div>
-      <label class="ad__sw"><input type="checkbox" id="uspOn"${(CMS.usp && CMS.usp.on === false) ? '' : ' checked'}> Показывать на главной</label>
-      ${usp.map((x,i) => `
-        <div class="ad__usp">
-          <select class="ad__f" id="uspIc${i}" aria-label="Значок ${i+1}">
-            ${USP_ICONS.map(k => `<option value="${k}"${k === x.ic ? ' selected' : ''}>${k}</option>`).join('')}
-          </select>
-          <input class="ad__f" id="uspA${i}" value="${esc(x.l1 || '')}" placeholder="Строка 1" aria-label="Блок ${i+1}, строка 1">
-          <input class="ad__f" id="uspB${i}" value="${esc(x.l2 || '')}" placeholder="Строка 2" aria-label="Блок ${i+1}, строка 2">
-        </div>`).join('')}
-      <p class="ad__hint" style="margin:8px 0 0">Значок выбирается из списка, две строки — подпись под ним.</p>
-    </div>
-
-    <div class="ad__foot" style="justify-content:stretch;margin-bottom:14px">
-      <button class="ad__b ad__b--pri" id="aHomeSave" style="width:100%">Сохранить кнопку и блоки</button>
-    </div>
-
-    <div class="ad__list">${rows}</div>
   </div>`;
 }
 
@@ -10454,12 +10505,6 @@ function bindAdminView(){
   if(homeSave) homeSave.onclick = () => {
     if(!CMS.texts) CMS.texts = {};
     CMS.texts.heroBtn = document.getElementById('hbTxt').value.trim() || 'Перейти в каталог';
-    const items = uspItems().map((x, i) => ({
-      ic: document.getElementById('uspIc' + i).value,
-      l1: document.getElementById('uspA' + i).value.trim(),
-      l2: document.getElementById('uspB' + i).value.trim()
-    }));
-    CMS.usp = {on: document.getElementById('uspOn').checked, items};
     saveCms();
     paintAdmin(); render(true);
     toast('Главная сохранена');
