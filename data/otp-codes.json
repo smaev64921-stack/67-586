@@ -1,0 +1,67 @@
+{
+  "byPhone": {},
+  "bySession": {},
+  "byDeviceCode": {
+    "1482": {
+      "phone": "79995550001",
+      "chatId": null,
+      "userId": null,
+      "expiresAt": 1786816924956,
+      "attempts": 0
+    },
+    "7973": {
+      "phone": "79995550002",
+      "chatId": null,
+      "userId": null,
+      "expiresAt": 1786816942472,
+      "attempts": 0
+    }
+  },
+  "byDevicePending": {
+    "79991234567": {
+      "phone": "79991234567",
+      "code": "1005",
+      "status": "expired",
+      "chatId": null,
+      "userId": null,
+      "gotPhoneMsgId": null,
+      "codeMsgId": null,
+      "requestedAt": 1786816599475,
+      "createdAt": 1786816599475,
+      "expiresAt": 1786816719475,
+      "attempts": 0,
+      "delivered": false,
+      "via": "telegram"
+    },
+    "79995550001": {
+      "phone": "79995550001",
+      "code": "1482",
+      "status": "waiting",
+      "chatId": null,
+      "userId": null,
+      "gotPhoneMsgId": null,
+      "codeMsgId": null,
+      "requestedAt": 1786816804956,
+      "createdAt": 1786816804956,
+      "expiresAt": 1786816924956,
+      "attempts": 0,
+      "delivered": false,
+      "via": "telegram"
+    },
+    "79995550002": {
+      "phone": "79995550002",
+      "code": "7973",
+      "status": "waiting",
+      "chatId": null,
+      "userId": null,
+      "gotPhoneMsgId": null,
+      "codeMsgId": null,
+      "requestedAt": 1786816822472,
+      "createdAt": 1786816822472,
+      "expiresAt": 1786816942472,
+      "attempts": 0,
+      "delivered": false,
+      "via": "telegram"
+    }
+  }
+}

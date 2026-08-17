@@ -1,0 +1,62 @@
+{
+  "exportedAt": "2026-08-09T17:47:57.815Z",
+  "products": [],
+  "cms": {
+    "brand": {
+      "name": "Luxe Canvas",
+      "logo": ""
+    },
+    "contacts": {
+      "telegram": "",
+      "email": "",
+      "phone": ""
+    },
+    "legal": {
+      "sellerName": "",
+      "inn": "",
+      "ogrn": "",
+      "address": "",
+      "email": "",
+      "phone": ""
+    },
+    "texts": {
+      "aboutLead": "Luxe Canvas — бренд одежды для тех, кто ценит комфорт и стиль.",
+      "aboutBody": "Мы начинаем с коллекции футболок для женщин и мужчин.\nМы создаём вещи, которые легко входят в повседневный гардероб.",
+      "historyLead": "Luxe Canvas только начинает свой путь.",
+      "historyBody": "Сегодня — футболки. Впереди новые коллекции и узнаваемый стиль.",
+      "shippingNote": "Доставка в пункты выдачи СДЭК. Срок обычно 2–5 дней.",
+      "returnsNote": "Возврат надлежащего качества — в сроки, указанные в разделе «Возврат».",
+      "homeBanner": "−10% по коду LUXE10 · от 3 000 ₽"
+    },
+    "promos": [
+      {
+        "id": 1,
+        "code": "LUXE10",
+        "type": "percent",
+        "value": 10,
+        "minSum": 3000,
+        "limit": 1000,
+        "used": 0,
+        "on": true,
+        "note": "Скидка 10% от 3000 ₽"
+      }
+    ],
+    "shipping": {
+      "courier": 490,
+      "pickup": 190,
+      "freeFrom": 15000,
+      "courierDays": "1–3 дня",
+      "pickupDays": "2–5 дней"
+    },
+    "slides": [],
+    "customers": {},
+    "pvz": [],
+    "tryon": {
+      "enabled": true,
+      "apiUrl": "",
+      "apiKey": "",
+      "maxSide": 1280
+    }
+  },
+  "ordersCount": 2
+}
