@@ -12,18 +12,40 @@
     } catch (e) {}
   }
 
+  /* Состояние связи: страница должна честно говорить «сети нет» и
+     «связь вернулась», а не молча висеть. Слушатель — в index.html. */
+  const SLOW_MS = 3500;
+  function netSignal(state, detail) {
+    try {
+      window.dispatchEvent(new CustomEvent('lc:net', {
+        detail: Object.assign({ state: state }, detail || {})
+      }));
+    } catch (e) {}
+  }
+
   async function api(path, opts) {
     const o = opts || {};
     const headers = Object.assign({ Accept: 'application/json' }, o.headers || {});
     if (o.body != null && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
     const tok = getToken();
     if (tok) headers.Authorization = 'Bearer ' + tok;
-    const res = await fetch(path, {
-      method: o.method || 'GET',
-      headers,
-      credentials: 'same-origin',
-      body: o.body != null ? (typeof o.body === 'string' ? o.body : JSON.stringify(o.body)) : undefined
-    });
+    const started = Date.now();
+    let res;
+    try {
+      res = await fetch(path, {
+        method: o.method || 'GET',
+        headers,
+        credentials: 'same-origin',
+        body: o.body != null ? (typeof o.body === 'string' ? o.body : JSON.stringify(o.body)) : undefined
+      });
+    } catch (e) {
+      /* сюда попадают только сетевые сбои: HTTP-ошибки идут ниже */
+      netSignal('offline', { path: path });
+      const err = new Error('Нет связи с сервером');
+      err.offline = true;
+      throw err;
+    }
+    netSignal(Date.now() - started > SLOW_MS ? 'slow' : 'ok', { path: path });
     let data = null;
     try { data = await res.json(); } catch (e) { data = null; }
     if (!res.ok) {
@@ -40,6 +62,8 @@
     getToken,
     setToken,
     async health() { return api('/api/health'); },
+    /* короткие отпечатки данных: по ним видно, надо ли вообще качать каталог */
+    async liveVersion() { return api('/api/live-version'); },
     async loadCatalog() {
       const d = await api('/api/catalog');
       return d.products || [];

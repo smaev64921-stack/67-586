@@ -1,5 +1,25 @@
 const { db } = require('./db');
 
+/**
+ * Счётчик изменений каталога.
+ *
+ * Фото лежат в БД строками base64, поэтому «прочитать все товары» — это
+ * прочитать десятки мегабайт. Чтобы не делать этого на каждый запрос витрины,
+ * публичный каталог кэшируется в media.js, а здесь мы отмечаем сам факт
+ * записи: любая правка увеличивает rev и сбрасывает кэш. Ещё rev входит в
+ * отпечаток /api/live-version — он ловит даже две правки внутри одной секунды,
+ * где updated_at (точность до секунды) не меняется. Само значение лежит в БД
+ * (server/rev.js), иначе после перезапуска оно обнулялось бы и открытая
+ * вкладка могла увидеть прежний отпечаток при других данных.
+ */
+function bumpRev() {
+  try { require('./media').invalidateCatalog(); } catch (_) {}
+  return require('./rev').bump('products');
+}
+function getRev() {
+  return require('./rev').read('products');
+}
+
 function rowToProduct(row) {
   if (!row) return null;
   let sizes = [];
@@ -93,18 +113,21 @@ function upsertProduct(p) {
         colors_json=@colors_json, updated_at=datetime('now')
       WHERE id=@id
     `).run({ ...payload, id: +p.id });
+    bumpRev();
     return getProduct(+p.id);
   }
   const info = db.prepare(`
     INSERT INTO products (name, cat, gender, price, old_price, sku, sizes_json, stock_json, on_sale, img, gal_json, desc_text, badge, tryon, size_chart, colors_json)
     VALUES (@name, @cat, @gender, @price, @old_price, @sku, @sizes_json, @stock_json, @on_sale, @img, @gal_json, @desc_text, @badge, @tryon, @size_chart, @colors_json)
   `).run(payload);
+  bumpRev();
   return getProduct(info.lastInsertRowid);
 }
 
 function deleteProduct(id) {
   db.prepare('DELETE FROM products WHERE id = ?').run(id);
   try { db.prepare('DELETE FROM reviews WHERE product_id = ?').run(id); } catch (_) {}
+  bumpRev();
 }
 
 function deductStock(items) {
@@ -123,6 +146,7 @@ function deductStock(items) {
       set.run(JSON.stringify(stock), it.id);
     }
     db.exec('COMMIT');
+    bumpRev();
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
@@ -144,6 +168,7 @@ function restoreStock(items) {
       set.run(JSON.stringify(stock), it.id);
     }
     db.exec('COMMIT');
+    bumpRev();
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
@@ -151,19 +176,33 @@ function restoreStock(items) {
 }
 
 function checkStock(items) {
+  /* Считаем СУММУ по паре товар+размер, а не по каждой позиции отдельно:
+     один размер может лежать в корзине несколькими строками (разные цвета),
+     и поштучная проверка пропускала заказ на количество больше остатка. */
+  const want = new Map();
   for (const it of items) {
+    const key = it.id + '|' + it.size;
+    want.set(key, (want.get(key) || 0) + (+it.qty || 0));
+  }
+  const seen = new Set();
+  for (const it of items) {
+    const key = it.id + '|' + it.size;
+    if (seen.has(key)) continue;
+    seen.add(key);
     const p = getProduct(it.id);
     if (!p || !p.on) return `Нет товара: ${it.name || it.id}`;
     const hasStockMap = p.stock && Object.keys(p.stock).length > 0;
     /* Пустой stock = безлимит (как на витрине). Если карта есть — нет размера = 0. */
     if (!hasStockMap) continue;
     const left = p.stock[it.size] != null ? +p.stock[it.size] : 0;
-    if (left < (+it.qty || 0)) return `Не хватает «${p.name}» размер ${it.size}`;
+    if (left < want.get(key)) return `Не хватает «${p.name}» размер ${it.size}`;
   }
   return null;
 }
 
 module.exports = {
+  getRev,
+  bumpRev,
   listProducts,
   getProduct,
   upsertProduct,

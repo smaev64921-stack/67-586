@@ -1,5 +1,13 @@
 const { db } = require('./db');
 const { getProduct } = require('./products');
+const rev = require('./rev');
+
+/* Отпечаток отзывов в /api/live-version читает только колонки, лежащие ДО
+   photos_json: всё, что после, SQLite достаёт через страницы с base64-фото.
+   Поэтому фото и прочие «поздние» поля отслеживаются счётчиком. */
+function bumpReviews() {
+  return rev.bump('reviews');
+}
 
 function migrateReviews() {
   const cols = [
@@ -160,6 +168,7 @@ function createReview(user, body) {
     bought ? 1 : 0,
     status
   );
+  bumpReviews();
   return rowToReview(getReview(info.lastInsertRowid), { user, admin: false });
 }
 
@@ -180,6 +189,7 @@ function voteReview(user, id) {
     db.prepare('INSERT INTO review_votes (review_id, user_id) VALUES (?, ?)').run(row.id, user.id);
     db.prepare('UPDATE reviews SET useful = useful + 1 WHERE id = ?').run(row.id);
   }
+  bumpReviews();
   return rowToReview(getReview(row.id), { user });
 }
 
@@ -190,6 +200,7 @@ function deleteReview(user, id, { admin = false } = {}) {
   if (!admin && !mine) throw Object.assign(new Error('Нет доступа'), { status: 403 });
   db.prepare('DELETE FROM review_votes WHERE review_id = ?').run(row.id);
   db.prepare('DELETE FROM reviews WHERE id = ?').run(row.id);
+  bumpReviews();
   return true;
 }
 
@@ -211,6 +222,7 @@ function updateReviewAdmin(id, patch) {
   db.prepare(`
     UPDATE reviews SET status = ?, reply_text = ?, reply_date = ? WHERE id = ?
   `).run(status, replyText, replyDate, row.id);
+  bumpReviews();
   return rowToReview(getReview(row.id), { admin: true });
 }
 

@@ -9,12 +9,12 @@ const {
   authOptional, authRequired, adminRequired,
   setAuthCookie, clearAuthCookie,
   redeemTgAdminToken, redeemTgPhoneToken, upsertUserByPhone, updateProfile,
-  upsertGoogleUser
+  upsertGoogleUser, linkOwnerChat
 } = require('./auth');
 const googleAuth = require('./google-auth');
 const { requestPasswordReset, resetPassword, smtpConfigured } = require('./password-reset');
 const {
-  listProducts, getProduct, upsertProduct, deleteProduct
+  listProducts, getProduct, upsertProduct, deleteProduct, getRev
 } = require('./products');
 const {
   createCheckout, handleWebhook, syncPaymentStatus, ensurePayment,
@@ -33,6 +33,8 @@ const { startBackupSchedule } = require('./backup');
 const { hit, clientIp } = require('./rate-limit');
 const cdek = require('./cdek');
 const reviews = require('./reviews');
+const media = require('./media');
+const { jsonCompression, serveTextFile } = require('./compress');
 
 seedIfEmpty();
 
@@ -114,6 +116,7 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json({ limit: '15mb' }));
+app.use(jsonCompression());
 app.use(authOptional);
 
 async function telegramWebhookHandler(req, res) {
@@ -159,13 +162,61 @@ app.get('/api/health', (_req, res) => {
   res.json(healthPayload());
 });
 
+/* -------- отпечаток данных для «живого» опроса --------
+   Витрина раньше раз в секунду качала весь каталог и раз в пять — всю CMS
+   вместе с фото, просто чтобы сравнить и почти всегда ничего не менять.
+   Теперь она сначала спрашивает эти короткие отпечатки и лезет за данными,
+   только если что-то действительно изменилось. */
+function sha(text) {
+  return require('crypto').createHash('sha1').update(String(text)).digest('hex').slice(0, 16);
+}
+
+/** Отпечаток по СОДЕРЖИМОМУ, а не по updated_at: время в SQLite с точностью
+ *  до секунды, и две правки подряд давали одинаковый штамп — вторая не доехала
+ *  бы до витрины. Вместо самих картинок берём их длину: и дёшево, и меняется
+ *  при любой замене фото. */
+function stamp(sql) {
+  try {
+    const rows = db.prepare(sql).all();
+    return sha(rows.map((r) => Object.values(r).join('')).join(''));
+  } catch (_) {
+    return '';
+  }
+}
+
+app.get('/api/live-version', (_req, res) => {
+  let cms = '';
+  try {
+    const row = db.prepare('SELECT data_json FROM cms WHERE id = 1').get();
+    cms = sha((row && row.data_json) || '');
+  } catch (_) {}
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    /* Берём только колонки, которые в таблице идут ДО img/gal_json: всё, что
+       после них, SQLite достаёт, протаскиваясь через страницы переполнения с
+       base64 — на сотне товаров это сотни мегабайт чтения на каждый опрос.
+       Любую другую правку (фото, описание, наличие) ловит счётчик записей
+       products.getRev(), он же различает две правки внутри одной секунды. */
+    products: stamp(`SELECT id, name, cat, gender, price, old_price, sku, sizes_json,
+        stock_json, on_sale
+      FROM products ORDER BY id`) + '.' + getRev(),
+    /* Та же осторожность, что и с товарами: в таблице reviews photos_json идёт
+       раньше useful/verified/reply_*, поэтому берём только колонки ДО фото,
+       а остальное отслеживает счётчик отзывов. */
+    reviews: stamp(`SELECT id, product_id, user_email, author, rating, text,
+        status, created_at, sku, user_id, size, fit
+      FROM reviews ORDER BY id`) + '.' + require('./rev').read('reviews'),
+    cms
+  });
+});
+
 /* -------- catalog -------- */
 app.get('/api/catalog', (_req, res) => {
-  res.json({ products: listProducts({ all: false }) });
+  res.json({ products: media.publicCatalog({ all: false }) });
 });
 
 app.get('/api/catalog/all', adminRequired, (_req, res) => {
-  res.json({ products: listProducts({ all: true }) });
+  res.json({ products: media.publicCatalog({ all: true }) });
 });
 
 app.get('/api/catalog/:id', (req, res) => {
@@ -174,13 +225,18 @@ app.get('/api/catalog/:id', (req, res) => {
   if (!p.on && !(req.user && req.user.role === 'admin')) {
     return res.status(404).json({ error: 'Не найден' });
   }
-  res.json({ product: p });
+  res.json({ product: media.productToPublic(p) });
 });
+
+const STALE_PHOTO = 'Карточка открыта давно: часть фото уже изменили в другом месте. Обновите страницу и повторите.';
 
 app.post('/api/admin/products', adminRequired, (req, res) => {
   try {
-    const product = upsertProduct(req.body || {});
-    res.json({ product });
+    const lost = [];
+    const incoming = media.restoreProductImages(req.body || {}, lost);
+    if (lost.length) return res.status(409).json({ error: STALE_PHOTO, code: 'PHOTO_STALE' });
+    const product = upsertProduct(incoming);
+    res.json({ product: media.productToPublic(product) });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Ошибка' });
   }
@@ -188,8 +244,12 @@ app.post('/api/admin/products', adminRequired, (req, res) => {
 
 app.put('/api/admin/products/:id', adminRequired, (req, res) => {
   try {
-    const product = upsertProduct({ ...(req.body || {}), id: +req.params.id });
-    res.json({ product });
+    const lost = [];
+    const incoming = media.restoreProductImages({ ...(req.body || {}), id: +req.params.id }, lost);
+    /* проверяем ДО записи: иначе битая ссылка уже осела бы в БД */
+    if (lost.length) return res.status(409).json({ error: STALE_PHOTO, code: 'PHOTO_STALE' });
+    const product = upsertProduct(incoming);
+    res.json({ product: media.productToPublic(product) });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Ошибка' });
   }
@@ -202,12 +262,24 @@ app.delete('/api/admin/products/:id', adminRequired, (req, res) => {
 
 /* -------- cms (без секретов на клиент) -------- */
 app.get('/api/cms', (_req, res) => {
-  res.json({ cms: sanitizeCms(getCms() || defaultCms()) });
+  res.json({ cms: media.cmsToPublic(sanitizeCms(getCms() || defaultCms())) });
 });
 
 app.put('/api/cms', adminRequired, (req, res) => {
   const cur = getCms() || defaultCms();
-  const body = scrubCmsInput(req.body || {});
+  /* с витрины фото приходят ссылками /media/... — вернуть им исходный base64,
+     иначе сохранение админки затёрло бы сами картинки адресами */
+  const lost = [];
+  const body = scrubCmsInput(media.restoreCmsImages(req.body || {}, cur, lost));
+  /* Ссылка, которой в текущей CMS уже нет: страница админки открыта давно, а
+     фото за это время заменили или удалили из другой вкладки. Сохранять
+     нельзя — в БД вместо картинки лёг бы битый путь. */
+  if (lost.length) {
+    return res.status(409).json({
+      error: 'Страница админки устарела: часть фото уже изменили в другом месте. Обновите страницу и повторите.',
+      code: 'CMS_STALE'
+    });
+  }
   const next = Object.assign({}, cur, body);
   if (body.brand) next.brand = Object.assign({}, cur.brand, body.brand);
   if (body.contacts) next.contacts = Object.assign({}, cur.contacts, body.contacts);
@@ -218,13 +290,14 @@ app.put('/api/cms', adminRequired, (req, res) => {
   /* на всякий случай ещё раз вычистить секреты */
   const clean = scrubCmsInput(next);
   saveCms(clean);
-  res.json({ cms: sanitizeCms(clean) });
+  media.invalidateCms();
+  res.json({ cms: media.cmsToPublic(sanitizeCms(clean)) });
 });
 
 /* -------- отзывы -------- */
 app.get('/api/reviews', (req, res) => {
   const productId = req.query.productId || req.query.pid || null;
-  res.json({ reviews: reviews.listReviews(req.user, { productId }) });
+  res.json({ reviews: media.reviewsToPublic(reviews.listReviews(req.user, { productId })) });
 });
 
 app.post('/api/reviews', authRequired, (req, res) => {
@@ -232,7 +305,7 @@ app.post('/api/reviews', authRequired, (req, res) => {
     const rl = hit('review-create', clientIp(req), { limit: 8, windowMs: 60 * 60 * 1000, label: 'Слишком много отзывов' });
     if (!rl.ok) return res.status(429).json({ error: rl.error });
     const review = reviews.createReview(req.user, req.body || {});
-    res.json({ review });
+    res.json({ review: media.reviewToPublic(review) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Не удалось сохранить отзыв' });
   }
@@ -241,7 +314,7 @@ app.post('/api/reviews', authRequired, (req, res) => {
 app.post('/api/reviews/:id/vote', authRequired, (req, res) => {
   try {
     const review = reviews.voteReview(req.user, req.params.id);
-    res.json({ review });
+    res.json({ review: media.reviewToPublic(review) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Не удалось оценить отзыв' });
   }
@@ -257,13 +330,13 @@ app.delete('/api/reviews/:id', authRequired, (req, res) => {
 });
 
 app.get('/api/admin/reviews', adminRequired, (req, res) => {
-  res.json({ reviews: reviews.listReviews(req.user, { admin: true }) });
+  res.json({ reviews: media.reviewsToPublic(reviews.listReviews(req.user, { admin: true })) });
 });
 
 app.patch('/api/admin/reviews/:id', adminRequired, (req, res) => {
   try {
     const review = reviews.updateReviewAdmin(req.params.id, req.body || {});
-    res.json({ review });
+    res.json({ review: media.reviewToPublic(review) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Ошибка' });
   }
@@ -320,7 +393,9 @@ app.post('/api/tryon', authRequired, async (req, res) => {
     if (!rl.ok) return res.status(429).json({ error: rl.error });
     const out = await runTryon({
       personImage: req.body && req.body.personImage,
-      garmentImage: req.body && req.body.garmentImage,
+      /* с витрины фото вещи приходит ссылкой /media/... — внешнему сервису
+         примерки относительный путь недоступен, отдаём саму картинку */
+      garmentImage: media.resolveMediaUrl(req.body && req.body.garmentImage),
       productId: req.body && req.body.productId,
       productName: req.body && req.body.productName,
       brand: req.body && req.body.brand
@@ -505,19 +580,14 @@ app.post('/api/auth/phone/verify', (req, res) => {
     const { verifyOtp } = require('./otp');
     const body = req.body || {};
     const { phone, chatId } = verifyOtp(body.phone, body.code);
-    const user = upsertUserByPhone({
+    let user = upsertUserByPhone({
       phone,
       name: body.name,
       last: body.last,
       via: 'telegram-otp'
     });
     claimOrdersForUser(user);
-    if (chatId) {
-      try {
-        const { tryLink } = require('./tg-users');
-        tryLink(chatId, {}, user.id);
-      } catch (_) {}
-    }
+    user = linkOwnerChat(chatId, user, phone);
     const token = signUser(user);
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token, ok: true });
@@ -568,12 +638,7 @@ app.post('/api/auth/device-code', async (req, res) => {
       return res.status(400).json({ error: 'Аккаунт не найден — запросите код снова', wrong: true });
     }
     claimOrdersForUser(user);
-    if (chatId) {
-      try {
-        const { tryLink } = require('./tg-users');
-        tryLink(chatId, {}, user.id);
-      } catch (_) {}
-    }
+    user = linkOwnerChat(chatId, user, phone);
     try {
       await telegramBot.notifyDeviceLoginSuccess(chatId, { gotPhoneMsgId, codeMsgId });
     } catch (e) {
@@ -676,7 +741,7 @@ app.post('/api/checkout', authRequired, async (req, res) => {
       user: req.user,
       publicUrl: shopUrlFromRequest(req)
     });
-    res.json(result);
+    res.json(result.order ? Object.assign({}, result, { order: media.orderToPublic(result.order) }) : result);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message, code: e.code });
   }
@@ -706,14 +771,14 @@ app.post('/api/orders/:num/pay', authOptional, async (req, res) => {
       accessToken,
       shopUrlFromRequest(req)
     );
-    res.json(result);
+    res.json(result && result.order ? Object.assign({}, result, { order: media.orderToPublic(result.order) }) : result);
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
 });
 
 app.get('/api/orders/mine', authRequired, (req, res) => {
-  res.json({ orders: listOrdersForUser(req.user) });
+  res.json({ orders: media.ordersToPublic(listOrdersForUser(req.user)) });
 });
 
 app.get('/api/orders/:num', authOptional, async (req, res) => {
@@ -730,7 +795,7 @@ app.get('/api/orders/:num', authOptional, async (req, res) => {
   if (req.query.sync === '1' || order.payStatus === 'pending') {
     order = (await syncPaymentStatus(order.num)) || order;
   }
-  res.json({ order: toPublicOrder(order, { admin: isAdmin }) });
+  res.json({ order: media.orderToPublic(toPublicOrder(order, { admin: isAdmin })) });
 });
 
 app.post('/api/orders/:num/cancel', authOptional, (req, res) => {
@@ -739,7 +804,7 @@ app.post('/api/orders/:num/cancel', authOptional, (req, res) => {
       (req.body && req.body.accessToken) || req.query.t || req.headers['x-order-token'] || ''
     );
     const order = cancelOrderBuyer(req.params.num, req.user, accessToken);
-    res.json({ order });
+    res.json({ order: media.orderToPublic(order) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
@@ -751,21 +816,21 @@ app.post('/api/orders/:num/return', authOptional, (req, res) => {
       (req.body && req.body.accessToken) || req.query.t || req.headers['x-order-token'] || ''
     );
     const order = requestReturnBuyer(req.params.num, req.user, accessToken);
-    res.json({ order });
+    res.json({ order: media.orderToPublic(order) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
 });
 
 app.get('/api/admin/orders', adminRequired, (_req, res) => {
-  res.json({ orders: listAllOrders() });
+  res.json({ orders: media.ordersToPublic(listAllOrders()) });
 });
 
 app.patch('/api/admin/orders/:num', adminRequired, async (req, res) => {
   try {
     const order = await updateOrderAdmin(req.params.num, req.body || {});
     if (!order) return res.status(404).json({ error: 'Не найден' });
-    res.json({ order });
+    res.json({ order: media.orderToPublic(order) });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'Ошибка' });
   }
@@ -785,12 +850,57 @@ app.get('/api/admin/customers', adminRequired, (_req, res) => {
   res.json({ customers: Object.values(map) });
 });
 
+/* -------- картинки из БД отдельными файлами --------
+   Внутри JSON лежал base64: браузер не мог его кэшировать и качал заново при
+   каждом опросе. Теперь в JSON только адрес с хэшем содержимого, а сам файл
+   отдаётся один раз и живёт в кэше навсегда. */
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+
+function sendImage(res, found) {
+  if (!found) return res.status(404).end();
+  res.setHeader('Content-Type', found.mime);
+  res.setHeader('Cache-Control', IMMUTABLE);
+  res.setHeader('Content-Length', found.buf.length);
+  res.end(found.buf);
+}
+
+app.get('/media/p/:id/:file', (req, res) => {
+  const hash = String(req.params.file).split('.')[0];
+  sendImage(res, media.findProductImage(req.params.id, hash));
+});
+
+app.get('/media/cms/:file', (req, res) => {
+  const hash = String(req.params.file).split('.')[0];
+  sendImage(res, media.findCmsImage(hash, sanitizeCms(getCms() || defaultCms())));
+});
+
+app.get('/media/rv/:id/:file', (req, res) => {
+  const hash = String(req.params.file).split('.')[0];
+  sendImage(res, media.findReviewImage(req.params.id, hash));
+});
+
+app.get('/media/o/:num/:file', (req, res) => {
+  const hash = String(req.params.file).split('.')[0];
+  sendImage(res, media.findOrderImage(req.params.num, hash));
+});
+
 /* static */
 const publicDir = path.join(__dirname, '..', 'public');
-app.use(express.static(publicDir, { extensions: ['html'] }));
+const indexHandler = serveTextFile(path.join(publicDir, 'index.html'));
+app.get('/', indexHandler);
+app.get('/index.html', indexHandler);
+app.get('/api-bridge.js', serveTextFile(path.join(publicDir, 'api-bridge.js')));
+app.use(express.static(publicDir, {
+  extensions: ['html'],
+  /* картинки и шрифты не меняются на месте — их можно держать в кэше долго,
+     а html всегда перепроверять, иначе правки не доедут до покупателя */
+  setHeaders(res, filePath) {
+    res.setHeader('Cache-Control', /\.html?$/i.test(filePath) ? 'no-cache' : 'public, max-age=604800');
+  }
+}));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(publicDir, 'index.html'));
+  indexHandler(req, res);
 });
 
 app.use((err, _req, res, _next) => {

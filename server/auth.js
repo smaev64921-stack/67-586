@@ -432,7 +432,8 @@ function redeemTgPhoneToken(token) {
   if (!payload || payload.purpose !== 'tg-phone' || !payload.phone) {
     throw Object.assign(new Error('Неверная ссылка'), { status: 401 });
   }
-  return upsertUserByPhone({ phone: payload.phone, via: 'telegram' });
+  const user = upsertUserByPhone({ phone: payload.phone, via: 'telegram' });
+  return linkOwnerChat(payload.chatId, user, payload.phone);
 }
 
 /** Выдать / снять роль admin у пользователя сайта. */
@@ -449,6 +450,55 @@ function setUserRole(userId, role) {
 
 function promoteUserToAdmin(userId) {
   return setUserRole(userId, 'admin');
+}
+
+/**
+ * Привязать чат Telegram к аккаунту и, если это админ магазина, сразу выдать
+ * роль admin. Без этого первый вход через бота создавал обычного
+ * пользователя, и админка появлялась только после следующего /start.
+ *
+ * Признаком админа считаем ДВА независимых источника, оба приходят от самого
+ * Telegram, а не из тела запроса:
+ *   - chat_id в списке владельцев бота;
+ *   - номер телефона в ADMIN_PHONES.
+ *
+ * verifiedPhone — номер, который только что подтвердил Telegram в этом же
+ * входе. Брать user.phone из БД нельзя: его можно поменять в «Личных
+ * данных», и тогда любой покупатель, вписавший себе номер админа, получил бы
+ * права. По той же причине привязка чата засчитывается только при статусе
+ * ok / already_same: если чат уже занят другим аккаунтом, tryLink ничего не
+ * пишет, и повышать вошедшего нельзя.
+ */
+function linkOwnerChat(chatId, user, verifiedPhone) {
+  if (!user || !user.id) return user;
+  const id = String(chatId || '');
+  let linked = false;
+  if (id) {
+    try {
+      const r = require('./tg-users').tryLink(id, {}, user.id);
+      linked = r && (r.status === 'ok' || r.status === 'already_same');
+      if (!linked && r && r.status) {
+        console.warn('TG link skipped:', r.status, 'chat', id, 'user', user.id);
+      }
+    } catch (e) {
+      console.warn('TG link:', e.message);
+    }
+  }
+  try {
+    const { isOwnerChat, isOwnerPhone } = require('./tg-owner');
+    const byChat = linked && isOwnerChat(id);
+    const byPhone = verifiedPhone != null && isOwnerPhone(verifiedPhone);
+    if ((byChat || byPhone) && user.role !== 'admin') {
+      const promoted = promoteUserToAdmin(user.id);
+      if (promoted) {
+        console.log('Telegram admin →', promoted.email, byChat ? '(chat ' + id + ')' : '(по номеру)');
+        return promoted;
+      }
+    }
+  } catch (e) {
+    console.warn('TG admin promote:', e.message);
+  }
+  return user;
 }
 
 module.exports = {
@@ -470,6 +520,7 @@ module.exports = {
   updateProfile,
   setUserRole,
   promoteUserToAdmin,
+  linkOwnerChat,
   ensureAdminUser,
   issueTgAdminToken,
   redeemTgAdminToken,

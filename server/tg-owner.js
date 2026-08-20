@@ -95,6 +95,35 @@ function isOwnerChat(chatId) {
   return getOwnerChatIds().includes(id);
 }
 
+/* ---- админы по номеру телефона ----
+   Бот получает номер от самого Telegram (кнопка «Поделиться контактом»),
+   подделать его в запросе нельзя. Список задаётся в ADMIN_PHONES, например:
+   ADMIN_PHONES=+79001234567,+79007654321
+   Работает вместе со списком chat_id: достаточно совпасть чему-то одному. */
+function normPhone(raw) {
+  try {
+    return require('./sms').normalizePhone(raw) || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function getOwnerPhones() {
+  const raw = String(process.env.ADMIN_PHONES || process.env.TELEGRAM_ADMIN_PHONES || '');
+  /* режем только по запятой/точке с запятой: внутри номера бывают пробелы
+     и дефисы («+7 900 123-45-67»), и по \s он бы развалился на куски */
+  return [...new Set(
+    raw.split(/[,;\n]+/).map((s) => normPhone(s)).filter(Boolean)
+  )];
+}
+
+function isOwnerPhone(phone) {
+  const list = getOwnerPhones();
+  if (!list.length) return false;
+  const p = normPhone(phone);
+  return !!p && list.includes(p);
+}
+
 function hasOwner() {
   return getOwnerChatIds().length > 0;
 }
@@ -163,6 +192,8 @@ module.exports = {
   getOwnerChatId,
   getOwnerChatIds,
   isOwnerChat,
+  getOwnerPhones,
+  isOwnerPhone,
   hasOwner,
   claimOwner,
   addOwner,
