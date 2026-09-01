@@ -9,9 +9,12 @@ data/tg-owner-order-msgs.json
 data/tg-await.json
 data/tg-admin-codes.json
 data/otp-codes.json
+data/password-resets.json
 data/tg-delivered.json
 data/tg-owner-notified.json
 data/auth.log
+data/errors.log
+data/errors.log.1
 data/backups/
 data/otp-providers.json
 .env

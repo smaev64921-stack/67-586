@@ -12,7 +12,10 @@ const {
   upsertGoogleUser, linkOwnerChat
 } = require('./auth');
 const googleAuth = require('./google-auth');
-const { requestPasswordReset, resetPassword, smtpConfigured } = require('./password-reset');
+const {
+  requestPasswordReset, resetPassword, smtpConfigured,
+  openResetLink, revealCode, issueTicket, checkTicket
+} = require('./password-reset');
 const {
   listProducts, getProduct, upsertProduct, deleteProduct, getRev
 } = require('./products');
@@ -29,6 +32,10 @@ const { runTryon } = require('./tryon');
 const telegramBot = require('./telegram-bot');
 const { resolvePublicUrl, logPublicUrlDebug, isValidPublicHttps } = require('./public-url');
 const { authLog } = require('./auth-log');
+const errors = require('./error-report');
+/* Ставим ловушки до всего остального: ошибка при запуске тоже должна дойти. */
+errors.installProcessHooks();
+errors.installConsoleHook();
 const { startBackupSchedule } = require('./backup');
 const { hit, clientIp } = require('./rate-limit');
 const cdek = require('./cdek');
@@ -418,6 +425,24 @@ function authRateLimit(scope, limit) {
   };
 }
 
+/* -------- ошибки из браузера --------
+   Страница сама присылает сюда свои сбои: без этого поломка в JS видна
+   только покупателю, который просто уйдёт и ничего не скажет. */
+app.post('/api/client-error', authRateLimit('client-error', 30), (req, res) => {
+  const b = req.body || {};
+  const msg = String(b.message || '').trim();
+  /* пустое и запредельное не принимаем: эндпоинт открытый */
+  if (msg && msg.length < 2000) {
+    errors.report('client', { message: msg, stack: String(b.stack || '').slice(0, 2000) }, {
+      page: String(b.page || '').slice(0, 300),
+      browser: String(req.headers['user-agent'] || '').slice(0, 200),
+      ip: clientIp(req),
+      user: String(b.user || '').slice(0, 120)
+    });
+  }
+  res.json({ ok: true });
+});
+
 /* -------- auth -------- */
 app.post('/api/auth/register', authRateLimit('auth-register', 8), (req, res) => {
   try {
@@ -456,12 +481,30 @@ app.post('/api/auth/forgot', authRateLimit('auth-forgot', 8), async (req, res) =
   }
 });
 
+/* -------- страница из письма (/reset?t=…) --------
+   Токен из письма сам по себе пароль не меняет: им можно только показать
+   код или получить одноразовый билет. Пароль меняется отдельным запросом. */
+const resetLinkRoute = (scope, limit, run) =>
+  [authRateLimit(scope, limit), (req, res) => {
+    try {
+      res.json(run(req.body || {}));
+    } catch (e) {
+      res.status(e.status || 400).json({ error: e.message });
+    }
+  }];
+
+app.post('/api/auth/reset/open', ...resetLinkRoute('reset-open', 40, (b) => openResetLink(b.token)));
+app.post('/api/auth/reset/code', ...resetLinkRoute('reset-code', 20, (b) => revealCode(b.token)));
+app.post('/api/auth/reset/ticket', ...resetLinkRoute('reset-ticket', 20, (b) => issueTicket(b.token)));
+app.post('/api/auth/reset/check', ...resetLinkRoute('reset-check', 30, (b) => checkTicket(b.ticket)));
+
 app.post('/api/auth/reset', authRateLimit('auth-reset', 12), (req, res) => {
   try {
     const body = req.body || {};
     const user = resetPassword({
       email: body.email,
       code: body.code,
+      ticket: body.ticket,
       password: body.password
     });
     claimOrdersForUser(user);
@@ -903,8 +946,17 @@ app.get('*', (req, res, next) => {
   indexHandler(req, res);
 });
 
-app.use((err, _req, res, _next) => {
-  console.error(err);
+app.use((err, req, res, _next) => {
+  /* console.error перехвачен, но там нет ни адреса, ни пользователя —
+     поэтому шлём отдельно, с контекстом запроса. */
+  process.stderr.write('[500] ' + (err && err.stack ? err.stack : err) + '\n');
+  errors.report('express', err, {
+    method: req.method,
+    url: req.originalUrl || req.url,
+    status: 500,
+    ip: clientIp(req),
+    user: req.user ? `${req.user.id} · ${req.user.email || ''}` : ''
+  });
   res.status(500).json({ error: 'Серверная ошибка' });
 });
 
@@ -912,6 +964,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Canvas → ${PUBLIC_URL}`);
   console.log(`Listening 0.0.0.0:${PORT}`);
   console.log(`DB ready · ЮKassa: ${yookassa.configured() ? 'ON' : 'OFF (keys missing)'} · СДЭК: ${cdek.configured() ? 'ON' : 'OFF'}`);
+  const mailMod = require('./mail');
+  console.log(`Почта: ${mailMod.mailMode()}`);
+  mailMod.mailWarnings().forEach((line) => console.warn(line));
+  console.log(
+    `Ошибки → ${errors.enabled() ? 'Telegram, чат ' + errors.chatId() : 'только data/errors.log'}`
+  );
   startBackupSchedule();
   telegramBot.boot(PUBLIC_URL).catch((e) => console.error(e));
   let lastCdekSync = 0;

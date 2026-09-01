@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ru" translate="no" class="notranslate">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f4f4">
+<meta name="color-scheme" content="light only">
+<meta name="robots" content="noindex, nofollow">
+<title>Смена пароля</title>
+
+<!-- ==================================================================
+     СТРАНИЦА ИЗ ПИСЬМА  ·  /reset?t=<токен>
+
+     Открывается по кнопке «Открыть» из письма. Отсюда два пути:
+       «Получить код»    — 6 цифр вводятся руками на сайте (когда почта
+                           на телефоне, а сайт открыт на компьютере);
+       «Перейти на сайт» — страница меняет токен на одноразовый билет,
+                           сайт проверяет его сам и сразу просит пароль.
+
+     Файл самостоятельный: ни стилей, ни шрифтов, ни картинок снаружи —
+     страница обязана открыться из любой почты и на плохой связи.
+     ================================================================== -->
+
+<style>
+:root{
+  --bg:#f4f4f4;
+  --card:#fff;
+  --ink:#0b0b0b;
+  --soft:#555;
+  --muted:#8a8a8a;
+  --line:#ececec;
+  --line2:#e0e0e0;
+  --chip:#f5f5f5;
+  --ok:#1f9d55;
+  --danger:#d64545;
+  --r-lg:8px;
+  --r-xl:12px;
+  --ease:cubic-bezier(.4,0,.2,1);
+  /* Экспоненциальное затухание без перелёта: страница подтверждает личность,
+     и пружинящие карточки тут читаются как игрушка, а не как банк. */
+  --out:cubic-bezier(.16,1,.3,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+*{-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  display:flex;align-items:center;justify-content:center;
+  padding:24px 16px calc(24px + env(safe-area-inset-bottom));
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+h1,h2,p{margin:0}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.ic{display:block;width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;
+    stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+.wrap{width:100%;max-width:460px}
+
+/* ---- карточка ---- */
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-xl);
+  box-shadow:0 1px 3px rgba(0,0,0,.05), 0 18px 50px rgba(0,0,0,.07);
+  overflow:hidden;animation:cardIn .5s var(--out) both
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+
+.top{
+  background:var(--ink);color:#fff;padding:18px 24px;
+  display:flex;align-items:center;justify-content:center
+}
+/* знак белый — фон шапки чёрный; не загрузился, значит показываем название */
+.top img{height:64px;width:auto;display:block}
+.brand{font-size:14px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;line-height:1}
+
+.body{padding:30px 26px 26px}
+@media(max-width:380px){.body{padding:26px 20px 22px}}
+
+.h{font-size:23px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.lead{font-size:14.5px;color:var(--soft);line-height:1.6;margin-top:10px}
+
+/* кому меняем пароль + сколько осталось */
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.tag{
+  display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;
+  background:var(--chip);font-size:12.5px;font-weight:600;color:var(--soft);
+  white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis
+}
+.tag .ic{width:14px;height:14px;stroke-width:2;color:var(--muted)}
+.tag--time{font-variant-numeric:tabular-nums}
+.tag--warn{background:rgba(214,69,69,.1);color:var(--danger)}
+.tag--warn .ic{color:var(--danger)}
+
+/* ---- кнопки ---- */
+.acts{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+.b{
+  position:relative;display:flex;align-items:center;justify-content:center;gap:9px;
+  width:100%;padding:16px 18px;border-radius:var(--r-lg);
+  font-size:15px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;
+  transition:transform .18s var(--ease), background .2s var(--ease), border-color .2s var(--ease), opacity .2s var(--ease)
+}
+.b:active{transform:scale(.985)}
+.b[disabled]{opacity:.5;pointer-events:none}
+.b--pri{background:var(--ink);color:#fff}
+.b--pri:hover{background:#242424}
+.b--sec{background:var(--card);color:var(--ink);border:1px solid var(--line2)}
+.b--sec:hover{background:var(--chip);border-color:#cfcfcf}
+.b__hint{display:block;font-size:12px;font-weight:500;color:var(--muted);
+  text-align:center;margin:-2px 0 2px;line-height:1.45}
+.b--pri .ic{stroke-width:2}
+
+/* крутилка внутри кнопки */
+.b.is-busy{color:transparent}
+.b.is-busy .ic{opacity:0}
+.b.is-busy::after{
+  content:'';position:absolute;top:50%;left:50%;width:18px;height:18px;margin:-9px 0 0 -9px;
+  border:2px solid currentColor;border-radius:50%;
+  border-top-color:transparent;color:#fff;animation:spin .7s linear infinite
+}
+.b--sec.is-busy::after{color:var(--ink)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- код ---- */
+.code{margin-top:20px;animation:codeIn .45s var(--out) both}
+@keyframes codeIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+.code__box{
+  background:var(--chip);border:1px solid var(--line);border-radius:var(--r-xl);
+  padding:22px 16px 18px;text-align:center
+}
+.code__v{
+  display:flex;justify-content:center;gap:7px;
+  font-variant-numeric:tabular-nums;font-weight:700
+}
+.code__d{
+  width:38px;height:50px;border-radius:var(--r-lg);background:var(--card);
+  border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;
+  font-size:25px;letter-spacing:0;animation:digIn .4s var(--out) both
+}
+@media(max-width:360px){.code__d{width:33px;height:45px;font-size:22px}}
+@keyframes digIn{from{opacity:0;transform:translateY(-8px) scale(.8)}to{opacity:1;transform:none}}
+.code__cap{font-size:12.5px;color:var(--muted);margin-top:14px}
+.code__copy{
+  display:inline-flex;align-items:center;gap:7px;margin-top:12px;padding:9px 14px;
+  border-radius:999px;border:1px solid var(--line2);background:var(--card);
+  font-size:13px;font-weight:600;transition:background .2s var(--ease), border-color .2s var(--ease), color .2s var(--ease)
+}
+.code__copy:hover{background:var(--chip)}
+.code__copy.is-done{color:var(--ok);border-color:rgba(31,157,85,.4);background:rgba(31,157,85,.08)}
+.code__copy .ic{width:15px;height:15px;stroke-width:2}
+
+/* ---- служебное ---- */
+.sep{height:1px;background:var(--line);margin:24px 0 18px}
+.note{font-size:12.5px;color:var(--muted);line-height:1.6}
+.foot{text-align:center;font-size:12px;color:var(--muted);margin-top:18px;line-height:1.6}
+.foot a{color:var(--muted)}
+
+/* загрузка: пока не знаем, жива ли ссылка */
+.skel{padding:8px 0 4px}
+.skel__l{height:13px;border-radius:6px;background:linear-gradient(90deg,#eee 25%,#f6f6f6 50%,#eee 75%);
+  background-size:200% 100%;animation:shim 1.2s linear infinite;margin-bottom:12px}
+@keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
+
+.hide{display:none !important}
+.fade{animation:fadeIn .35s var(--ease) both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001s !important;transition-duration:.001s !important}
+}
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <div class="card">
+    <div class="top">
+      <img src="/logo-white.png" alt="Canvas" id="logo"
+        onerror="this.remove();document.getElementById('brand').hidden=false">
+      <span class="brand" id="brand" hidden>Canvas</span>
+    </div>
+    <div class="body">
+
+      <!-- пока проверяем ссылку -->
+      <section id="vLoad">
+        <div class="skel">
+          <div class="skel__l" style="width:52%;height:22px;margin-bottom:16px"></div>
+          <div class="skel__l" style="width:100%"></div>
+          <div class="skel__l" style="width:76%"></div>
+          <div class="skel__l" style="width:100%;height:52px;margin-top:22px"></div>
+          <div class="skel__l" style="width:100%;height:52px"></div>
+        </div>
+      </section>
+
+      <!-- ссылка живая -->
+      <section id="vOk" class="hide">
+        <h1 class="h">Смена пароля</h1>
+        <p class="lead" id="lead">Это вы просили сменить пароль? Тогда выберите, как удобнее.</p>
+        <div class="meta">
+          <span class="tag" id="tagMail" hidden>
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+            <span id="mask"></span>
+          </span>
+          <span class="tag tag--time" id="tagTime">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+            <span id="left">—</span>
+          </span>
+        </div>
+
+        <div class="code hide" id="codeBox">
+          <div class="code__box">
+            <div class="code__v" id="codeV"></div>
+            <p class="code__cap">Введите его на сайте вместе с новым паролем</p>
+            <button class="code__copy" id="copy" type="button">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+              <span id="copyT">Скопировать</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="acts">
+          <button class="b b--pri" id="bGo" type="button">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg>
+            Перейти на сайт
+          </button>
+          <span class="b__hint">Проверим, что это вы, и сразу спросим новый пароль</span>
+
+          <button class="b b--sec" id="bCode" type="button">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg>
+            Получить код
+          </button>
+          <span class="b__hint" id="hintCode">Если пароль меняете на другом устройстве</span>
+        </div>
+
+        <div class="sep"></div>
+        <p class="note">Ссылку никому не пересылайте: тот, у кого она окажется, сможет войти в ваш аккаунт.
+          Если смену пароля запрашивали не вы — просто закройте страницу, пароль останется прежним.</p>
+      </section>
+
+      <!-- ссылка мертва -->
+      <section id="vErr" class="hide">
+        <h1 class="h" id="errT">Ссылка устарела</h1>
+        <p class="lead" id="errM">Такое бывает, если письмо пролежало дольше 20 минут или паролем уже
+          воспользовались. Запросите смену пароля заново — придёт новое письмо.</p>
+        <div class="acts">
+          <a class="b b--pri" id="bHome" href="/#forgot">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg>
+            Запросить новую ссылку
+          </a>
+        </div>
+      </section>
+
+    </div>
+  </div>
+  <p class="foot" id="foot">Письмо отправлено автоматически — отвечать на него не нужно.</p>
+</main>
+
+<script>
+(function(){
+  'use strict';
+
+  var $ = function(id){ return document.getElementById(id); };
+  var token = new URLSearchParams(location.search).get('t') || '';
+  var expiresAt = 0;
+  var tick = 0;
+
+  function show(which){
+    ['vLoad','vOk','vErr'].forEach(function(id){
+      $(id).classList.toggle('hide', id !== which);
+    });
+    if(which !== 'vLoad') $(which).classList.add('fade');
+  }
+
+  function fail(msg, title){
+    clearInterval(tick);
+    if(title) $('errT').textContent = title;
+    if(msg) $('errM').textContent = msg;
+    show('vErr');
+  }
+
+  /* «Ссылка устарела» и так стоит заголовком — абзацем её не повторяем,
+     там объяснение полезнее. Всё остальное с сервера показываем как есть. */
+  function failFromServer(e){
+    var m = (e && e.message) ? String(e.message) : '';
+    if(!m || /устарел/i.test(m)) return fail();
+    fail(/[.!?]$/.test(m) ? m : m + '.');
+  }
+
+  function api(path, body){
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then(function(r){
+      return r.json().catch(function(){ return null; }).then(function(d){
+        if(!r.ok) throw new Error((d && d.error) || 'Не получилось');
+        return d || {};
+      });
+    });
+  }
+
+  function busy(btn, on){
+    btn.classList.toggle('is-busy', !!on);
+    btn.disabled = !!on;
+  }
+
+  /* сколько осталось жить ссылке — считаем на месте, без запросов */
+  function paintLeft(){
+    var ms = expiresAt - Date.now();
+    if(ms <= 0){
+      clearInterval(tick);
+      fail('Ссылка действовала 20 минут и уже истекла. Запросите смену пароля заново — придёт новое письмо.',
+        'Время вышло');
+      return;
+    }
+    var s = Math.round(ms / 1000);
+    var mm = Math.floor(s / 60), ss = s % 60;
+    $('left').textContent = 'осталось ' + mm + ':' + (ss < 10 ? '0' : '') + ss;
+    $('tagTime').classList.toggle('tag--warn', ms < 3 * 60 * 1000);
+  }
+
+  function startClock(at){
+    expiresAt = +at || 0;
+    if(!expiresAt) return;
+    paintLeft();
+    clearInterval(tick);
+    tick = setInterval(paintLeft, 1000);
+  }
+
+  /* «Получить код» — цифры приезжают по одной, это заметно приятнее вспышки */
+  function paintCode(code){
+    var wrap = $('codeV');
+    wrap.innerHTML = '';
+    String(code).split('').forEach(function(ch, i){
+      var d = document.createElement('span');
+      d.className = 'code__d';
+      d.textContent = ch;
+      d.style.animationDelay = (i * 45) + 'ms';
+      wrap.appendChild(d);
+    });
+    $('codeBox').classList.remove('hide');
+    $('bCode').classList.add('hide');
+    $('hintCode').classList.add('hide');
+    $('lead').textContent = 'Введите код на сайте вместе с новым паролем — или перейдите по кнопке, тогда код не понадобится.';
+    try{ $('codeBox').scrollIntoView({ behavior:'smooth', block:'nearest' }); }catch(e){}
+  }
+
+  function copyCode(){
+    var code = Array.prototype.map.call($('codeV').children, function(d){ return d.textContent; }).join('');
+    var done = function(){
+      var b = $('copy');
+      $('copyT').textContent = 'Скопировано';
+      b.classList.add('is-done');
+      setTimeout(function(){
+        $('copyT').textContent = 'Скопировать';
+        b.classList.remove('is-done');
+      }, 1800);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code).then(done, fallbackCopy.bind(null, code, done));
+      return;
+    }
+    fallbackCopy(code, done);
+  }
+
+  /* Safari без https и старые вебвью не дают clipboard API */
+  function fallbackCopy(code, done){
+    try{
+      var t = document.createElement('textarea');
+      t.value = code;
+      t.setAttribute('readonly', '');
+      t.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      document.body.removeChild(t);
+      done();
+    }catch(e){}
+  }
+
+  if(!token){
+    fail('Откройте страницу по кнопке из письма — без неё мы не знаем, чей это аккаунт.', 'Нет ссылки');
+    return;
+  }
+
+  api('/api/auth/reset/open', { token: token }).then(function(d){
+    /* название магазина живёт в админке — на странице оно тоже должно совпадать */
+    if(d.brand){
+      $('brand').textContent = d.brand;
+      var lg = $('logo'); if(lg) lg.alt = d.brand;
+      document.title = 'Смена пароля · ' + d.brand;
+    }
+    if(d.emailMask){
+      $('mask').textContent = d.emailMask;
+      $('tagMail').hidden = false;
+    }
+    startClock(d.expiresAt);
+    show('vOk');
+  }).catch(failFromServer);
+
+  $('bCode').onclick = function(){
+    busy(this, true);
+    var btn = this;
+    api('/api/auth/reset/code', { token: token }).then(function(d){
+      busy(btn, false);
+      startClock(d.expiresAt);
+      paintCode(d.code);
+    }).catch(function(e){
+      busy(btn, false);
+      failFromServer(e);
+    });
+  };
+
+  /* Билет уезжает в хеш адреса: то, что после «#», браузер на сервер не
+     отправляет — секрет не осядет ни в логах, ни в истории прокси. */
+  $('bGo').onclick = function(){
+    busy(this, true);
+    var btn = this;
+    api('/api/auth/reset/ticket', { token: token }).then(function(d){
+      location.href = location.origin + '/#reset=' + encodeURIComponent(d.ticket);
+    }).catch(function(e){
+      busy(btn, false);
+      failFromServer(e);
+    });
+  };
+
+  $('copy').onclick = copyCode;
+})();
+</script>
+</body>
+</html>
