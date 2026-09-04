@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ru" translate="no" class="notranslate">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f4f4">
+<meta name="color-scheme" content="light only">
+<meta name="google" content="notranslate">
+<title>Canvas — знакомство</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/logo.png">
+<link rel="preload" as="image" href="/onboarding/look-14.jpg" fetchpriority="high">
+
+<!-- ==================================================================
+     ЗНАКОМСТВО С МАГАЗИНОМ  ·  /onboarding.html
+
+     Показывается один раз — при первом заходе на сайт. Человек листает
+     сам: один разворот — одна мысль и один снимок. Текст и фото
+     появляются, когда разворот входит в экран.
+
+     Фон светлый нарочно: студийные снимки сняты на светло-сером, и на
+     тёмной странице они выглядели бы наклейками.
+
+     Всё держится на IntersectionObserver и CSS-переходах — никаких
+     библиотек и никакого пересчёта на каждый кадр прокрутки, иначе
+     на телефоне это дёргалось бы и грело батарею.
+     ================================================================== -->
+
+<style>
+:root{
+  --bg:#f4f4f4;
+  --ink:#0b0b0b;
+  --soft:#4a4a4a;
+  --muted:#8f8f8f;
+  --line:#e2e2e2;
+  --ghost:#dedede;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --out:cubic-bezier(.16,1,.3,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+*{-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  overflow-x:hidden
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+h1,h2,p{margin:0}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+/* ---------- прогресс прокрутки ---------- */
+.bar{
+  position:fixed;left:0;top:0;height:2px;z-index:50;
+  background:var(--ink);width:0;
+  transition:width .12s linear
+}
+
+/* ---------- «пропустить» ---------- */
+.skip{
+  position:fixed;z-index:40;
+  top:calc(14px + env(safe-area-inset-top));right:14px;
+  padding:9px 16px;border-radius:999px;
+  background:rgba(255,255,255,.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--line);
+  font-size:12.5px;font-weight:600;color:var(--soft);
+  transition:opacity .45s var(--ease), transform .45s var(--out), color .2s var(--ease)
+}
+.skip:hover{color:var(--ink)}
+.skip.is-gone{opacity:0;transform:translateY(-14px);pointer-events:none}
+
+/* ================= ЗАСТАВКА ================= */
+.intro{
+  min-height:100svh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:24px;padding:80px 24px 120px;position:relative;text-align:center
+}
+.intro__mark{
+  width:auto;height:clamp(92px,19vh,160px);
+  opacity:0;transform:translateY(24px) scale(.94);
+  animation:markIn 1.1s var(--out) .1s forwards
+}
+@keyframes markIn{to{opacity:1;transform:none}}
+
+/* Подпись набирается по словам — разметку этим не засоряем, слова ставит скрипт.
+   Название бренда отдельной строкой не пишем: оно уже нарисовано внутри знака. */
+.intro__sub{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:0 .32em;
+  max-width:22ch;font-size:clamp(15px,4.4vw,17px);font-weight:400;line-height:1.55;
+  color:var(--muted)
+}
+.intro__sub span{opacity:0;transform:translateY(15px);animation:wordIn .7s var(--out) forwards}
+@keyframes wordIn{to{opacity:1;transform:none}}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+.intro__go{
+  position:absolute;left:0;right:0;bottom:calc(30px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;gap:11px;
+  font-size:10.5px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  opacity:0;animation:fadeUp .8s var(--out) 1.9s forwards
+}
+.intro__line{width:1px;height:46px;background:var(--ghost);position:relative;overflow:hidden}
+.intro__line::after{
+  content:'';position:absolute;left:0;top:-46px;width:1px;height:46px;
+  background:linear-gradient(transparent,var(--ink));
+  animation:runDown 1.9s var(--ease) infinite
+}
+@keyframes runDown{to{top:46px}}
+
+/* ================= РАЗВОРОТЫ ================= */
+.look{min-height:100svh;display:flex;align-items:center;padding:64px 20px}
+.look__in{
+  width:100%;max-width:940px;margin:0 auto;
+  display:grid;gap:28px;align-items:center;grid-template-columns:1fr
+}
+@media(min-width:820px){
+  .look__in{grid-template-columns:1fr 1fr;gap:60px}
+  .look[data-flip] .look__ph{order:2}
+}
+
+/* кадр раскрывается сверху вниз, снимок внутри чуть отъезжает —
+   как будто камера наконец успокоилась */
+.look__ph{
+  position:relative;overflow:hidden;background:#eaeaea;
+  aspect-ratio:4/5;max-height:56svh;width:100%;
+  clip-path:inset(0 0 100% 0);
+  transition:clip-path 1.05s var(--out)
+}
+.look__ph img{
+  width:100%;height:100%;object-fit:cover;object-position:center 12%;
+  transform:scale(1.12);transition:transform 1.5s var(--out)
+}
+.look.is-in .look__ph{clip-path:inset(0 0 0 0)}
+.look.is-in .look__ph img{transform:scale(1)}
+
+/* На широком экране текст стоит рядом с кадром, а не под ним, — значит кадру
+   можно отдать больше высоты, иначе портретный снимок обрезался бы в квадрат.
+   Правило стоит ниже базового нарочно: приоритет у них одинаковый, решает порядок. */
+@media(min-width:820px){ .look__ph{max-height:74svh} }
+
+.look__txt > *{
+  opacity:0;transform:translateY(24px);
+  transition:opacity .85s var(--out), transform .85s var(--out)
+}
+.look.is-in .look__txt > *{opacity:1;transform:none}
+.look.is-in .look__txt > *:nth-child(1){transition-delay:.16s}
+.look.is-in .look__txt > *:nth-child(2){transition-delay:.28s}
+.look.is-in .look__txt > *:nth-child(3){transition-delay:.4s}
+
+.look__k{
+  display:flex;align-items:center;gap:10px;margin-bottom:15px;
+  font-size:10.5px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)
+}
+.look__k b{color:var(--ink);font-weight:800}
+.look__k i{flex:1;height:1px;background:var(--line);max-width:70px}
+.look__t{
+  font-size:clamp(29px,7.6vw,46px);font-weight:800;line-height:1.06;
+  letter-spacing:-.035em;margin-bottom:15px
+}
+.look__t em{font-style:normal;display:block;color:var(--muted)}
+.look__d{font-size:14.5px;line-height:1.65;color:var(--soft);max-width:34ch}
+
+/* ================= ПАЛИТРА ================= */
+.tones{padding:8px 20px 72px}
+.tones__in{max-width:940px;margin:0 auto}
+.tones__k{
+  font-size:10.5px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px;
+  opacity:0;transform:translateY(14px);transition:all .6s var(--out)
+}
+.tones.is-in .tones__k{opacity:1;transform:none}
+.tones__row{display:flex;gap:9px;flex-wrap:wrap}
+.tone{
+  display:flex;align-items:center;gap:9px;padding:9px 15px 9px 10px;
+  border:1px solid var(--line);border-radius:999px;background:#fff;
+  font-size:12.5px;font-weight:600;
+  opacity:0;transform:translateY(16px) scale(.95);
+  transition:opacity .6s var(--out), transform .6s var(--out)
+}
+.tones.is-in .tone{opacity:1;transform:none}
+.tones.is-in .tone:nth-child(1){transition-delay:.08s}
+.tones.is-in .tone:nth-child(2){transition-delay:.15s}
+.tones.is-in .tone:nth-child(3){transition-delay:.22s}
+.tones.is-in .tone:nth-child(4){transition-delay:.29s}
+.tones.is-in .tone:nth-child(5){transition-delay:.36s}
+.tone i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex:none}
+
+/* ================= БЕГУЩАЯ СТРОКА ================= */
+.tick{overflow:hidden;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tick__row{display:flex;width:max-content;animation:tick 30s linear infinite}
+.tick__row span{
+  font-size:clamp(34px,8.4vw,66px);font-weight:800;letter-spacing:-.035em;
+  padding:0 .22em;color:var(--ink);white-space:nowrap
+}
+.tick__row span:nth-child(even){color:transparent;-webkit-text-stroke:1px var(--ghost)}
+@keyframes tick{to{transform:translateX(-50%)}}
+
+/* ================= ФИНАЛ ================= */
+.fin{
+  min-height:100svh;display:flex;align-items:center;justify-content:center;
+  padding:80px 24px calc(56px + env(safe-area-inset-bottom));
+  text-align:center;position:relative;overflow:hidden
+}
+/* мозаика позади — из тех же снимков, что уже пролистали: лишних байтов не тянем */
+.fin__wall{
+  position:absolute;inset:-2%;z-index:0;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:5px;
+  opacity:0;transform:scale(1.1);
+  transition:opacity 1.5s var(--ease), transform 1.7s var(--out)
+}
+/* Ряды задаём явно: иначе они выросли бы по высоте самих снимков и мозаика
+   либо не дотянулась бы до низа экрана, либо вылезла за него. */
+@media(min-width:700px){
+  .fin__wall{grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(2,1fr)}
+}
+.fin.is-in .fin__wall{opacity:.2;transform:none}
+.fin__wall img{width:100%;height:100%;object-fit:cover;filter:grayscale(1)}
+.fin__veil{
+  position:absolute;inset:0;z-index:1;
+  background:radial-gradient(ellipse at center, rgba(244,244,244,.88) 10%, rgba(244,244,244,.55) 100%)
+}
+.fin__in{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px}
+.fin__mark{height:70px;width:auto;opacity:0;transform:translateY(18px);transition:all 1s var(--out) .1s}
+.fin.is-in .fin__mark{opacity:1;transform:none}
+.fin__t{
+  font-size:clamp(27px,7.2vw,42px);font-weight:800;letter-spacing:-.035em;line-height:1.1;
+  opacity:0;transform:translateY(22px);transition:all .9s var(--out) .26s
+}
+.fin.is-in .fin__t{opacity:1;transform:none}
+.fin__d{
+  font-size:14.5px;line-height:1.6;color:var(--soft);max-width:31ch;
+  opacity:0;transform:translateY(22px);transition:all .9s var(--out) .38s
+}
+.fin.is-in .fin__d{opacity:1;transform:none}
+
+.cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;
+  margin-top:10px;padding:19px 34px;min-width:min(340px,86vw);
+  background:var(--ink);color:#fff;
+  font-size:12.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  opacity:0;transform:translateY(24px);
+  transition:opacity .9s var(--out) .52s, transform .9s var(--out) .52s,
+             background .25s var(--ease), letter-spacing .25s var(--ease)
+}
+.fin.is-in .cta{opacity:1;transform:none}
+.cta:hover{background:#262626;letter-spacing:.2em}
+.cta:active{transform:scale(.985)}
+.cta svg{
+  width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .25s var(--out)
+}
+.cta:hover svg{transform:translateX(5px)}
+
+.fin__note{font-size:11.5px;color:var(--muted);opacity:0;transition:opacity .9s var(--ease) .78s}
+.fin.is-in .fin__note{opacity:1}
+
+/* ---------- если анимации мешают ---------- */
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
+  .look__ph{clip-path:none}
+  .look__ph img{transform:none}
+  .tick__row{animation:none}
+  .look__txt > *,.tone,.tones__k,.fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
+  .fin__wall{opacity:.2;transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar"></div>
+<button class="skip" id="skip" type="button">Пропустить</button>
+
+<!-- ====== заставка ====== -->
+<section class="intro">
+  <img class="intro__mark" src="/logo.png" alt="Canvas" width="238" height="400">
+  <h1 class="intro__sub" id="introSub">Базовые вещи, которые носят каждый день</h1>
+  <div class="intro__go"><span class="intro__line"></span>Листайте</div>
+</section>
+
+<!-- ====== развороты ====== -->
+<section class="look" data-look>
+  <div class="look__in">
+    <div class="look__ph">
+      <img src="/onboarding/look-14.jpg" alt="Двое в чёрной и белой футболках" loading="eager" decoding="async" fetchpriority="high">
+    </div>
+    <div class="look__txt">
+      <p class="look__k"><b>01</b><i></i>Коллекция</p>
+      <h2 class="look__t">Чёрное<em>и белое</em></h2>
+      <p class="look__d">Два цвета, с которых начинается гардероб. Свободный крой, ровная горловина, ничего лишнего — такую футболку надеваешь не задумываясь.</p>
+    </div>
+  </div>
+</section>
+
+<section class="look" data-look data-flip>
+  <div class="look__in">
+    <div class="look__ph">
+      <img src="/onboarding/look-02.jpg" alt="Белая футболка вблизи" loading="lazy" decoding="async">
+    </div>
+    <div class="look__txt">
+      <p class="look__k"><b>02</b><i></i>Ткань</p>
+      <h2 class="look__t">Плотный<em>хлопок</em></h2>
+      <p class="look__d">Не просвечивает и держит форму. Тот случай, когда вещь хочется потрогать до покупки — на снимках видно и плотность полотна, и как оно лежит.</p>
+    </div>
+  </div>
+</section>
+
+<section class="look" data-look>
+  <div class="look__in">
+    <div class="look__ph">
+      <img src="/onboarding/look-12.jpg" alt="Оверсайз-футболка сбоку" loading="lazy" decoding="async">
+    </div>
+    <div class="look__txt">
+      <p class="look__k"><b>03</b><i></i>Посадка</p>
+      <h2 class="look__t">Оверсайз<em>как надо</em></h2>
+      <p class="look__d">Спущенное плечо и прямой силуэт. Не мешок и не в облипку — вещь садится ровно и не тянет в плечах, когда поднимаешь руки.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====== палитра ====== -->
+<section class="tones" data-look>
+  <div class="tones__in">
+    <p class="tones__k">Цвета в наличии</p>
+    <div class="tones__row">
+      <span class="tone"><i style="background:#111"></i>Чёрный</span>
+      <span class="tone"><i style="background:#fff"></i>Белый</span>
+      <span class="tone"><i style="background:#b3d2ef"></i>Голубой</span>
+      <span class="tone"><i style="background:#4a3128"></i>Шоколад</span>
+      <span class="tone"><i style="background:#e01f26"></i>Красный</span>
+    </div>
+  </div>
+</section>
+
+<section class="look" data-look data-flip>
+  <div class="look__in">
+    <div class="look__ph">
+      <img src="/onboarding/look-03.jpg" alt="Красная футболка" loading="lazy" decoding="async">
+    </div>
+    <div class="look__txt">
+      <p class="look__k"><b>04</b><i></i>Цвет</p>
+      <h2 class="look__t">Не только<em>база</em></h2>
+      <p class="look__d">Красный, голубой и шоколад — если чёрного мало. Крой во всех цветах один и тот же, так что размер подбирать заново не придётся.</p>
+    </div>
+  </div>
+</section>
+
+<section class="look" data-look>
+  <div class="look__in">
+    <div class="look__ph">
+      <img src="/onboarding/look-09.jpg" alt="Футболка со спины" loading="lazy" decoding="async">
+    </div>
+    <div class="look__txt">
+      <p class="look__k"><b>05</b><i></i>Съёмка</p>
+      <h2 class="look__t">Видно<em>со всех сторон</em></h2>
+      <p class="look__d">Каждую вещь снимаем спереди, сзади и вполоборота. В карточке товара фото можно приблизить пальцами и рассмотреть шов вблизи.</p>
+    </div>
+  </div>
+</section>
+
+<section class="look" data-look data-flip>
+  <div class="look__in">
+    <div class="look__ph">
+      <img src="/onboarding/look-13.jpg" alt="Голубая футболка" loading="lazy" decoding="async">
+    </div>
+    <div class="look__txt">
+      <p class="look__k"><b>06</b><i></i>Доставка</p>
+      <h2 class="look__t">Заберёте<em>рядом с домом</em></h2>
+      <p class="look__d">Любой пункт выдачи СДЭК на выбор. Оплата картой прямо на сайте, а статус заказа можно получать в Telegram — если подключите бота.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====== бегущая строка ====== -->
+<div class="tick" aria-hidden="true">
+  <div class="tick__row">
+    <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
+    <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
+  </div>
+</div>
+
+<!-- ====== финал ====== -->
+<section class="fin" data-look>
+  <div class="fin__wall" id="wall" aria-hidden="true"></div>
+  <div class="fin__veil"></div>
+  <div class="fin__in">
+    <img class="fin__mark" src="/logo.png" alt="" width="238" height="400">
+    <h2 class="fin__t">Теперь выбирайте</h2>
+    <p class="fin__d">Вся коллекция — в каталоге. Размеры, цвета и наличие обновляются в реальном времени.</p>
+    <a class="cta" id="go" href="/#catalog">
+      Перейти в каталог
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg>
+    </a>
+    <p class="fin__note">Это знакомство показывается один раз</p>
+  </div>
+</section>
+
+<script>
+(function(){
+  'use strict';
+  var SEEN = 'lc_onboarded';
+  var HOME = '/#catalog';
+
+  function markSeen(){ try{ localStorage.setItem(SEEN, '1'); }catch(e){} }
+
+  /* --- подпись проявляется по словам --- */
+  var sub = document.getElementById('introSub');
+  if(sub){
+    var words = sub.textContent.trim().split(/\s+/);
+    sub.textContent = '';
+    words.forEach(function(w, n){
+      var s = document.createElement('span');
+      s.textContent = w;
+      s.style.animationDelay = (0.85 + n * 0.09) + 's';
+      sub.appendChild(s);
+    });
+  }
+
+  /* --- мозаика в финале ---
+     Берём только те снимки, что человек уже пролистал: они лежат в кэше,
+     и фон за кнопкой не стоит ни одного лишнего килобайта. */
+  var wall = document.getElementById('wall');
+  if(wall){
+    var shots = ['look-14','look-02','look-12','look-03','look-09','look-13'];
+    for(var pass = 0; pass < 2; pass++){
+      shots.forEach(function(n){
+        var im = document.createElement('img');
+        im.src = '/onboarding/' + n + '.jpg';
+        im.alt = '';
+        im.loading = 'lazy';
+        im.decoding = 'async';
+        wall.appendChild(im);
+      });
+    }
+  }
+
+  /* --- появление блоков ---
+     IntersectionObserver, а не расчёт на каждый кадр прокрутки: браузер сам
+     говорит, когда блок вошёл в экран, и телефон при этом не греется. */
+  var blocks = document.querySelectorAll('[data-look]');
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(rows){
+      rows.forEach(function(r){
+        if(!r.isIntersecting) return;
+        r.target.classList.add('is-in');
+        io.unobserve(r.target);          /* обратно не прячем — мигало бы */
+      });
+    }, { threshold: 0.2, rootMargin: '0px 0px -8% 0px' });
+    blocks.forEach(function(b){ io.observe(b); });
+
+    /* Дочитал до конца — знакомство состоялось, даже если вкладку закроют,
+       не нажав кнопку. Иначе оно всплыло бы снова. */
+    var fin = document.querySelector('.fin');
+    if(fin){
+      new IntersectionObserver(function(rows, self){
+        if(rows[0].isIntersecting){ markSeen(); self.disconnect(); }
+      }, { threshold: 0.5 }).observe(fin);
+    }
+  } else {
+    blocks.forEach(function(b){ b.classList.add('is-in'); });   // старый браузер — просто покажем
+  }
+
+  /* --- полоса прогресса --- */
+  var bar = document.getElementById('bar');
+  var skip = document.getElementById('skip');
+  var ticking = false;
+  function onScroll(){
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(function(){
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+      if(bar) bar.style.width = (p * 100).toFixed(2) + '%';
+      /* у самого низа «Пропустить» лишняя — там уже стоит кнопка */
+      if(skip) skip.classList.toggle('is-gone', p > 0.88);
+      ticking = false;
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  onScroll();
+
+  /* --- выход --- */
+  function leave(e){
+    if(e) e.preventDefault();
+    markSeen();
+    location.href = HOME;
+  }
+  if(skip) skip.addEventListener('click', leave);
+  var go = document.getElementById('go');
+  if(go) go.addEventListener('click', leave);
+})();
+</script>
+</body>
+</html>

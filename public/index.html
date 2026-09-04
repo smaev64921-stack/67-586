@@ -12,6 +12,24 @@
 <meta http-equiv="Content-Language" content="ru">
 <title>Каталог</title>
 
+<!-- Знакомство с магазином — только при самом первом заходе.
+     Стоит здесь, до стилей и разметки: иначе человек успел бы увидеть
+     кусок каталога и его бы дёрнуло на другую страницу.
+     Ссылки с якорем (#p=, #reset=, #google_token=) и возвраты с оплаты
+     или из бота пропускаем — это уже осмысленный переход, а не первый визит. -->
+<script>
+(function(){
+  try{
+    if(localStorage.getItem('lc_onboarded')) return;
+    if(location.hash) return;
+    if(sessionStorage.getItem('shop_place_v1')) return;   // человек уже ходит по магазину
+    var q = new URLSearchParams(location.search);
+    if(q.get('tg_admin') || q.get('paid')) return;
+    location.replace('/onboarding.html');
+  }catch(e){}   /* приватный режим без localStorage — просто открываем магазин */
+})();
+</script>
+
 <!-- ==================================================================
      МАГАЗИН ОДЕЖДЫ — мобильное приложение (все экраны в одном файле)
 
