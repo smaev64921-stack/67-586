@@ -1814,6 +1814,17 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 }
 .amod__tg:hover{background:#e8f6fd;border-color:#a9d8f0}
 .amod__tg .ic{flex:none;width:15px;height:15px;stroke:#229ED9;fill:none}
+/* Google требует свой знак в фирменных цветах на белом или светло-сером
+   фоне — перекрашивать его нельзя, поэтому кнопка нейтральная. */
+.amod__google{
+  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
+  margin-bottom:6px;padding:9px 12px;border:1.5px solid var(--line2);
+  background:#fff;border-radius:var(--r-sm);
+  font-size:13px;font-weight:650;color:var(--ink);
+  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease)
+}
+.amod__google:hover{background:var(--chip);border-color:#cfcfcf}
+.amod__google svg{flex:none;width:16px;height:16px;display:block}
 .amod__code{
   display:block;width:100%;margin-top:6px;padding:5px 8px;
   font-size:11.5px;line-height:1.3;color:var(--muted2);text-align:center;
@@ -4610,6 +4621,23 @@ function eyeBtn(inputId, cls){
     aria-label="Показать пароль" aria-pressed="false" tabindex="-1">${svg('eye','ic ic--sm')}</button>`;
 }
 const TG_ICON = '/telegram.avif';
+
+/* Официальный знак Google. Рисуем отдельно от общего набора иконок:
+   те красятся в currentColor, а этому логотипу цвета менять нельзя. */
+const GOOGLE_MARK = `<svg viewBox="0 0 48 48" aria-hidden="true">
+  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+</svg>`;
+
+/** Кнопка входа через Google. Пока ключи не заданы на сервере — не показываем. */
+function googleBtnHTML(){
+  if(!window.__LC_GOOGLE) return '';
+  return `<button type="button" class="amod__google" data-a="auth_google">
+    ${GOOGLE_MARK}<span>Войти через Google</span>
+  </button>`;
+}
 function tgIcon(cls){
   return `<img class="${cls || 'pitem__tg'}" src="${TG_ICON}" alt="" width="18" height="18" decoding="async">`;
 }
@@ -6274,6 +6302,7 @@ function authModalHTML(){
     </form>
     ${(v === 'log' || v === 'reg') ? `
     <div class="amod__or"><span>или</span></div>
+    ${googleBtnHTML()}
     <button type="button" class="amod__tg" data-a="auth_tg">
       ${svg('telegram','ic ic--sm')}<span>Через Telegram</span>
     </button>
