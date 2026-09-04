@@ -13063,30 +13063,44 @@ async function bootFromServer(){
     history.replaceState(null, '', location.pathname + (location.hash || ''));
   }
 
-  /* Google OAuth: токен в hash */
+  /* Возврат от Google: токен приезжает в hash.
+
+     Раньше здесь было просто `if(me){ ... }` — и если сервер отвечал
+     пусто (например, пока шла пересборка), не происходило ровным счётом
+     ничего: ни входа на экране, ни ошибки. Токен при этом уже лежал в
+     хранилище, поэтому ручное обновление страницы «вдруг» показывало,
+     что человек вошёл. Теперь пробуем ещё раз по куке и в любом случае
+     перерисовываем экран. */
   const hash = String(location.hash || '');
   const gm = /^#google_token=(.+)$/.exec(hash);
   if(gm && window.LC){
+    /* адрес чистим сразу: токен не должен остаться в истории браузера */
+    history.replaceState(null, '', location.pathname);
     try{
-      const tok = decodeURIComponent(gm[1]);
-      LC.setToken(tok);
-      const me = await LC.me();
+      LC.setToken(decodeURIComponent(gm[1]));
+      let me = await LC.me().catch(() => null);
+      /* вторая попытка: серверная кука уже стоит, ей токен не нужен */
+      if(!me) me = await applyServerSession().catch(() => null);
       if(me){
         S.user = me;
         if(me.admin) grantAdmin(me.email);
         saveUser();
-        await refreshMyOrders(false);
+        await refreshMyOrders(false).catch(() => {});
         bootLockPlace = true;
         continueAfterAuth({
           isNew: profileNeedsFill(me),
           next: 'profile',
           askTg: true
         });
+      } else {
+        /* молчать нельзя: человек должен понимать, что произошло */
+        toast('Google подтвердил вход, но сервер не ответил — обновите страницу');
+        render(true);
       }
     }catch(err){
-      toast(err.message || 'Google вход не удался');
+      toast((err && err.message) || 'Google вход не удался');
+      render(true);
     }
-    history.replaceState(null, '', location.pathname);
   }
 
   const tgPhoneTok = qs.get('tg_phone');
