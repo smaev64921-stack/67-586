@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#f4f4f4">
 <meta name="google" content="notranslate">
+<!-- Без этих строк браузер сам дёргает /favicon.ico и /apple-touch-icon.png,
+     а раньше на них прилетал весь index.html — по 567 КБ на каждый. -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/logo.png">
 <meta http-equiv="Content-Language" content="ru">
 <title>Каталог</title>
 
@@ -350,7 +354,8 @@ s{color:var(--muted2)}
 .hs__txt{
   position:absolute;left:0;right:0;bottom:0;z-index:2;
   display:flex;flex-direction:column;align-items:center;gap:14px;
-  padding:0 22px calc(var(--tab-h) + 42px + env(safe-area-inset-bottom));
+  /* снизу оставляем место под общую кнопку — она теперь вне слайда */
+  padding:0 22px calc(var(--tab-h) + 104px + env(safe-area-inset-bottom));
   text-align:center;color:#fff
 }
 .hs__k{
@@ -365,8 +370,16 @@ s{color:var(--muted2)}
   font-size:13.5px;line-height:1.5;opacity:.92;max-width:32ch;
   text-shadow:0 1px 10px rgba(0,0,0,.5);margin-top:-4px
 }
+/* Общая кнопка слайдера: не листается вместе с фото и всегда на месте. */
+.hs__cta-wrap{
+  position:absolute;left:0;right:0;bottom:0;z-index:3;
+  display:flex;justify-content:center;
+  padding:0 22px calc(var(--tab-h) + 42px + env(safe-area-inset-bottom));
+  pointer-events:none
+}
+.hs__cta-wrap .hs__cta{pointer-events:auto}
 .hs__cta{
-  display:block;width:100%;max-width:340px;margin-top:4px;padding:15px 18px;text-align:center;
+  display:block;width:100%;max-width:340px;padding:15px 18px;text-align:center;
   border:1.5px solid rgba(255,255,255,.9);border-radius:2px;background:rgba(0,0,0,.18);
   color:#fff;font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
@@ -6481,7 +6494,11 @@ function heroBtnText(){
 function heroHTML(list, id, banner){
   if(!list.length) return '';
   const b = (banner || '').trim();
-  const cta = `<button class="hs__cta" data-a="go:catalog">${esc(heroBtnText())}</button>`;
+  /* Кнопка одна на весь слайдер и лежит поверх него, а не внутри слайда:
+     раньше её копия висела на каждом фото и уезжала вместе с ним. */
+  const cta = `<div class="hs__cta-wrap">
+    <button class="hs__cta" data-a="go:catalog">${esc(heroBtnText())}</button>
+  </div>`;
   return `<div class="hs hs--hero" id="${id}">
     <div class="hs__track">${list.map((s,i) => `
       <div class="hs__s">
@@ -6492,7 +6509,6 @@ function heroHTML(list, id, banner){
           ${s.kick ? `<span class="hs__k">${esc(s.kick)}</span>` : ''}
           ${s.cap ? `<h2 class="hs__t">${esc(s.cap)}</h2>` : ''}
           ${s.sub ? `<p class="hs__d">${esc(s.sub)}</p>` : ''}
-          ${cta}
         </div>
       </div>`).join('')}</div>
     ${b || list.length > 1 ? `<div class="hs__over">
@@ -6503,6 +6519,7 @@ function heroHTML(list, id, banner){
     ${list.length > 1 ? `
       <button class="hs__ar hs__ar--l" data-hsar="-1" aria-label="Предыдущее фото">${svg('arrowL')}</button>
       <button class="hs__ar hs__ar--r" data-hsar="1" aria-label="Следующее фото">${svg('arrowR')}</button>` : ''}
+    ${cta}
   </div>`;
 }
 
@@ -7426,6 +7443,84 @@ function blobToDataURL(blob){
     r.onerror = reject;
     r.readAsDataURL(blob);
   });
+}
+
+/* ==========================================================
+   ФОТО: БЫСТРОЕ ЧТЕНИЕ ФАЙЛА
+   Раньше каждый снимок проходил через base64 дважды: сначала FileReader
+   разворачивал оригинал в строку (фото на 5 МБ — это ~6,7 МБ текста),
+   потом из этой строки заново собиралась картинка. На телефоне вкладка
+   вставала колом на несколько секунд, а при выборе нескольких файлов
+   сразу — почти намертво.
+
+   Теперь файл декодируется напрямую через createImageBitmap: без
+   промежуточной строки и вне основного потока. base64 остаётся только
+   один раз — на выходе, потому что сервер принимает фото именно так.
+   ========================================================== */
+const PHOTO_MAX_BYTES = 25 * 1024 * 1024;
+
+/** Пауза, чтобы браузер успел перерисовать интерфейс между тяжёлыми шагами. */
+function letUiBreathe(){
+  return new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+}
+
+/** Картинка из файла без base64. Возвращает объект с обязательным free(). */
+async function decodeImageFile(file){
+  if(window.createImageBitmap){
+    try{
+      const bmp = await createImageBitmap(file);
+      return {img: bmp, free(){ try{ bmp.close && bmp.close(); }catch(e){} }};
+    }catch(e){}
+  }
+  /* Запасной путь для старых браузеров: тоже без base64, через blob-ссылку.
+     Её обязательно освобождаем, иначе картинка висит в памяти до перезагрузки. */
+  const url = URL.createObjectURL(file);
+  try{
+    const im = await loadImg(url);
+    return {img: im, free(){ URL.revokeObjectURL(url); }};
+  }catch(e){
+    URL.revokeObjectURL(url);
+    throw e;
+  }
+}
+
+/**
+ * Файл -> сжатый dataURL. maxSide — потолок по длинной стороне,
+ * flatten — подложить белый фон (нужно, когда запасной формат JPEG:
+ * иначе прозрачные места станут чёрными).
+ */
+async function fileToPhotoDataUrl(file, maxSide, quality, opts){
+  const o = opts || {};
+  if(!String(file && file.type || '').startsWith('image/')){
+    throw new Error('Нужен файл изображения');
+  }
+  if(file.size > PHOTO_MAX_BYTES){
+    throw new Error('Фото тяжелее ' + Math.round(PHOTO_MAX_BYTES / 1048576) + ' МБ — возьмите поменьше');
+  }
+  const src = await decodeImageFile(file);
+  try{
+    const iw = src.img.width || src.img.naturalWidth || 1;
+    const ih = src.img.height || src.img.naturalHeight || 1;
+    const side = Math.max(800, +maxSide || 1600);
+    const k = Math.min(1, side / Math.max(iw, ih));
+    const w = Math.max(1, Math.round(iw * k));
+    const h = Math.max(1, Math.round(ih * k));
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if(o.flatten){ ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
+    ctx.drawImage(src.img, 0, 0, w, h);
+    const q = Math.min(0.95, Math.max(0.7, quality == null ? 0.86 : +quality));
+    /* WebP заметно легче JPEG при том же качестве и умеет прозрачность */
+    let blob = await canvasToBlob(c, 'image/webp', q);
+    if(!blob) blob = await canvasToBlob(c, 'image/jpeg', q);
+    if(!blob) return c.toDataURL('image/jpeg', q);
+    return await blobToDataURL(blob);
+  } finally {
+    src.free();
+  }
 }
 /* Убрать светлый «квадратик» фона у лого и обрезать пустые поля. */
 function knockOutLogoBg(c){
@@ -10930,30 +11025,12 @@ function viewSlider(){
 }
 
 /* Ужимаем фото перед сохранением: в localStorage мало места. */
+/* Обёртка над fileToPhotoDataUrl со старой сигнатурой на колбэке.
+   Внутри — тот же быстрый путь без лишнего base64. */
 function shrinkImage(file, maxW, cb){
-  const r = new FileReader();
-  r.onload = () => {
-    const src = String(r.result);
-    const im = new Image();
-    im.onload = () => {
-      try{
-        const k = Math.min(1, maxW / im.width);
-        const c = document.createElement('canvas');
-        c.width = Math.round(im.width * k);
-        c.height = Math.round(im.height * k);
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(im, 0, 0, c.width, c.height);
-        const out = c.toDataURL('image/jpeg', .82);
-        cb(out.length < src.length ? out : src);
-      }catch(e){ cb(src); }
-    };
-    im.onerror = () => cb(src);
-    im.src = src;
-  };
-  r.onerror = () => cb('');
-  r.readAsDataURL(file);
+  fileToPhotoDataUrl(file, maxW, 0.84, {flatten: true})
+    .then(out => cb(out))
+    .catch(() => cb(''));
 }
 
 /* Пачкой: сжимаем все выбранные файлы и добавляем в том же порядке. */
@@ -10966,11 +11043,18 @@ function addSlideFiles(files){
   if(!take.length) return;
   if(take.length > 1) toast(`Готовлю фото: ${take.length}…`);
 
-  const ready = new Array(take.length);
-  let done = 0;
-  take.forEach((f, i) => shrinkImage(f, 1400, data => {
-    ready[i] = (data && data.length <= 1.6e6) ? data : '';
-    if(++done < take.length) return;
+  /* По одному файлу за раз: параллельная обработка нескольких снимков
+     раньше подвешивала вкладку — каждый из них полностью декодировался
+     в память одновременно с остальными. */
+  (async () => {
+    const ready = new Array(take.length);
+    for(let i = 0; i < take.length; i++){
+      let data = '';
+      try{ data = await fileToPhotoDataUrl(take[i], 1400, 0.84, {flatten: true}); }
+      catch(e){ data = ''; }
+      ready[i] = (data && data.length <= 1.6e6) ? data : '';
+      await letUiBreathe();
+    }
 
     const base = Date.now();
     let added = 0, heavy = 0;
@@ -10985,7 +11069,7 @@ function addSlideFiles(files){
     if(heavy) msg += ` · тяжёлых пропущено: ${heavy}`;
     if(overflow) msg += ` · сверх лимита: ${overflow}`;
     toast(msg);
-  }));
+  })();
 }
 
 function slideForm(s){
@@ -12574,23 +12658,44 @@ function pForm(p){
     paintGal();
   };
 
+  let addingPhotos = false;
+  /**
+   * Фото добавляются по одному, а не все разом: раньше выбор пяти снимков
+   * запускал пять полных декодирований одновременно и вешал вкладку.
+   * Каждое готовое фото сразу появляется в списке — это и есть прогресс.
+   */
   async function addFiles(list){
+    if(addingPhotos) return;
     const room = MAX_PHOTOS - galList.length;
     if(room <= 0) return toast('Максимум ' + MAX_PHOTOS + ' фото');
     const files = [...list].slice(0, room);
-    for(const f of files){
-      if(!String(f.type||'').startsWith('image/')){ toast('Нужны изображения'); continue; }
-      try{
-        const raw = await readFileAsDataURL(f);
-        /* 1600 / 0.86 вместо 1800 / 0.92: на витрине разницы не видно,
-           а фото весит примерно вдвое меньше и каталог грузится быстрее */
-        const small = await compressDataUrl(raw, 1600, 0.86);
-        galList.push(small);
-      }catch(err){
-        toast('Не удалось прочитать фото');
+    if(!files.length) return;
+    addingPhotos = true;
+    file.disabled = true;
+    if(files.length > 1) toast('Готовлю фото: ' + files.length + '…');
+    let ok = 0, bad = 0;
+    try{
+      for(const f of files){
+        try{
+          /* 1600 / 0.86: на витрине разницы не видно, а фото весит вдвое
+             меньше и каталог грузится быстрее */
+          galList.push(await fileToPhotoDataUrl(f, 1600, 0.86));
+          ok++;
+          paintGal();
+        }catch(err){
+          bad++;
+          toast((err && err.message) || 'Не удалось прочитать фото');
+        }
+        /* отдаём кадр интерфейсу, иначе список не успевает обновиться */
+        await letUiBreathe();
       }
+    } finally {
+      addingPhotos = false;
+      file.disabled = false;
+      file.value = '';
+      paintGal();
     }
-    paintGal();
+    if(files.length > 1 && ok) toast('Добавлено фото: ' + ok + (bad ? ' · не вышло: ' + bad : ''));
   }
 
   file.onchange = () => addFiles(file.files || []);

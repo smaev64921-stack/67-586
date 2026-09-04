@@ -941,8 +941,24 @@ app.use(express.static(publicDir, {
     res.setHeader('Cache-Control', /\.html?$/i.test(filePath) ? 'no-cache' : 'public, max-age=604800');
   }
 }));
+/* Браузер сам просит эти адреса на каждой странице. Своего файла у них
+   не было, и каждый такой запрос проваливался в catch-all ниже, получая
+   весь index.html — 567 КБ вместо иконки, да ещё и по два раза за загрузку. */
+app.get('/favicon.ico', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=604800');
+  res.status(204).end();
+});
+app.get('/robots.txt', (_req, res) => {
+  res.type('text/plain').send('User-agent: *\nAllow: /\n');
+});
+
+/* Всё, что похоже на файл (есть расширение), но до сюда долетело — значит
+   такого файла нет. Отдаём 404, а не страницу: иначе опечатка в пути или
+   иконка, которую браузер ищет сам, стоят покупателю полмегабайта трафика. */
+const FILE_LIKE = /\.[a-z0-9]{1,8}$/i;
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
+  if (FILE_LIKE.test(req.path)) return res.status(404).end();
   indexHandler(req, res);
 });
 
