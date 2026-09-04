@@ -53,10 +53,13 @@ img{display:block;max-width:100%}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 
 /* ---------- прогресс прокрутки ---------- */
+/* Растягиваем полосу через scaleX, а не через width: ширина заставляла бы
+   браузер пересчитывать раскладку на каждом кадре прокрутки. */
 .bar{
   position:fixed;left:0;top:0;height:2px;z-index:50;
-  background:var(--ink);width:0;
-  transition:width .12s linear
+  background:var(--ink);width:100%;
+  transform:scaleX(0);transform-origin:0 50%;
+  transition:transform .12s linear
 }
 
 /* ---------- «пропустить» ---------- */
@@ -463,25 +466,30 @@ img{display:block;max-width:100%}
     blocks.forEach(function(b){ b.classList.add('is-in'); });   // старый браузер — просто покажем
   }
 
-  /* --- полоса прогресса --- */
+  /* --- полоса прогресса ---
+     Высоту страницы меряем заранее и запоминаем. Тогда на каждом кадре
+     прокрутки остаётся только запись — браузеру нечего пересчитывать,
+     и обходимся без requestAnimationFrame. Он тут был бы даже опасен:
+     в фоновой вкладке кадры не идут, и сторож «уже запланировано» завис
+     бы поднятым навсегда — полоса больше не сдвинулась бы никогда. */
   var bar = document.getElementById('bar');
   var skip = document.getElementById('skip');
-  var ticking = false;
+  var maxScroll = 0;
+
   function onScroll(){
-    if(ticking) return;
-    ticking = true;
-    requestAnimationFrame(function(){
-      var max = document.documentElement.scrollHeight - window.innerHeight;
-      var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
-      if(bar) bar.style.width = (p * 100).toFixed(2) + '%';
-      /* у самого низа «Пропустить» лишняя — там уже стоит кнопка */
-      if(skip) skip.classList.toggle('is-gone', p > 0.88);
-      ticking = false;
-    });
+    var p = maxScroll > 0 ? Math.min(1, Math.max(0, window.scrollY / maxScroll)) : 0;
+    if(bar) bar.style.transform = 'scaleX(' + p.toFixed(4) + ')';
+    /* у самого низа «Пропустить» лишняя — там уже стоит кнопка */
+    if(skip) skip.classList.toggle('is-gone', p > 0.88);
+  }
+  function measure(){
+    maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    onScroll();
   }
   window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll, { passive: true });
-  onScroll();
+  window.addEventListener('resize', measure, { passive: true });
+  window.addEventListener('load', measure);   /* дозагрузились картинки — перемерим */
+  measure();
 
   /* --- выход --- */
   function leave(e){
