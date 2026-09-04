@@ -1814,8 +1814,11 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 }
 .amod__tg:hover{background:#e8f6fd;border-color:#a9d8f0}
 .amod__tg .ic{flex:none;width:15px;height:15px;stroke:#229ED9;fill:none}
+/* Кнопку рисует скрипт Google — ему нужно только место по центру. */
+.amod__gwrap{display:flex;justify-content:center;min-height:0;margin-bottom:6px}
+.amod__gwrap:empty{margin-bottom:0}
 /* Google требует свой знак в фирменных цветах на белом или светло-сером
-   фоне — перекрашивать его нельзя, поэтому кнопка нейтральная. */
+   фоне — перекрашивать его нельзя, поэтому запасная кнопка нейтральная. */
 .amod__google{
   display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
   margin-bottom:6px;padding:9px 12px;border:1.5px solid var(--line2);
@@ -4631,10 +4634,15 @@ const GOOGLE_MARK = `<svg viewBox="0 0 48 48" aria-hidden="true">
   <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
 </svg>`;
 
-/** Кнопка входа через Google. Пока ключи не заданы на сервере — не показываем. */
+/**
+ * Место под кнопку Google. Саму кнопку рисует их скрипт — он открывает
+ * окно выбора аккаунта. Своя кнопка остаётся запасной: показываем её,
+ * только если скрипт Google не загрузился.
+ */
 function googleBtnHTML(){
   if(!window.__LC_GOOGLE) return '';
-  return `<button type="button" class="amod__google" data-a="auth_google">
+  return `<div class="amod__gwrap" id="gsiBtn"></div>
+  <button type="button" class="amod__google hide" id="gsiFallback" data-a="auth_google">
     ${GOOGLE_MARK}<span>Войти через Google</span>
   </button>`;
 }
@@ -4664,40 +4672,62 @@ function loadGoogleScript(){
   return gsiLoading;
 }
 
-async function startGoogleLogin(){
+/** Общий обработчик ответа Google: токен -> сервер -> вход. */
+async function onGoogleCredential(resp){
+  if(!resp || !resp.credential){ toast('Google не вернул данные'); return; }
+  try{
+    const d = await LC.api('/api/auth/google/token', {
+      method:'POST', body:{ credential: resp.credential }
+    });
+    if(d && d.token) LC.setToken(d.token);
+    toast('Вы вошли через Google');
+    authDone(d && d.user, false);
+  }catch(err){
+    toast((err && err.message) || 'Google вход не удался');
+  }
+}
+
+/**
+ * Рисует кнопку Google в открытом окне входа.
+ *
+ * Раньше здесь вызывался prompt() — всплывающее окошко One Tap. Google
+ * глушит его после первого закрытия (и когда браузер режет сторонние
+ * куки), а запасным путём стоял переход на старую схему с секретным
+ * ключом — которого у нас нет. Отсюда и была ошибка про ключи Google
+ * при второй попытке входа. Настоящая кнопка таких ограничений не имеет.
+ */
+async function mountGoogleButton(){
+  const box = document.getElementById('gsiBtn');
   const cid = window.__LC_GOOGLE_ID;
-  /* Client ID нет — значит на сервере только старая схема с секретом */
-  if(!cid){ location.href = '/api/auth/google'; return; }
+  if(!box || !cid) return;
 
   const ok = await loadGoogleScript();
-  if(!ok || !window.google || !google.accounts || !google.accounts.id){
-    toast('Google недоступен — попробуйте войти почтой');
+  const api = window.google && google.accounts && google.accounts.id;
+  if(!ok || !api){
+    /* скрипт Google не доехал — показываем свою кнопку */
+    const fb = document.getElementById('gsiFallback');
+    if(fb) fb.classList.remove('hide');
     return;
   }
-  google.accounts.id.initialize({
-    client_id: cid,
-    callback: async resp => {
-      if(!resp || !resp.credential){ toast('Google не вернул данные'); return; }
-      try{
-        const d = await LC.api('/api/auth/google/token', {
-          method:'POST', body:{ credential: resp.credential }
-        });
-        if(d && d.token) LC.setToken(d.token);
-        toast('Вы вошли через Google');
-        authDone(d && d.user, false);
-      }catch(err){
-        toast((err && err.message) || 'Google вход не удался');
-      }
-    }
+  if(!document.getElementById('gsiBtn')) return;   // окно успели закрыть
+  google.accounts.id.initialize({ client_id: cid, callback: onGoogleCredential });
+  google.accounts.id.renderButton(box, {
+    type: 'standard', theme: 'outline', size: 'large',
+    text: 'signin_with', shape: 'rectangular', logo_alignment: 'center',
+    locale: 'ru', width: Math.round(Math.min(400, box.clientWidth || 320))
   });
-  /* Своя кнопка вместо гугловской: рисуем окно выбора аккаунта вручную. */
-  google.accounts.id.prompt(note => {
-    /* Пользователь закрыл окно или браузер заблокировал сторонние куки —
-       тогда уводим на обычную страницу входа Google. */
-    if(note && (note.isNotDisplayed && note.isNotDisplayed() || note.isSkippedMoment && note.isSkippedMoment())){
-      location.href = '/api/auth/google';
-    }
-  });
+}
+
+/** Запасной путь: сработает, только если скрипт Google не загрузился. */
+async function startGoogleLogin(){
+  const ok = await loadGoogleScript();
+  const api = window.google && google.accounts && google.accounts.id;
+  if(!ok || !api || !window.__LC_GOOGLE_ID){
+    toast('Google сейчас недоступен — войдите почтой или через Telegram');
+    return;
+  }
+  google.accounts.id.initialize({ client_id: window.__LC_GOOGLE_ID, callback: onGoogleCredential });
+  google.accounts.id.prompt();
 }
 function tgIcon(cls){
   return `<img class="${cls || 'pitem__tg'}" src="${TG_ICON}" alt="" width="18" height="18" decoding="async">`;
@@ -6382,6 +6412,7 @@ function authModal(view){
   if(!w) return;
   w.querySelectorAll('[data-av]').forEach(b => b.onclick = () => authModal(b.dataset.av));
   w.querySelector('#amF').onsubmit = e => { e.preventDefault(); authSubmit(); };
+  mountGoogleButton();
 }
 
 /* Полноэкранный вход по коду из бота (старый экран auth) */
