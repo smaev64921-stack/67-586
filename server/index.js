@@ -13,6 +13,7 @@ const {
 } = require('./auth');
 const googleAuth = require('./google-auth');
 const googleIdToken = require('./google-id-token');
+const userPrefs = require('./user-prefs');
 const {
   requestPasswordReset, resetPassword, smtpConfigured,
   openResetLink, revealCode, issueTicket, checkTicket
@@ -588,6 +589,26 @@ app.post('/api/auth/google/token', authRateLimit('google-token', 30), async (req
     res.json({ user: publicUser(user), token });
   } catch (e) {
     res.status(e.status || 401).json({ error: e.message || 'Google вход не удался' });
+  }
+});
+
+/* -------- корзина, избранное и прочие мелочи покупателя --------
+   Лежат на сервере, чтобы один аккаунт видел одно и то же с телефона
+   и с компьютера. Товары, заказы и отзывы синхронизировались и раньше,
+   а это оставалось только в браузере. */
+app.get('/api/me/prefs', authRequired, (req, res) => {
+  try {
+    res.json(userPrefs.getPrefs(req.user.id));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+app.put('/api/me/prefs', authRequired, (req, res) => {
+  try {
+    res.json(userPrefs.savePrefs(req.user.id, req.body || {}));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
   }
 });
 

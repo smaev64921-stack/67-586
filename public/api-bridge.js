@@ -62,6 +62,9 @@
     getToken,
     setToken,
     async health() { return api('/api/health'); },
+    /* корзина, избранное и прочие мелочи — общие для всех устройств */
+    async getPrefs() { return api('/api/me/prefs'); },
+    async savePrefs(data) { return api('/api/me/prefs', { method: 'PUT', body: data }); },
     /* короткие отпечатки данных: по ним видно, надо ли вообще качать каталог */
     async liveVersion() { return api('/api/live-version'); },
     async loadCatalog() {

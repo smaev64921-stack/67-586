@@ -2745,10 +2745,44 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   padding:calc(56px + env(safe-area-inset-top)) 12px calc(40px + env(safe-area-inset-bottom));
   animation:fadeIn .2s var(--ease);touch-action:none
 }
+/* Сцена под фото: сама картинка внутри двигается и масштабируется.
+   Размеры задаём через inset, а не процентами: у флекс-родителя высота
+   считается по содержимому, а содержимое меряется по родителю — сцена
+   схлопывалась в ноль, и фото некуда было двигать. */
+.lbox__stage{
+  position:absolute;
+  top:calc(56px + env(safe-area-inset-top));
+  bottom:calc(40px + env(safe-area-inset-bottom));
+  left:12px;right:12px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden
+}
 .lbox img{
   max-width:100%;max-height:100%;width:auto;height:auto;
-  object-fit:contain;border-radius:0;user-select:none;-webkit-user-drag:none
+  object-fit:contain;border-radius:0;user-select:none;-webkit-user-drag:none;
+  transform-origin:0 0;will-change:transform;cursor:zoom-in
 }
+/* плавность только для двойного тапа и кнопок: под пальцем она мешает */
+.lbox img.is-eased{transition:transform .26s cubic-bezier(.16,1,.3,1)}
+.lbox.is-zoomed img{cursor:grab}
+.lbox.is-dragging img{cursor:grabbing}
+/* пока увеличено — стрелки и счётчик не загораживают фото */
+.lbox__nav,.lbox__n{transition:opacity .2s var(--ease)}
+.lbox.is-zoomed .lbox__nav,.lbox.is-zoomed .lbox__n{opacity:0;pointer-events:none}
+.lbox__k{
+  position:absolute;left:50%;transform:translateX(-50%);
+  top:calc(14px + env(safe-area-inset-top));
+  padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.14);
+  color:#fff;font-size:12.5px;font-weight:700;z-index:2;
+  opacity:0;transition:opacity .2s var(--ease);pointer-events:none
+}
+.lbox.is-zoomed .lbox__k{opacity:1}
+.lbox__hint{
+  position:absolute;left:0;right:0;bottom:calc(44px + env(safe-area-inset-bottom));
+  text-align:center;color:rgba(255,255,255,.6);font-size:12px;z-index:2;
+  animation:lbHint 3.4s var(--ease) forwards;pointer-events:none
+}
+@keyframes lbHint{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}
+.lbox.is-zoomed .lbox__hint{display:none}
 .lbox__x{
   position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;
   width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.12);
@@ -3693,6 +3727,7 @@ function rvRepaint(){
 
 /* Фото во весь экран (товар / отзывы) */
 let _lboxKey = null;
+let _lboxHintShown = false;
 function openLightbox(srcs, startIdx){
   const list = (Array.isArray(srcs) ? srcs : [srcs]).map(String).filter(Boolean);
   if(!list.length) return;
@@ -3711,23 +3746,178 @@ function openLightbox(srcs, startIdx){
     if(_lboxKey){ document.removeEventListener('keydown', _lboxKey); _lboxKey = null; }
     document.body.style.overflow = '';
   };
+  /* ---------- увеличение фото ----------
+     k — во сколько раз увеличено, tx/ty — сдвиг картинки внутри сцены.
+     Всё считается вручную, без библиотек: щипок двумя пальцами, двойной
+     тап, колесо мыши и перетаскивание увеличенного фото. */
+  const MAX_K = 5;
+  let k = 1, tx = 0, ty = 0, img = null;
+
+  const stage = () => w.querySelector('.lbox__stage');
+
+  const apply = (eased) => {
+    if(!img) return;
+    img.classList.toggle('is-eased', !!eased);
+    img.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
+    w.classList.toggle('is-zoomed', k > 1.01);
+    const kb = w.querySelector('.lbox__k');
+    if(kb) kb.textContent = (Math.round(k * 10) / 10).toString().replace(/\.0$/, '') + '×';
+  };
+
+  /* Держим фото в кадре: пустых полей по краям быть не должно. */
+  const clamp = () => {
+    const st = stage();
+    if(!st || !img) return;
+    const baseX = (st.clientWidth - img.clientWidth) / 2;
+    const baseY = (st.clientHeight - img.clientHeight) / 2;
+    const overX = Math.max(0, (img.clientWidth * k - st.clientWidth) / 2);
+    const overY = Math.max(0, (img.clientHeight * k - st.clientHeight) / 2);
+    tx = Math.min(baseX + overX, Math.max(baseX - overX, tx));
+    ty = Math.min(baseY + overY, Math.max(baseY - overY, ty));
+  };
+
+  const reset = (eased) => {
+    const st = stage();
+    if(!st || !img) return;
+    k = 1;
+    tx = (st.clientWidth - img.clientWidth) / 2;
+    ty = (st.clientHeight - img.clientHeight) / 2;
+    apply(eased);
+  };
+
+  /** Увеличиваем вокруг точки, на которую смотрят, а не вокруг угла. */
+  const zoomAt = (nk, px, py, eased) => {
+    const st = stage();
+    if(!st || !img) return;
+    nk = Math.min(MAX_K, Math.max(1, nk));
+    const r = st.getBoundingClientRect();
+    const cx = px - r.left, cy = py - r.top;
+    const ratio = nk / k;
+    tx = cx - (cx - tx) * ratio;
+    ty = cy - (cy - ty) * ratio;
+    k = nk;
+    if(k <= 1.01){ reset(true); return; }
+    clamp();
+    apply(eased);
+  };
+
+  const go = (step) => { i = (i + step + list.length) % list.length; paint(); };
+
   const paint = () => {
     w.innerHTML = `
       <button class="lbox__x" type="button" aria-label="Закрыть">${svg('x')}</button>
       ${list.length > 1 ? `<button class="lbox__nav lbox__nav--p" type="button" aria-label="Назад">‹</button>
       <button class="lbox__nav lbox__nav--n" type="button" aria-label="Вперёд">›</button>` : ''}
-      <img src="${esc(list[i])}" alt="Фото ${i + 1} из ${list.length}">
-      ${list.length > 1 ? `<p class="lbox__n">${i + 1} / ${list.length}</p>` : ''}`;
+      <span class="lbox__k">1×</span>
+      <div class="lbox__stage"><img src="${esc(list[i])}" alt="Фото ${i + 1} из ${list.length}"></div>
+      ${list.length > 1 ? `<p class="lbox__n">${i + 1} / ${list.length}</p>` : ''}
+      ${_lboxHintShown ? '' : '<p class="lbox__hint">Двойное касание или колесо — приблизить</p>'}`;
+    _lboxHintShown = true;
+    w.classList.remove('is-zoomed', 'is-dragging');
+
     w.querySelector('.lbox__x').onclick = e => { e.stopPropagation(); close(); };
     const prev = w.querySelector('.lbox__nav--p');
     const next = w.querySelector('.lbox__nav--n');
-    if(prev) prev.onclick = e => { e.stopPropagation(); i = (i - 1 + list.length) % list.length; paint(); };
-    if(next) next.onclick = e => { e.stopPropagation(); i = (i + 1) % list.length; paint(); };
-    const img = w.querySelector('img');
-    if(img) img.onclick = e => e.stopPropagation();
+    if(prev) prev.onclick = e => { e.stopPropagation(); go(-1); };
+    if(next) next.onclick = e => { e.stopPropagation(); go(1); };
+
+    img = w.querySelector('img');
+    if(!img) return;
+    k = 1; tx = 0; ty = 0;
+    const place = () => reset(false);
+    if(img.complete && img.naturalWidth) place(); else img.onload = place;
+    img.onclick = e => e.stopPropagation();
+    img.ondblclick = e => {
+      e.stopPropagation();
+      if(k > 1.01) reset(true); else zoomAt(2.6, e.clientX, e.clientY, true);
+    };
   };
 
-  w.onclick = () => close();
+  /* --- жесты. Обработчики вешаем один раз на окно, а не на картинку:
+         при листании она пересоздаётся. --- */
+  const pts = new Map();
+  let pinchStartDist = 0, pinchStartK = 1;
+  let swipeFromX = 0, movedPath = 0, lastTapAt = 0;
+
+  const twoDist = () => {
+    const a = [...pts.values()];
+    return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+  };
+  const twoMid = () => {
+    const a = [...pts.values()];
+    return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 };
+  };
+
+  w.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomAt(k * (e.deltaY < 0 ? 1.18 : 1 / 1.18), e.clientX, e.clientY, false);
+  }, { passive: false });
+
+  w.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if(pts.size === 1){
+      swipeFromX = e.clientX;
+      movedPath = 0;
+      w.classList.add('is-dragging');
+      try{ w.setPointerCapture(e.pointerId); }catch(_){}
+    }
+    if(pts.size === 2){ pinchStartDist = twoDist(); pinchStartK = k; }
+  });
+
+  w.addEventListener('pointermove', e => {
+    const was = pts.get(e.pointerId);
+    if(!was) return;
+    const dx = e.clientX - was.x, dy = e.clientY - was.y;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    movedPath += Math.abs(dx) + Math.abs(dy);
+
+    if(pts.size >= 2 && pinchStartDist > 0){
+      const m = twoMid();
+      zoomAt(pinchStartK * (twoDist() / pinchStartDist), m.x, m.y, false);
+      return;
+    }
+    if(pts.size === 1 && k > 1.01){
+      tx += dx; ty += dy;
+      clamp();
+      apply(false);
+    }
+  });
+
+  const liftUp = e => {
+    const wasCount = pts.size;
+    pts.delete(e.pointerId);
+    if(pts.size < 2) pinchStartDist = 0;
+    if(pts.size === 0) w.classList.remove('is-dragging');
+    if(wasCount !== 1) return;
+
+    /* двойной тап пальцем: dblclick на мобильных срабатывает не везде */
+    if(movedPath < 10){
+      const now = Date.now();
+      if(now - lastTapAt < 300){
+        lastTapAt = 0;
+        if(k > 1.01) reset(true); else zoomAt(2.6, e.clientX, e.clientY, true);
+        return;
+      }
+      lastTapAt = now;
+      /* одиночный тап по фону закрывает — но только если не увеличено */
+      const target = e.target;
+      setTimeout(() => {
+        if(lastTapAt && k <= 1.01 && (target === w || target === stage())) close();
+      }, 310);
+      return;
+    }
+    /* горизонтальный свайп листает, пока фото не увеличено */
+    if(k <= 1.01 && list.length > 1){
+      const dx = e.clientX - swipeFromX;
+      if(Math.abs(dx) > 60) go(dx < 0 ? 1 : -1);
+    }
+  };
+  w.addEventListener('pointerup', liftUp);
+  w.addEventListener('pointercancel', liftUp);
+  window.addEventListener('resize', () => { if(k <= 1.01) reset(false); else { clamp(); apply(false); } });
+
+  /* закрытие по касанию фона обрабатывается в liftUp — так одиночный тап
+     не мешает двойному и перетаскиванию увеличенного фото */
   document.body.style.overflow = 'hidden';
   document.body.appendChild(w);
   paint();
@@ -4625,6 +4815,16 @@ function eyeBtn(inputId, cls){
 }
 const TG_ICON = '/telegram.avif';
 
+/* Настройка входа через Google приходит с сервера в /api/health, а это
+   отдельный запрос. Пока он летит, кнопки в окне входа не было — она
+   появлялась через секунду. Запоминаем значение с прошлого захода и
+   рисуем кнопку сразу; ответ сервера потом уточнит. */
+const GOOGLE_ID_KEY = 'lc_google_id';
+try{
+  const cached = localStorage.getItem(GOOGLE_ID_KEY) || '';
+  if(cached){ window.__LC_GOOGLE_ID = cached; window.__LC_GOOGLE = true; }
+}catch(e){}
+
 /* Официальный знак Google. Рисуем отдельно от общего набора иконок:
    те красятся в currentColor, а этому логотипу цвета менять нельзя. */
 const GOOGLE_MARK = `<svg viewBox="0 0 48 48" aria-hidden="true">
@@ -4849,6 +5049,64 @@ const S = {
 /* Данные покупателя храним отдельно от каталога:
    каталог правит владелец через админку, это — личное. */
 const UKEY = 'shop_user_v1';
+/* ==========================================================
+   КОРЗИНА И ИЗБРАННОЕ МЕЖДУ УСТРОЙСТВАМИ
+   Товары, заказы и отзывы и так приходят с сервера. А корзина,
+   избранное, выбранный ПВЗ и отметки «отзыв полезен» жили только
+   в браузере: сложил корзину на телефоне — на компьютере пусто.
+   Теперь они лежат в аккаунте.
+   ========================================================== */
+let _prefsSaveTimer = 0;
+let _prefsReady = false;   // пока не загрузили — не затираем серверное
+
+function prefsPayload(){
+  return {
+    cart: S.cart || [],
+    favs: S.favs || [],
+    rvVotes: (typeof rvVotes !== 'undefined' && Array.isArray(rvVotes)) ? rvVotes : [],
+    pvz: S.checkout && S.checkout.pvz || null,
+    defaultPvz: S.defaultPvz || null
+  };
+}
+
+/** Отправляем не на каждый чих: клики по «+» идут очередями. */
+function pushPrefs(){
+  if(!_prefsReady || !S.user || !window.LC || !LC.savePrefs) return;
+  clearTimeout(_prefsSaveTimer);
+  _prefsSaveTimer = setTimeout(() => {
+    LC.savePrefs(prefsPayload()).catch(() => {});
+  }, 700);
+}
+
+/**
+ * Тянем сохранённое при входе. Корзину и избранное объединяем, а не
+ * заменяем: человек мог положить что-то в корзину до входа, и терять
+ * это нельзя.
+ */
+async function pullPrefs(){
+  if(!S.user || !window.LC || !LC.getPrefs) return;
+  try{
+    const p = await LC.getPrefs();
+    if(!p) return;
+    const byKey = i => [i.id, i.size || '', i.color || ''].join('|');
+    const seen = new Set((S.cart || []).map(byKey));
+    (p.cart || []).forEach(i => { if(i && !seen.has(byKey(i))){ S.cart.push(i); seen.add(byKey(i)); } });
+    const favs = new Set([...(S.favs || []), ...(p.favs || [])].map(Number).filter(Boolean));
+    S.favs = [...favs];
+    if(typeof rvVotes !== 'undefined' && Array.isArray(p.rvVotes)){
+      rvVotes = [...new Set([...(rvVotes || []), ...p.rvVotes])];
+      try{ rvSave(); }catch(e){}
+    }
+    if(!S.defaultPvz && p.defaultPvz) S.defaultPvz = p.defaultPvz;
+    if(S.checkout && !S.checkout.pvz && p.pvz) S.checkout.pvz = p.pvz;
+    saveUser();
+  }catch(e){}
+  finally{
+    _prefsReady = true;
+    pushPrefs();   // отдаём объединённое обратно
+  }
+}
+
 function saveUser(){
   try{
     localStorage.setItem(UKEY, JSON.stringify({
@@ -4858,6 +5116,7 @@ function saveUser(){
       orderSeen:S.orderSeen || {},
       orderSeenInit:!!S.orderSeenInit
     }));
+    pushPrefs();
     return true;
   }catch(e){ return false; }
 }
@@ -4930,9 +5189,12 @@ async function applyServerSession(){
   try{
     const me = await LC.me();
     if(me){
+      const wasOther = !S.user || S.user.id !== me.id;
       S.user = me;
       if(me.admin) grantAdmin(me.email);
       saveUser();
+      /* новый вход — подтянуть корзину и избранное из аккаунта */
+      if(wasOther){ _prefsReady = false; pullPrefs(); }
       return me;
     }
     if(S.user) clearLocalSession();
@@ -11926,6 +12188,11 @@ function pvzImport(raw){
   return {added, bad};
 }
 
+/* Что уже нарисовано в панели. Без этой проверки любой фоновый опрос
+   сервера перерисовывал панель целиком — терялась прокрутка, слетал
+   набранный в полях текст, и экран заметно моргал. */
+let _admPaintKey = '';
+
 function paintAdmin(){
   const root = adm.querySelector('.ad');
   if(!root) return;
@@ -11939,7 +12206,16 @@ function paintAdmin(){
   const views = {dash:viewDash, catalog:viewCatalog, orders:viewOrders, reviews:viewReviews, clients:viewClients,
     logo:viewLogo, slider:viewSlider, tryon:viewTryon, promo:viewPromo, content:viewContent};
   if(adTab === 'pvz') adTab = 'dash';
-  main.innerHTML = (views[adTab]||viewDash)();
+  const html = (views[adTab]||viewDash)();
+  const key = adTab + '\n' + html;
+  /* ничего не поменялось — не трогаем DOM вообще */
+  if(key === _admPaintKey && main.innerHTML){
+    const c0 = root.querySelector('.ad__c');
+    if(c0) c0.textContent = adOrdersLine(analytics());
+    return;
+  }
+  _admPaintKey = key;
+  main.innerHTML = html;
   bindAdminView();
   const c = root.querySelector('.ad__c');
   if(c){
@@ -12198,6 +12474,7 @@ async function openAdmin(){
   if(!isAdmin()){ toast('Нет доступа'); return; }
   document.body.style.overflow = 'hidden';
   document.body.classList.add('adm-on');
+  _admPaintKey = '';
   adTab = 'dash';
   if(window.LC){
     try{
@@ -12939,6 +13216,16 @@ async function bootFromServer(){
       window.__LC_TG_BOT = String(health.telegramBot || '').replace(/^@/, '');
       window.__LC_GOOGLE = !!health.google;
       window.__LC_GOOGLE_ID = String(health.googleClientId || '');
+      try{
+        if(window.__LC_GOOGLE_ID) localStorage.setItem(GOOGLE_ID_KEY, window.__LC_GOOGLE_ID);
+        else localStorage.removeItem(GOOGLE_ID_KEY);
+      }catch(e){}
+      /* окно входа уже открыто, а кнопки в нём нет — дорисовываем */
+      if(window.__LC_GOOGLE_ID && ov.querySelector('.amod') && !ov.querySelector('#gsiBtn')){
+        authModal(authMod.view);
+      } else if(ov.querySelector('#gsiBtn')){
+        mountGoogleButton();
+      }
       window.__LC_SMTP = !!health.smtp;
       window.__LC_CDEK = !!health.cdek;
       const [products, cms] = await Promise.all([LC.loadCatalog(), LC.loadCms()]);
@@ -13232,8 +13519,13 @@ bootFromServer().catch((err) => {
         jobs.push(admin ? LC.loadCatalogAll().catch(() => LC.loadCatalog()) : LC.loadCatalog());
       }
       /* заказы отпечатка не имеют — опрашиваем реже, они меняются не мгновенно */
-      const wantOrders = (++ordTick % 3 === 1) || adminOn;
-      if(S.user && wantOrders){ ordersIdx = jobs.length; jobs.push(LC.myOrders()); }
+      const wantOrders = (++ordTick % 3 === 1);
+      /* Пока открыта админка, свои покупательские заказы не трогаем: ниже
+         тем же тиком грузятся ВСЕ заказы магазина, и список ORDERS
+         перезаписывался дважды разным содержимым. «Что-то изменилось»
+         срабатывало каждый раз, панель перерисовывалась каждые 2 секунды —
+         это и было моргание. */
+      if(S.user && wantOrders && !adminOn){ ordersIdx = jobs.length; jobs.push(LC.myOrders()); }
       if(changed('reviews')){
         reviewsIdx = jobs.length;
         jobs.push(admin ? LC.adminReviews() : LC.loadReviews());
