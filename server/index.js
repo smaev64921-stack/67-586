@@ -12,6 +12,7 @@ const {
   upsertGoogleUser, linkOwnerChat
 } = require('./auth');
 const googleAuth = require('./google-auth');
+const googleIdToken = require('./google-id-token');
 const {
   requestPasswordReset, resetPassword, smtpConfigured,
   openResetLink, revealCode, issueTicket, checkTicket
@@ -153,7 +154,9 @@ function healthPayload() {
     telegram: telegramBot.configured(),
     telegramBot: telegramBot.botUsername() || '',
     telegramGateway,
-    google: googleAuth.configured(),
+    google: googleAuth.configured() || googleIdToken.configured(),
+    /* публичный идентификатор — по нему браузер рисует кнопку Google */
+    googleClientId: googleIdToken.clientId(),
     smtp: smtpConfigured(),
     tryon: tryonServerConfigured(),
     cdek: cdek.configured(),
@@ -566,6 +569,25 @@ app.get('/api/auth/google/callback', async (req, res) => {
   } catch (e) {
     console.error('Google callback:', e.message);
     res.redirect('/?auth_err=' + encodeURIComponent(e.message || 'Google ошибка'));
+  }
+});
+
+/* Вход через кнопку Google (Identity Services).
+   Браузер присылает подписанный ID-токен, сервер проверяет подпись
+   публичными ключами Google. Секретный ключ приложения тут не нужен. */
+app.post('/api/auth/google/token', authRateLimit('google-token', 30), async (req, res) => {
+  try {
+    const profile = await googleIdToken.verifyIdToken((req.body || {}).credential);
+    if (!profile.emailVerified) {
+      return res.status(403).json({ error: 'Подтвердите email в Google' });
+    }
+    const user = upsertGoogleUser(profile);
+    claimOrdersForUser(user);
+    const token = signUser(user);
+    setAuthCookie(res, token);
+    res.json({ user: publicUser(user), token });
+  } catch (e) {
+    res.status(e.status || 401).json({ error: e.message || 'Google вход не удался' });
   }
 });
 

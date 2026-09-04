@@ -4638,6 +4638,67 @@ function googleBtnHTML(){
     ${GOOGLE_MARK}<span>Войти через Google</span>
   </button>`;
 }
+
+/* ==========================================================
+   ВХОД ЧЕРЕЗ GOOGLE
+   Работает по ID-токену (Google Identity Services): Google отдаёт
+   браузеру подписанный токен, сервер проверяет подпись публичными
+   ключами Google. Секретный ключ приложения при этом не нужен —
+   поэтому его нигде и нет.
+
+   Если Client ID не пришёл, откатываемся на старый переход
+   /api/auth/google — он работает, когда на сервере задан секрет.
+   ========================================================== */
+let gsiLoading = null;
+function loadGoogleScript(){
+  if(window.google && google.accounts && google.accounts.id) return Promise.resolve(true);
+  if(gsiLoading) return gsiLoading;
+  gsiLoading = new Promise(resolve => {
+    const sc = document.createElement('script');
+    sc.src = 'https://accounts.google.com/gsi/client';
+    sc.async = true;
+    sc.onload = () => resolve(true);
+    sc.onerror = () => resolve(false);   // без интернета до Google — не падаем
+    document.head.appendChild(sc);
+  });
+  return gsiLoading;
+}
+
+async function startGoogleLogin(){
+  const cid = window.__LC_GOOGLE_ID;
+  /* Client ID нет — значит на сервере только старая схема с секретом */
+  if(!cid){ location.href = '/api/auth/google'; return; }
+
+  const ok = await loadGoogleScript();
+  if(!ok || !window.google || !google.accounts || !google.accounts.id){
+    toast('Google недоступен — попробуйте войти почтой');
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: cid,
+    callback: async resp => {
+      if(!resp || !resp.credential){ toast('Google не вернул данные'); return; }
+      try{
+        const d = await LC.api('/api/auth/google/token', {
+          method:'POST', body:{ credential: resp.credential }
+        });
+        if(d && d.token) LC.setToken(d.token);
+        toast('Вы вошли через Google');
+        authDone(d && d.user, false);
+      }catch(err){
+        toast((err && err.message) || 'Google вход не удался');
+      }
+    }
+  });
+  /* Своя кнопка вместо гугловской: рисуем окно выбора аккаунта вручную. */
+  google.accounts.id.prompt(note => {
+    /* Пользователь закрыл окно или браузер заблокировал сторонние куки —
+       тогда уводим на обычную страницу входа Google. */
+    if(note && (note.isNotDisplayed && note.isNotDisplayed() || note.isSkippedMoment && note.isSkippedMoment())){
+      location.href = '/api/auth/google';
+    }
+  });
+}
 function tgIcon(cls){
   return `<img class="${cls || 'pitem__tg'}" src="${TG_ICON}" alt="" width="18" height="18" decoding="async">`;
 }
@@ -10153,7 +10214,7 @@ document.addEventListener('click', e => {
       break;
     }
     case 'auth_google':
-      location.href = '/api/auth/google';
+      startGoogleLogin();
       break;
     case 'auth_tg':
       openTelegram(S.authMode === 'reg' ? 'reg' : 'login', { sameTab: true });
@@ -12846,6 +12907,7 @@ async function bootFromServer(){
       window.__LC_YK = !!health.yookassa;
       window.__LC_TG_BOT = String(health.telegramBot || '').replace(/^@/, '');
       window.__LC_GOOGLE = !!health.google;
+      window.__LC_GOOGLE_ID = String(health.googleClientId || '');
       window.__LC_SMTP = !!health.smtp;
       window.__LC_CDEK = !!health.cdek;
       const [products, cms] = await Promise.all([LC.loadCatalog(), LC.loadCms()]);
