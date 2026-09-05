@@ -8,7 +8,9 @@
 <!-- Без этих строк браузер сам дёргает /favicon.ico и /apple-touch-icon.png,
      а раньше на них прилетал весь index.html — по 567 КБ на каждый. -->
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="apple-touch-icon" href="/logo.png">
+<!-- Отдельный файл, а не /logo.png: iOS кладёт иконку на сплошную подложку,
+     и чёрный знак по прозрачному фону там просто исчезал. -->
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta http-equiv="Content-Language" content="ru">
 <title>Каталог</title>
 

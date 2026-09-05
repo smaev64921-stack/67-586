@@ -986,7 +986,10 @@ app.use(express.static(publicDir, {
      это стоит одного ответа «не изменилось» на 22 КБ картинки. */
   setHeaders(res, filePath) {
     const p = String(filePath).replace(/\\/g, '/');
-    const alwaysCheck = /\.html?$/i.test(p) || /\/(logo|logo-white)\.png$/i.test(p) || /\/favicon\.svg$/i.test(p);
+    const alwaysCheck =
+      /\.html?$/i.test(p) ||
+      /\/(logo|logo-white|apple-touch-icon)\.png$/i.test(p) ||
+      /\/favicon\.svg$/i.test(p);
     res.setHeader('Cache-Control', alwaysCheck ? 'no-cache' : 'public, max-age=604800');
   }
 }));
