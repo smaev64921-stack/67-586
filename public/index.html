@@ -30,6 +30,53 @@
 })();
 </script>
 
+<!-- Приход из знакомства — вторая половина перехода.
+     На /onboarding.html из кнопки разливается чёрный круг со знаком; здесь мы
+     поднимаем такую же черноту и уже из неё проявляем магазин. Без этого между
+     страницами мигал бы белый фон и переход разваливался бы надвое.
+     Занавес рисуем псевдоэлементами на самом html: скрипт работает до <body>,
+     вешать что-то в разметку ещё некуда. -->
+<style>
+html.lc-enter::before,
+html.lc-enter::after{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  opacity:1;transition:opacity .55s ease
+}
+html.lc-enter::before{z-index:99998;background:#0b0b0b}
+html.lc-enter::after{
+  z-index:99999;
+  background:url('/logo-white.png') center center / auto clamp(74px,15vh,110px) no-repeat
+}
+html.lc-leaving::before{opacity:0}
+html.lc-leaving::after{opacity:0;transition-duration:.4s}
+@media (prefers-reduced-motion:reduce){
+  html.lc-enter::before,html.lc-enter::after{transition-duration:.001s}
+}
+</style>
+<script>
+(function(){
+  try{
+    if(!sessionStorage.getItem('lc_enter')) return;
+    /* Снимаем сразу: обновление страницы не должно поднимать занавес заново. */
+    sessionStorage.removeItem('lc_enter');
+    var root = document.documentElement;
+    root.classList.add('lc-enter');
+    var opened = false;
+    function open(){
+      if(opened) return;
+      opened = true;
+      root.classList.add('lc-leaving');
+      setTimeout(function(){ root.classList.remove('lc-enter','lc-leaving'); }, 650);
+    }
+    /* Открываем, когда магазин отрисовался. Но обязательно и по таймауту, и по
+       любой ошибке: занавес, который не убрался, — это чёрный экран вместо сайта. */
+    window.addEventListener('load', function(){ setTimeout(open, 200); });
+    window.addEventListener('error', open);
+    setTimeout(open, 2500);
+  }catch(e){}   /* приватный режим без sessionStorage — просто без перехода */
+})();
+</script>
+
 <!-- ==================================================================
      МАГАЗИН ОДЕЖДЫ — мобильное приложение (все экраны в одном файле)
 

@@ -305,6 +305,25 @@ img{display:block;max-width:100%}
 .fin__note{font-size:11.5px;color:var(--muted);opacity:0;transition:opacity .9s var(--ease) .78s}
 .fin.is-in .fin__note{opacity:1}
 
+/* ================= УХОД В МАГАЗИН =================
+   Кнопка не просто уводит на другую страницу: из неё разливается чёрный круг
+   на весь экран, в черноте проявляется знак — и магазин проступает уже из неё.
+   Белой вспышки между страницами нет, переход читается одним движением.
+   Вторую половину делает сам index.html: он поднимает такой же занавес. */
+.exit{
+  position:fixed;inset:0;z-index:100;background:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  clip-path:circle(0px at var(--x) var(--y));
+  transition:clip-path .78s cubic-bezier(.66,0,.34,1)
+}
+.exit img{
+  width:auto;height:clamp(74px,15vh,110px);
+  opacity:0;transform:scale(.82);
+  transition:opacity .4s var(--ease) .42s, transform .72s var(--out) .42s
+}
+.exit.is-on{clip-path:circle(var(--r) at var(--x) var(--y))}
+.exit.is-on img{opacity:1;transform:none}
+
 /* ---------- если анимации мешают ---------- */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
@@ -439,6 +458,7 @@ img{display:block;max-width:100%}
   'use strict';
   var SEEN = 'lc_onboarded';
   var HOME = '/#catalog';
+  var HANDOFF = 'lc_enter';   /* по нему магазин узнаёт, что мы пришли отсюда */
 
   function markSeen(){ try{ localStorage.setItem(SEEN, '1'); }catch(e){} }
 
@@ -492,7 +512,12 @@ img{display:block;max-width:100%}
     var fin = document.querySelector('.fin');
     if(fin){
       new IntersectionObserver(function(rows, self){
-        if(rows[0].isIntersecting){ markSeen(); self.disconnect(); }
+        if(!rows[0].isIntersecting) return;
+        markSeen();
+        /* Белый знак понадобится через миг — в анимации ухода. Подтягиваем его
+           заранее, иначе он проявится с опозданием поверх уже чёрного экрана. */
+        new Image().src = '/logo-white.png';
+        self.disconnect();
       }, { threshold: 0.5 }).observe(fin);
     }
   } else {
@@ -525,14 +550,61 @@ img{display:block;max-width:100%}
   measure();
 
   /* --- выход --- */
-  function leave(e){
-    if(e) e.preventDefault();
+  var go = document.getElementById('go');
+  var leaving = false;
+
+  /* «Пропустить» уходит сразу: человек сказал, что не хочет это смотреть, —
+     заставлять его ждать анимацию было бы издевательством. */
+  if(skip) skip.addEventListener('click', function(e){
+    e.preventDefault();
     markSeen();
     location.href = HOME;
-  }
-  if(skip) skip.addEventListener('click', leave);
-  var go = document.getElementById('go');
-  if(go) go.addEventListener('click', leave);
+  });
+
+  if(go) go.addEventListener('click', function(e){
+    e.preventDefault();
+    if(leaving) return;          /* второй тычок по кнопке ничего не сбивает */
+    leaving = true;
+    markSeen();
+
+    var reduce = false;
+    try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}
+    if(reduce){ location.href = HOME; return; }
+
+    /* Флажок для магазина: он поднимет такую же черноту со знаком и проявится
+       уже из неё, вместо того чтобы мигнуть белым. */
+    try{ sessionStorage.setItem(HANDOFF, '1'); }catch(_){}
+
+    /* Круг разливается из середины кнопки и должен накрыть самый дальний угол. */
+    var r = go.getBoundingClientRect();
+    var x = r.left + r.width / 2;
+    var y = r.top + r.height / 2;
+    var far = Math.max(
+      Math.hypot(x, y),               Math.hypot(innerWidth - x, y),
+      Math.hypot(x, innerHeight - y), Math.hypot(innerWidth - x, innerHeight - y)
+    );
+
+    var el = document.createElement('div');
+    el.className = 'exit';
+    el.style.setProperty('--x', x.toFixed(1) + 'px');
+    el.style.setProperty('--y', y.toFixed(1) + 'px');
+    el.style.setProperty('--r', Math.ceil(far) + 'px');
+
+    var mark = document.createElement('img');
+    mark.src = '/logo-white.png';
+    mark.alt = '';
+    mark.width = 325;
+    mark.height = 520;
+    el.appendChild(mark);
+    document.body.appendChild(el);
+
+    /* Принудительная перерисовка вместо requestAnimationFrame: в фоновой вкладке
+       кадры не идут, колбэк не вызвался бы — и круг остался бы точкой. */
+    void el.offsetWidth;
+    el.classList.add('is-on');
+
+    setTimeout(function(){ location.href = HOME; }, 880);
+  });
 })();
 </script>
 </body>
