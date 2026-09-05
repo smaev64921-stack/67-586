@@ -550,7 +550,9 @@ s{color:var(--muted2)}
 .ph__t{font-size:20px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;line-height:1.2}
 .ph__m{width:58px;height:58px;opacity:.9}
 
-.gen{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 var(--pad)}
+.gen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 var(--pad)}
+.gen .gen__b{white-space:nowrap;min-width:0}
+@media(max-width:340px){.gen .gen__b{font-size:12px;letter-spacing:.03em;padding-left:4px;padding-right:4px}}
 .gen__b{
   padding:14px 8px;border:1.5px solid var(--ink);border-radius:var(--r-sm);background:var(--card);
   font-size:13px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;text-align:center;
@@ -4811,6 +4813,9 @@ function legalLineAuto(){
    админку — фильтр по категориям появится в шторке сам. */
 const CATS_M = ['Футболки'];
 const CATS_W = ['Футболки'];
+const CATS_U = ['Футболки'];
+/* Подписи пола. Порядок ключей — порядок вкладок на витрине. */
+const GENDER_LAB = {w:'Женское', u:'Унисекс', m:'Мужское'};
 const SIZES = ['XS','S','M','L','XL','XXL'];
 const SORTS = [
   {k:'pop',   t:'По популярности'},
@@ -5759,13 +5764,14 @@ function scrCatalog(){
   const sortT = SORTS.find(s => s.k === S.sort).t;
   return `
   <nav class="crumbs"><a href="#" data-a="go:home">Главная</a><i>/</i><a href="#" data-a="go:catalog">Каталог</a><i>/</i>
-    <b>${S.gender === 'm' ? 'Мужское' : 'Женское'}</b></nav>
+    <b>${GENDER_LAB[S.gender] || 'Женское'}</b></nav>
   <div class="ph">
-    <h1 class="ph__t">${S.gender === 'm' ? 'Мужские' : 'Женские'} футболки</h1>
+    <h1 class="ph__t">${S.gender === 'm' ? 'Мужские футболки' : S.gender === 'u' ? 'Футболки унисекс' : 'Женские футболки'}</h1>
     ${MARK('ph__m')}
   </div>
   <div class="gen">
     <button class="gen__b" data-a="gen:w" ${S.gender === 'w' ? 'aria-current="page"' : ''}>Женское</button>
+    <button class="gen__b" data-a="gen:u" ${S.gender === 'u' ? 'aria-current="page"' : ''}>Унисекс</button>
     <button class="gen__b" data-a="gen:m" ${S.gender === 'm' ? 'aria-current="page"' : ''}>Мужское</button>
   </div>
   <div class="ctrl">
@@ -8568,7 +8574,7 @@ let _restoreGal = 0;
 
 function shopHash(){
   if(S.screen === 'product' && S.productId) return '#p=' + S.productId;
-  if(S.screen === 'catalog') return '#catalog/' + (S.gender === 'w' ? 'w' : 'm');
+  if(S.screen === 'catalog') return '#catalog/' + (GENDER_LAB[S.gender] ? S.gender : 'm');
   if(S.screen === 'info') return '#info/' + (S.infoKey || 'about');
   if(S.screen === 'home') return '#home';
   return '#' + S.screen;
@@ -8608,7 +8614,7 @@ function applyRouteHash(raw){
     S.screen = 'product';
     return true;
   }
-  const cat = /^catalog(?:\/([mw]))?$/.exec(h);
+  const cat = /^catalog(?:\/([mwu]))?$/.exec(h);
   if(cat){
     if(cat[1]) S.gender = cat[1];
     S.screen = 'catalog';
@@ -8631,7 +8637,7 @@ function readSavedPlace(){
 }
 function applySavedPlace(d){
   if(!d || typeof d !== 'object') return;
-  if(d.gender === 'w' || d.gender === 'm') S.gender = d.gender;
+  if(GENDER_LAB[d.gender]) S.gender = d.gender;
   if(d.productId && byId(d.productId)){
     S.productId = +d.productId;
     S.size = d.size || firstSize(byId(d.productId));
@@ -9447,7 +9453,7 @@ function modalSearch(){
       <button class="ci" style="width:100%;text-align:left" data-a="open:${p.id}">
         <img class="ci__i" src="${p.img}" alt="" style="width:48px;height:60px">
         <span class="ci__b"><span class="ci__n">${p.name}</span>
-        <span class="ci__m">${p.gender === 'w' ? 'Женское' : 'Мужское'} · ${p.cat}${p.sku ? ' · ' + p.sku : ''} · ${money(p.price)}</span></span>
+        <span class="ci__m">${GENDER_LAB[p.gender] || 'Мужское'} · ${p.cat}${p.sku ? ' · ' + p.sku : ''} · ${money(p.price)}</span></span>
       </button>`).join('');
   };
   const search = (q) => {
@@ -9457,7 +9463,7 @@ function modalSearch(){
     const score = p => {
       const blob = [
         p.name, p.cat, p.sku || '', p.desc || '',
-        p.gender === 'w' ? 'женское женщинам девушкам' : 'мужское мужчинам',
+        p.gender === 'w' ? 'женское женщинам девушкам' : p.gender === 'u' ? 'унисекс unisex всем' : 'мужское мужчинам',
         'футболка футболки tshirt tee'
       ].join(' ').toLowerCase();
       if(!tokens.every(t => blob.includes(t))) return 0;
@@ -10166,7 +10172,7 @@ document.addEventListener('click', e => {
       })();
       break;
 
-    /* Мужское/Женское. Через go('catalog') экран уходил в fadeIn и карточки
+    /* Женское/Унисекс/Мужское. Через go('catalog') экран уходил в fadeIn и карточки
        заново «выезжали» с задержкой — получалось моргание. На том же экране
        перерисовываем тихо (render(true)) и просто уводим скролл наверх. */
     case 'gen': {
@@ -11142,7 +11148,7 @@ function adRows(){
       <img class="ad__th" src="${p.img}" alt="">
       <div class="ad__i">
         <span class="ad__n">${p.name} ${badge}</span>
-        <span class="ad__m">${p.gender==='m'?'Мужское':'Женское'} · ${p.cat} · арт. ${p.sku||'—'}</span>
+        <span class="ad__m">${GENDER_LAB[p.gender] || 'Мужское'} · ${p.cat} · арт. ${p.sku||'—'}</span>
         <span class="ad__m">Остаток: ${stockN} · ${(p.sizes||[]).join(', ')||'—'}</span>
         ${(() => {
           /* Рейтинг рядом с остатком: сразу видно, на какой товар
@@ -11178,8 +11184,9 @@ function viewCatalog(){
     </div>
     <div class="ad__filters" id="aFilters">
       <button class="ad__pick-b" data-ag="all" aria-pressed="${adG==='all'}">Все</button>
-      <button class="ad__pick-b" data-ag="m" aria-pressed="${adG==='m'}">Мужское</button>
       <button class="ad__pick-b" data-ag="w" aria-pressed="${adG==='w'}">Женское</button>
+      <button class="ad__pick-b" data-ag="u" aria-pressed="${adG==='u'}">Унисекс</button>
+      <button class="ad__pick-b" data-ag="m" aria-pressed="${adG==='m'}">Мужское</button>
     </div>
     <div class="ad__list" id="aList">${adRows()}</div>
     <div class="ad__chart-box">
@@ -12795,7 +12802,7 @@ function pForm(p){
   editId = p ? p.id : null;
   if(p) ensureProductMeta(p);
   const d = p || {name:'',cat:CATS_M[0],gender:'m',price:'',old:'',img:'',sku:'',sizes:[],on:true,desc:'',badge:'',stock:{},gal:[],tryon:false};
-  const cats = [...new Set([...CATS_M, ...CATS_W, d.cat].filter(Boolean))];
+  const cats = [...new Set([...CATS_W, ...CATS_U, ...CATS_M, d.cat].filter(Boolean))];
   let gender = d.gender || 'm';
   let cat = d.cat || cats[0];
   let badge = d.badge || '';
@@ -12812,8 +12819,9 @@ function pForm(p){
     <input class="ad__f" id="xn" value="${(d.name||'').replace(/"/g,'&quot;')}" placeholder="Футболка Oversize Black">
     <label class="ad__l">Раздел</label>
     <div class="ad__pick" id="xGender">
-      <button type="button" class="ad__pick-b" data-v="m" aria-pressed="${gender==='m'}">Мужское</button>
       <button type="button" class="ad__pick-b" data-v="w" aria-pressed="${gender==='w'}">Женское</button>
+      <button type="button" class="ad__pick-b" data-v="u" aria-pressed="${gender==='u'}">Унисекс</button>
+      <button type="button" class="ad__pick-b" data-v="m" aria-pressed="${gender==='m'}">Мужское</button>
     </div>
     <label class="ad__l">Категория</label>
     <div class="ad__pick" id="xCat">

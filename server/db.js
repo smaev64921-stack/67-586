@@ -28,7 +28,7 @@ function migrate() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       cat TEXT NOT NULL DEFAULT 'Футболки',
-      gender TEXT NOT NULL DEFAULT 'm',
+      gender TEXT NOT NULL DEFAULT 'm', -- 'w' женское | 'u' унисекс | 'm' мужское
       price INTEGER NOT NULL DEFAULT 0,
       old_price INTEGER NOT NULL DEFAULT 0,
       sku TEXT NOT NULL DEFAULT '',

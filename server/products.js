@@ -88,7 +88,8 @@ function upsertProduct(p) {
   const payload = {
     name: String(p.name || '').trim() || 'Товар',
     cat: p.cat || 'Футболки',
-    gender: p.gender === 'w' ? 'w' : 'm',
+    /* известный пол сохраняем как есть, любой другой или пустой — 'm', как и раньше */
+    gender: ['w', 'u', 'm'].includes(p.gender) ? p.gender : 'm',
     price: Math.max(0, Math.round(+p.price || 0)),
     old_price: Math.max(0, Math.round(+p.old || 0)),
     sku: String(p.sku || '').trim() || ('LC' + Date.now().toString(36).toUpperCase()),
