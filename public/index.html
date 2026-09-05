@@ -131,7 +131,15 @@ html.lc-leaving::after{opacity:0;transition-duration:.4s}
      отработает в любом случае, потому что она чистый CSS. Шесть секунд — с
      запасом больше обычной загрузки, так что при нормальном старте её никто
      не увидит: скрипт успеет убрать заставку раньше. */
-  #boot{animation:bootBail .6s ease 6s forwards}
+  /* Если за пять секунд магазин не поднялся — говорим об этом словами.
+     Молчащий чёрный экран люди принимают за зависание. */
+  #boot b{
+    position:absolute;bottom:calc(46px + env(safe-area-inset-bottom));left:24px;right:24px;
+    text-align:center;font-size:12.5px;font-weight:400;line-height:1.4;
+    color:rgba(255,255,255,.5);opacity:0;animation:bootHint .5s ease 5s forwards
+  }
+  @keyframes bootHint{to{opacity:1}}
+  #boot{animation:bootBail .6s ease 12s forwards}
   @keyframes bootBail{to{opacity:0;visibility:hidden;pointer-events:none}}
 }
 @keyframes bootMark{from{opacity:0;transform:translateY(16px) scale(.9)}to{opacity:1;transform:none}}
@@ -3199,7 +3207,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 
 <!-- Заставка установленного приложения. Стоит первой в разметке, чтобы
      закрыть экран ещё до того, как отрисуется магазин. В браузере скрыта. -->
-<div id="boot" aria-hidden="true"><img src="/logo-white.png?v=lc2" alt=""><i></i></div>
+<div id="boot" aria-hidden="true"><img src="/logo-white.png?v=lc2" alt=""><i></i><b>Долго грузится — проверьте связь</b></div>
 
 <div class="app">
   <div id="hdSlot"></div>

@@ -26,6 +26,10 @@
    ========================================================================== */
 
 const VERSION = 'canvas-v1';
+/* Сколько ждём сеть на переходе, прежде чем показать сохранённую копию.
+   Меньше — чаще будет мелькать вчерашняя версия; больше — дольше висит
+   заставка на плохой связи. Три с половиной секунды — заметно, но терпимо. */
+const SLOW_MS = 3500;
 const CACHE = VERSION;
 
 /* Оболочка магазина. Ровно один адрес: приложение одностраничное, и любой
@@ -157,7 +161,25 @@ self.addEventListener('fetch', (e) => {
       const own = isOwnPage(url);
       try {
         const pre = await e.preloadResponse;
-        const res = pre || await fetch(req);
+        /* Таймаут обязателен. Без него на плохой связи fetch висит десятки
+           секунд, а человек всё это время смотрит на чёрную заставку и думает,
+           что приложение зависло. Есть сохранённая копия — показываем её через
+           SLOW_MS, а сеть дослушиваем в фоне и обновляем кэш к следующему разу. */
+        const saved0 = shell ? await caches.match(SHELL) : null;
+        const net = pre ? Promise.resolve(pre) : fetch(req);
+        let res;
+        if (saved0) {
+          const slow = new Promise((r) => setTimeout(() => r(null), SLOW_MS));
+          res = await Promise.race([net.catch(() => null), slow]);
+          if (!res) {
+            e.waitUntil(net.then((r) => {
+              if (cacheable(r)) return caches.open(CACHE).then((c) => c.put(SHELL, r.clone()));
+            }).catch(() => {}));
+            return saved0;
+          }
+        } else {
+          res = await net;
+        }
         /* Владелец нажал «Обновить из Git» — сервер перезапускается несколько
            секунд и прокси отдаёт 502. Показывать покупателю страницу ошибки,
            когда у нас лежит рабочая копия магазина, незачем. */
