@@ -7,8 +7,8 @@
 <meta name="google" content="notranslate">
 <!-- Без этих строк браузер сам дёргает /favicon.ico и /apple-touch-icon.png,
      а раньше на них прилетал весь index.html — по 567 КБ на каждый. -->
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<!-- Отдельный файл, а не /logo.png: iOS кладёт иконку на сплошную подложку,
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=lc2">
+<!-- Отдельный файл, а не сам логотип: iOS кладёт иконку на сплошную подложку,
      и чёрный знак по прозрачному фону там просто исчезал. -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta http-equiv="Content-Language" content="ru">
@@ -47,7 +47,7 @@ html.lc-enter::after{
 html.lc-enter::before{z-index:99998;background:#0b0b0b}
 html.lc-enter::after{
   z-index:99999;
-  background:url('/logo-white.png') center center / auto clamp(74px,15vh,110px) no-repeat
+  background:url('/logo-white.png?v=lc2') center center / auto clamp(74px,15vh,110px) no-repeat
 }
 html.lc-leaving::before{opacity:0}
 html.lc-leaving::after{opacity:0;transition-duration:.4s}
@@ -5003,9 +5003,9 @@ function tgIcon(cls){
 /* Логотип бренда. Отдельным файлом, а не строкой в HTML: 19 КБ base64
    пришлось бы качать при каждом заходе, а так его кеширует браузер.
    Заменить можно в админке → Лого — тогда возьмётся CMS.brand.logo. */
-const DEFAULT_LOGO = '/logo.png';
+const DEFAULT_LOGO = '/logo.png?v=lc2';
 /* Тот же знак, вывернутый в белый — для тёмного фона. */
-const DEFAULT_LOGO_LIGHT = '/logo-white.png';;
+const DEFAULT_LOGO_LIGHT = '/logo-white.png?v=lc2';;
 let BRAND_LOGO = DEFAULT_LOGO;
 function brandLogoSrc(){
   const L = (typeof CMS !== 'undefined' && CMS && CMS.brand && CMS.brand.logo) || BRAND_LOGO || DEFAULT_LOGO;

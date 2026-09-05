@@ -7,8 +7,8 @@
 <meta name="color-scheme" content="light only">
 <meta name="google" content="notranslate">
 <title>Canvas — знакомство</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<!-- Отдельный файл, а не /logo.png: iOS кладёт иконку на сплошную подложку,
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=lc2">
+<!-- Отдельный файл, а не сам логотип: iOS кладёт иконку на сплошную подложку,
      и чёрный знак по прозрачному фону там просто исчезал. -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" as="image" href="/onboarding/look-14.jpg" fetchpriority="high">
@@ -389,7 +389,7 @@ img{display:block;max-width:100%}
 
 <!-- ====== заставка ====== -->
 <section class="intro snap">
-  <img class="intro__mark" src="/logo.png" alt="Canvas" width="325" height="520">
+  <img class="intro__mark" src="/logo.png?v=lc2" alt="Canvas" width="325" height="520">
   <h1 class="intro__sub" id="introSub">Базовые вещи, которые носят каждый день</h1>
   <div class="intro__go"><span class="intro__line"></span>Листайте</div>
 </section>
@@ -488,7 +488,7 @@ img{display:block;max-width:100%}
   <div class="fin__wall" id="wall" aria-hidden="true"></div>
   <div class="fin__veil"></div>
   <div class="fin__in">
-    <img class="fin__mark" src="/logo.png" alt="" width="325" height="520">
+    <img class="fin__mark" src="/logo.png?v=lc2" alt="" width="325" height="520">
     <h2 class="fin__t">Теперь выбирайте</h2>
     <p class="fin__d">Вся коллекция — в каталоге. Размеры, цвета и наличие обновляются в реальном времени.</p>
     <a class="cta" id="go" href="/#catalog">
@@ -562,7 +562,7 @@ img{display:block;max-width:100%}
         markSeen();
         /* Белый знак понадобится через миг — в анимации ухода. Подтягиваем его
            заранее, иначе он проявится с опозданием поверх уже чёрного экрана. */
-        new Image().src = '/logo-white.png';
+        new Image().src = '/logo-white.png?v=lc2';
         self.disconnect();
       }, { threshold: 0.5 }).observe(fin);
     }
@@ -637,7 +637,7 @@ img{display:block;max-width:100%}
     el.style.setProperty('--r', Math.ceil(far) + 'px');
 
     var mark = document.createElement('img');
-    mark.src = '/logo-white.png';
+    mark.src = '/logo-white.png?v=lc2';
     mark.alt = '';
     mark.width = 325;
     mark.height = 520;
