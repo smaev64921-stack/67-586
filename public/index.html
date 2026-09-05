@@ -3092,11 +3092,20 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   .grid{grid-template-columns:repeat(4,1fr);gap:30px 18px;max-width:1200px;margin:0 auto;padding-left:32px;padding-right:32px}
   .crumbs,.ph,.gen,.ctrl{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
   .sec,.ord,.plist,.pcard,.form,.stabs{max-width:760px;margin-left:auto;margin-right:auto}
-  .pd{max-width:760px;margin:10px auto 0;height:auto;min-height:0}
-  /* 3/4 под вертикальные фото одежды: с object-fit:contain квадрат оставлял
-     широкие белые поля слева и справа. */
-  .pd__hero{aspect-ratio:2/3;max-height:70vh;flex:none;border-radius:var(--r-lg);margin-top:12px}
-  .pd__body{max-width:760px}
+  /* На широком экране — две колонки: кадр слева, описание справа.
+     В один столбец portrait-кадр не помещался: max-height перебивал пропорцию,
+     блок становился 760x516, и фото во весь кадр обрезалось до полоски фона
+     над головой модели. Так и ширина используется по делу, и снимок остаётся
+     вертикальным — как его снимали. */
+  .pd{
+    display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);
+    column-gap:26px;row-gap:12px;align-items:start;
+    max-width:760px;margin:10px auto 0;padding:14px;height:auto;min-height:0
+  }
+  .pd__hero{grid-column:1;grid-row:1;aspect-ratio:2/3;max-height:none;flex:none;border-radius:var(--r-lg);margin-top:0}
+  .pd .thumbs{grid-column:1;grid-row:2;padding:0}
+  /* Описание занимает правую колонку целиком — и когда миниатюр нет тоже. */
+  .pd__body{grid-column:2;grid-row:1 / span 2;max-width:none}
   .pd__extra{max-width:760px;margin:8px auto 0;border-radius:var(--r-lg)}
   .sheet{max-width:560px;border-radius:var(--r-lg);bottom:auto;top:50%;transform:translateY(-50%);animation:fadeIn .24s var(--ease)}
   .fab{right:32px}
