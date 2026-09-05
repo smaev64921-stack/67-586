@@ -19,8 +19,8 @@
 <!-- ==================================================================
      ЗНАКОМСТВО С МАГАЗИНОМ  ·  /onboarding.html
 
-     Показывается один раз — при первом заходе на сайт. Человек листает
-     сам: один разворот — одна мысль и один снимок. Текст и фото
+     Показывается при каждом входе на сайт или запуске приложения. Человек
+     листает сам: один разворот — одна мысль и один снимок. Текст и фото
      появляются, когда разворот входит в экран.
 
      Фон светлый нарочно: студийные снимки сняты на светло-сером, и на
@@ -495,18 +495,15 @@ img{display:block;max-width:100%}
       Перейти в каталог
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg>
     </a>
-    <p class="fin__note">Это знакомство показывается один раз</p>
+    <p class="fin__note">Листайте наверх, чтобы посмотреть ещё раз</p>
   </div>
 </section>
 
 <script>
 (function(){
   'use strict';
-  var SEEN = 'lc_onboarded';
   var HOME = '/#catalog';
   var HANDOFF = 'lc_enter';   /* по нему магазин узнаёт, что мы пришли отсюда */
-
-  function markSeen(){ try{ localStorage.setItem(SEEN, '1'); }catch(e){} }
 
   /* --- подпись проявляется по словам --- */
   var sub = document.getElementById('introSub');
@@ -559,7 +556,6 @@ img{display:block;max-width:100%}
     if(fin){
       new IntersectionObserver(function(rows, self){
         if(!rows[0].isIntersecting) return;
-        markSeen();
         /* Белый знак понадобится через миг — в анимации ухода. Подтягиваем его
            заранее, иначе он проявится с опозданием поверх уже чёрного экрана. */
         new Image().src = '/logo-white.png?v=lc2';
@@ -603,7 +599,6 @@ img{display:block;max-width:100%}
      заставлять его ждать анимацию было бы издевательством. */
   if(skip) skip.addEventListener('click', function(e){
     e.preventDefault();
-    markSeen();
     location.href = HOME;
   });
 
@@ -611,7 +606,6 @@ img{display:block;max-width:100%}
     e.preventDefault();
     if(leaving) return;          /* второй тычок по кнопке ничего не сбивает */
     leaving = true;
-    markSeen();
 
     var reduce = false;
     try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}

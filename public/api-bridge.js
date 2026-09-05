@@ -178,6 +178,12 @@
     async removeProduct(id) {
       return api('/api/admin/products/' + id, { method: 'DELETE' });
     },
+    async adminUsers() {
+      return (await api('/api/admin/users')).users || [];
+    },
+    async setUserAdmin(email, admin) {
+      return (await api('/api/admin/users/role', { method: 'PUT', body: { email, admin } })).user;
+    },
     async adminOrders() {
       const d = await api('/api/admin/orders');
       return d.orders || [];

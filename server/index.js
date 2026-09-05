@@ -9,7 +9,7 @@ const {
   authOptional, authRequired, adminRequired,
   setAuthCookie, clearAuthCookie,
   redeemTgAdminToken, redeemTgPhoneToken, upsertUserByPhone, updateProfile,
-  upsertGoogleUser, linkOwnerChat
+  upsertGoogleUser, linkOwnerChat, findByEmail, setUserRole
 } = require('./auth');
 const googleAuth = require('./google-auth');
 const googleIdToken = require('./google-id-token');
@@ -920,6 +920,40 @@ app.patch('/api/admin/orders/:num', adminRequired, async (req, res) => {
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'Ошибка' });
   }
+});
+
+/* Зарегистрированные аккаунты. Список клиентов собирается из заказов, и
+   тот, кто завёл аккаунт, но ещё ничего не купил, в админке не показывался
+   вовсе — а именно такому чаще всего и нужно выдать права. */
+app.get('/api/admin/users', adminRequired, (_req, res) => {
+  const rows = db.prepare(
+    'SELECT id, email, name, last_name, phone, role FROM users ORDER BY id'
+  ).all();
+  res.json({
+    users: rows.map((r) => ({
+      id: r.id,
+      email: r.email,
+      name: [r.name, r.last_name].filter(Boolean).join(' ').trim(),
+      phone: r.phone || '',
+      admin: r.role === 'admin'
+    }))
+  });
+});
+
+/* Выдать или снять права администратора. Ищем по почте: в админке под рукой
+   именно она, а не внутренний номер. */
+app.put('/api/admin/users/role', adminRequired, (req, res) => {
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  const wantAdmin = !!(req.body && req.body.admin);
+  const user = email && findByEmail(email);
+  if (!user) return res.status(404).json({ error: 'Аккаунта с такой почтой нет' });
+  /* Себя не трогаем: иначе одним промахом можно остаться без единого админа. */
+  if (req.user && +req.user.id === +user.id) {
+    return res.status(400).json({ error: 'Свои собственные права менять нельзя' });
+  }
+  const updated = setUserRole(user.id, wantAdmin ? 'admin' : 'user');
+  authLog('role_change', { by: req.user && req.user.email, email, admin: wantAdmin });
+  res.json({ user: publicUser(updated) });
 });
 
 app.get('/api/admin/customers', adminRequired, (_req, res) => {

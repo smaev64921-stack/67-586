@@ -20,15 +20,16 @@
 <meta http-equiv="Content-Language" content="ru">
 <title>Каталог</title>
 
-<!-- Знакомство с магазином — только при самом первом заходе.
+<!-- Знакомство с магазином — при каждом входе на сайт или запуске приложения.
      Стоит здесь, до стилей и разметки: иначе человек успел бы увидеть
      кусок каталога и его бы дёрнуло на другую страницу.
+     Внутри одного визита не повторяем: как только человек пошёл по магазину,
+     появляется отметка о месте, и обновление страницы знакомство не покажет.
      Ссылки с якорем (#p=, #reset=, #google_token=) и возвраты с оплаты
-     или из бота пропускаем — это уже осмысленный переход, а не первый визит. -->
+     или из бота пропускаем — это осмысленный переход, а не вход в магазин. -->
 <script>
 (function(){
   try{
-    if(localStorage.getItem('lc_onboarded')) return;
     if(location.hash) return;
     if(sessionStorage.getItem('shop_place_v1')) return;   // человек уже ходит по магазину
     var q = new URLSearchParams(location.search);
@@ -11113,6 +11114,26 @@ function analytics(){
   };
 }
 
+/* Зарегистрированные аккаунты с сервера. Список клиентов собирается из
+   заказов, поэтому тот, кто завёл аккаунт и ещё ничего не купил, в админке
+   не показывался вовсе — а именно ему чаще всего и нужно выдать права. */
+let ACCOUNTS = [];
+function accountByEmail(email){
+  const e = String(email || '').toLowerCase();
+  return ACCOUNTS.find(a => String(a.email || '').toLowerCase() === e) || null;
+}
+async function loadAccounts(){
+  if(!(window.LC && LC.adminUsers && S.user && S.user.admin)) return;
+  try{
+    const next = await LC.adminUsers();
+    /* Перерисовываем только если что-то изменилось: иначе админка моргала бы
+       на каждом опросе. */
+    if(JSON.stringify(next) === JSON.stringify(ACCOUNTS)) return;
+    ACCOUNTS = next;
+    paintAdmin();
+  }catch(e){}
+}
+
 function customersList(){
   const map = {};
   ORDERS.forEach(o => {
@@ -11135,6 +11156,12 @@ function customersList(){
       if(S.user.phone) map[e].phone = S.user.phone;
     }
   }
+  ACCOUNTS.forEach(a => {
+    const e = String(a.email || '').toLowerCase();
+    if(!e) return;
+    if(!map[e]) map[e] = {email:e, name:a.name || 'Покупатель', phone:a.phone || '', orders:0, sum:0, last:'—', nums:[]};
+    else if(a.name && map[e].name === 'Гость') map[e].name = a.name;
+  });
   Object.keys(CMS.customers||{}).forEach(e => {
     if(!map[e]) map[e] = {email:e, name:CMS.customers[e].name||e, phone:CMS.customers[e].phone||'', orders:0, sum:0, last:'—', nums:[]};
   });
@@ -11401,7 +11428,7 @@ function viewClients(){
     return `<button class="ad__row ad__row--click" data-cliview="${encodeURIComponent(c.email)}">
       <span class="ad__av">${ini}</span>
       <div class="ad__i">
-        <span class="ad__n">${c.name||'Гость'} ${blocked?statusBadge('блок'):''}</span>
+        <span class="ad__n">${c.name||'Гость'} ${(accountByEmail(c.email)||{}).admin?statusBadge('админ'):''}${blocked?statusBadge('блок'):''}</span>
         <span class="ad__m">${c.email} · ${c.phone||'нет телефона'}</span>
         <span class="ad__m">${c.orders} зак. · ${money(c.sum)}${note?' · '+note:''}</span>
       </div>
@@ -11425,6 +11452,8 @@ function clientDrawer(email){
   if(!c) return;
   if(!CMS.customers[email]) CMS.customers[email] = {};
   const meta = CMS.customers[email];
+  const acc = accountByEmail(email);
+  const self = !!(acc && S.user && String(S.user.email||'').toLowerCase() === String(acc.email||'').toLowerCase());
   const w = document.createElement('div');
   w.className = 'ad__form';
   w.innerHTML = `<div class="ad__card">
@@ -11437,6 +11466,10 @@ function clientDrawer(email){
     <label class="ad__l">Заметка</label>
     <textarea class="ad__f" id="cNote" rows="3" placeholder="Предпочитает M, писать в Telegram…">${meta.note||''}</textarea>
     <label class="ad__sw"><input type="checkbox" id="cBlock" ${meta.blocked?'checked':''}> Осторожный клиент / пометка</label>
+    ${acc ? `<label class="ad__sw"><input type="checkbox" id="cAdmin" ${acc.admin?'checked':''}
+      ${self?'disabled':''}> Администратор — полный доступ к админке</label>
+      ${self?'<p class="ad__hint">Свои права менять нельзя — иначе можно случайно остаться без единого админа.</p>':''}`
+      : '<p class="ad__hint">Аккаунта с такой почтой нет — права выдать не получится. Права даются зарегистрированным, а этот клиент оформлял заказ как гость.</p>'}
     <div class="ad__sec">Заказы</div>
     ${(c.nums||[]).length ? c.nums.map(n => {
       const o = ORDERS.find(x => x.num===n);
@@ -11450,11 +11483,25 @@ function clientDrawer(email){
   adm.appendChild(w);
   w.querySelector('#cX').onclick = () => w.remove();
   w.onclick = e => { if(e.target===w) w.remove(); };
-  w.querySelector('#cSave').onclick = () => {
+  w.querySelector('#cSave').onclick = async () => {
     meta.note = w.querySelector('#cNote').value.trim();
     meta.blocked = w.querySelector('#cBlock').checked;
     meta.name = c.name; meta.phone = c.phone;
-    saveCms(); w.remove(); paintAdmin(); toast('Клиент сохранён');
+    saveCms();
+    /* Права живут на сервере, а не в CMS: их надо отправить отдельно и
+       дождаться ответа, иначе окно закроется с ощущением, что сохранилось. */
+    const box = w.querySelector('#cAdmin');
+    if(box && acc && box.checked !== acc.admin){
+      try{
+        await LC.setUserAdmin(acc.email, box.checked);
+        await loadAccounts();
+        toast(box.checked ? 'Теперь администратор' : 'Права администратора сняты');
+      }catch(err){
+        toast(err.message || 'Не удалось изменить права');
+        return;                       /* окно не закрываем: правка не прошла */
+      }
+    } else toast('Клиент сохранён');
+    w.remove(); paintAdmin();
   };
   w.querySelectorAll('[data-ordview]').forEach(b => {
     b.onclick = () => { w.remove(); orderDrawer(b.dataset.ordview); };
@@ -12368,6 +12415,7 @@ function paintAdmin(){
       b.setAttribute('aria-current', b.dataset.adtab===adTab?'true':'false');
     });
   }
+  if(adTab === 'clients') loadAccounts();
   const views = {dash:viewDash, catalog:viewCatalog, orders:viewOrders, reviews:viewReviews, clients:viewClients,
     logo:viewLogo, slider:viewSlider, tryon:viewTryon, promo:viewPromo, content:viewContent};
   if(adTab === 'pvz') adTab = 'dash';
@@ -13880,7 +13928,7 @@ bootFromServer().catch((err) => {
     /* Не в первую секунду: пусть человек сперва увидит, что за магазин. */
     setTimeout(function(){
       if(!deferred) return;
-      showBar("Установить Canvas", "Откроется как приложение, работает и без сети", "Установить",
+      showBar("Установить Canvas", "Свой значок на экране, запускается быстрее", "Установить",
         function(){
           var d = deferred; deferred = null;
           d.prompt();
