@@ -941,7 +941,8 @@ s{color:var(--muted2)}
 /* описание — ниже сгиба, не мешает основному экрану */
 .pd__extra{background:var(--card);margin-top:8px;padding:18px var(--pad) 26px}
 .pd__el{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
-.pd__ed{font-size:13.5px;color:var(--ink-soft);line-height:1.7}
+/* pre-line: описание из админки приходит абзацами, без этого они слипались бы в одну строку */
+.pd__ed{font-size:13.5px;color:var(--ink-soft);line-height:1.7;white-space:pre-line}
 
 /* на экране товара нижняя панель прячется — места больше */
 body.no-tabs .tabs{
@@ -5877,7 +5878,7 @@ function scrProduct(){
 
   ${p.desc ? `<div class="pd__extra">
     <h2 class="pd__el">Описание</h2>
-    <p class="pd__ed">${p.desc}</p>
+    <p class="pd__ed">${esc(p.desc)}</p>
   </div>` : ''}
 
   ${(CMS.sizeChart) ? `<div class="pd__extra pd__chart">
