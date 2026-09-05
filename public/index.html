@@ -580,8 +580,9 @@ s{color:var(--muted2)}
   .card:hover{transform:translateY(-3px);box-shadow:var(--sh-2)}
   .card:hover .card__img{transform:scale(1.03)}
 }
+/* 2:3 — пропорция студийных снимков: они заполняют окно ровно, без обрезки */
 .card__ph{
-  position:relative;background:#fff;border-radius:0;overflow:hidden;aspect-ratio:3/4
+  position:relative;background:#fff;border-radius:0;overflow:hidden;aspect-ratio:2/3
 }
 .card__meta{display:flex;flex-direction:column;gap:8px;padding:12px 12px 14px;flex:1}
 .card__track{
@@ -594,10 +595,11 @@ s{color:var(--muted2)}
   flex:0 0 100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always;
   background:#fff
 }
-/* contain, а не cover: фото товара должно быть видно целиком.
-   Поля по бокам закрывает белый фон .card__slide. */
+/* cover, а не contain: владелец попросил, чтобы фото шло от края до края без
+   белых полей. Если снимок другой пропорции — кадр обрежется, а не встанет в
+   «конверт». Точка привязки чуть выше центра: головы у моделей вверху кадра. */
 .card__img{
-  width:100%;height:100%;object-fit:contain;object-position:center;image-rendering:auto;display:block;
+  width:100%;height:100%;object-fit:cover;object-position:50% 15%;image-rendering:auto;display:block;
   pointer-events:none;transition:transform .4s var(--ease)
 }
 .card__dots{
