@@ -4814,8 +4814,8 @@ function legalLineAuto(){
 const CATS_M = ['Футболки'];
 const CATS_W = ['Футболки'];
 const CATS_U = ['Футболки'];
-/* Подписи пола. Порядок ключей — порядок вкладок на витрине. */
-const GENDER_LAB = {w:'Женское', u:'Унисекс', m:'Мужское'};
+/* Подписи пола. Порядок ключей — порядок вкладок на витрине: унисекс первым. */
+const GENDER_LAB = {u:'Унисекс', w:'Женское', m:'Мужское'};
 const SIZES = ['XS','S','M','L','XL','XXL'];
 const SORTS = [
   {k:'pop',   t:'По популярности'},
@@ -5770,8 +5770,8 @@ function scrCatalog(){
     ${MARK('ph__m')}
   </div>
   <div class="gen">
-    <button class="gen__b" data-a="gen:w" ${S.gender === 'w' ? 'aria-current="page"' : ''}>Женское</button>
     <button class="gen__b" data-a="gen:u" ${S.gender === 'u' ? 'aria-current="page"' : ''}>Унисекс</button>
+    <button class="gen__b" data-a="gen:w" ${S.gender === 'w' ? 'aria-current="page"' : ''}>Женское</button>
     <button class="gen__b" data-a="gen:m" ${S.gender === 'm' ? 'aria-current="page"' : ''}>Мужское</button>
   </div>
   <div class="ctrl">
@@ -11184,8 +11184,8 @@ function viewCatalog(){
     </div>
     <div class="ad__filters" id="aFilters">
       <button class="ad__pick-b" data-ag="all" aria-pressed="${adG==='all'}">Все</button>
-      <button class="ad__pick-b" data-ag="w" aria-pressed="${adG==='w'}">Женское</button>
       <button class="ad__pick-b" data-ag="u" aria-pressed="${adG==='u'}">Унисекс</button>
+      <button class="ad__pick-b" data-ag="w" aria-pressed="${adG==='w'}">Женское</button>
       <button class="ad__pick-b" data-ag="m" aria-pressed="${adG==='m'}">Мужское</button>
     </div>
     <div class="ad__list" id="aList">${adRows()}</div>
@@ -12819,8 +12819,8 @@ function pForm(p){
     <input class="ad__f" id="xn" value="${(d.name||'').replace(/"/g,'&quot;')}" placeholder="Футболка Oversize Black">
     <label class="ad__l">Раздел</label>
     <div class="ad__pick" id="xGender">
-      <button type="button" class="ad__pick-b" data-v="w" aria-pressed="${gender==='w'}">Женское</button>
       <button type="button" class="ad__pick-b" data-v="u" aria-pressed="${gender==='u'}">Унисекс</button>
+      <button type="button" class="ad__pick-b" data-v="w" aria-pressed="${gender==='w'}">Женское</button>
       <button type="button" class="ad__pick-b" data-v="m" aria-pressed="${gender==='m'}">Мужское</button>
     </div>
     <label class="ad__l">Категория</label>
