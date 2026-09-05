@@ -14065,58 +14065,106 @@ bootFromServer().catch((err) => {
   if(!("serviceWorker" in navigator)) return;
   if(location.protocol !== "https:" && location.hostname !== "localhost") return;
 
-  /* Перезагружаемся ТОЛЬКО если человек сам нажал «Обновить» в этой вкладке.
-     Два капкана, в которые тут легко попасть:
-     1) при первой установке воркер забирает уже открытую страницу себе
-        (clients.claim), и controllerchange прилетает как при смене версии.
-        Без флага каждый новый посетитель получал бы самопроизвольную
-        перезагрузку — в том числе прямо на возврате с оплаты, где экран
-        «Оплата прошла» нигде не сохранён и просто исчез бы;
-     2) обновились в соседней вкладке — эта не должна дёргаться под руками:
-        в ней может быть наполовину заполненная доставка.
-     Запоминаем флагом, а не снимком на момент загрузки: снимок навсегда
-     заглушил бы и настоящее обновление тоже. */
+  /* Обновление ставится САМО, но перезагрузка ждёт безопасного момента.
+     Перезагрузка не бесплатна: она стирает всё, что человек не успел
+     отправить, — наполовину заполненную доставку, экран «Оплата прошла»
+     (он нигде не сохраняется), открытое окно поверх страницы. Поэтому
+     сначала спрашиваем себя, можно ли сейчас, и если нельзя — ждём.
+     Место и экран восстановятся сами: их хранит sessionStorage.
+
+     Отдельный капкан: при ПЕРВОЙ установке воркер забирает уже открытую
+     страницу себе (clients.claim), и controllerchange прилетает как при
+     смене версии. Без флага каждый новый посетитель получал бы
+     самопроизвольную перезагрузку. Запоминаем флагом, а не снимком на
+     момент загрузки: снимок заглушил бы и настоящее обновление тоже. */
   var controlled = !!navigator.serviceWorker.controller;
-  var iAsked = false;
   var reloading = false;
+  var pending = false;
+
+  /* Экраны, на которых перезагрузка стоит человеку денег или нервов. */
+  var RISKY = /^(cart|delivery|pay|done|auth|pdata|tryon)$/;
+
+  function safeNow(){
+    try{
+      if(typeof S !== "undefined" && RISKY.test(String(S.screen || ""))) return false;
+      /* возврат с оплаты и вход админа из бота разбираются прямо сейчас */
+      if(/[?&](paid|tg_admin)=/.test(location.search)) return false;
+      /* открыто что-то поверх страницы */
+      if(document.querySelector(".sheet, .modal, .lbox, .ad__form, .appm")) return false;
+      /* человек печатает или уже что-то набрал */
+      var a = document.activeElement;
+      if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+      var inputs = document.querySelectorAll("input, textarea");
+      for(var i = 0; i < inputs.length; i++){
+        var el = inputs[i];
+        if(el.type === "checkbox" || el.type === "radio") continue;
+        if(String(el.value || "").trim()) return false;
+      }
+    }catch(e){ return false; }   /* сомневаешься — не трогай */
+    return true;
+  }
+
   function reloadOnce(){
     if(reloading) return;
     reloading = true;
     location.reload();
   }
+  function tryReload(){
+    if(!pending || reloading) return;
+    /* Скрытая вкладка не даёт права перезагружать. Сначала я так и сделал —
+       «не видно, значит можно», — и это неверно: человек мог уйти в другое
+       приложение прямо посреди заполнения доставки и вернуться к пустым
+       полям. Проверяем безопасность всегда, видно вкладку или нет. */
+    if(safeNow()) reloadOnce();
+  }
+
   navigator.serviceWorker.addEventListener("controllerchange", function(){
-    if(!controlled){ controlled = true; return; }   /* первое усыновление, не смена версии */
-    if(iAsked) reloadOnce();
+    /* Первое подключение воркера к уже открытой странице — не обновление. */
+    if(!controlled){ controlled = true; return; }
+    pending = true;
+    tryReload();
   });
+  document.addEventListener("visibilitychange", tryReload);
 
   window.addEventListener("load", function(){
     /* updateViaCache:"none" — сам файл воркера browser кэшировать не должен,
        иначе обновление магазина не доедет до тех, кто уже его установил. */
     navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(function(reg){
-      function offerUpdate(worker){
-        showBar("Магазин обновился", "Свежие товары и цены — нужно перезагрузить", "Обновить",
-          function(){
-            iAsked = true;
-            try{ worker.postMessage("SKIP_WAITING"); }catch(e){}
-            /* Если воркер уже сменился (обновились в соседней вкладке), ответного
-               controllerchange не будет — перезагружаемся сами, чтобы кнопка не
-               осталась нажатой впустую. */
-            setTimeout(reloadOnce, 1200);
-          },
-          null);
+      /* Ставим молча: кнопку «Обновить» человек всё равно нажимал не глядя,
+         а решать, когда безопасно перезагрузиться, мы умеем и сами.
+
+         Признак «есть обновление» берём из состояния регистрации, а не из
+         события смены воркера. Событие обманчиво: при первом подключении
+         воркера к открытой странице оно приходит точно такое же, и один раз
+         его приходится проглотить — а если проглотили не то, обновление
+         зависает навсегда. Ждущий воркер же виден всегда и врать не умеет. */
+      function noteUpdate(w){
+        if(!w || !navigator.serviceWorker.controller) return;   /* первая установка — не обновление */
+        pending = true;
+        try{ w.postMessage("SKIP_WAITING"); }catch(e){}
+        /* Даже если воркер не откликнется, перезагрузка всё равно доведёт дело
+           до конца: на новом переходе ждущий воркер вступает сам. */
+        tryReload();
       }
-      /* Обновление скачалось, пока человек ходил по сайту. */
-      if(reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
+      if(reg.waiting) noteUpdate(reg.waiting);
       reg.addEventListener("updatefound", function(){
         var w = reg.installing;
         if(!w) return;
         w.addEventListener("statechange", function(){
-          /* controller есть — значит это именно замена, а не первая установка */
-          if(w.state === "installed" && navigator.serviceWorker.controller) offerUpdate(w);
+          if(w.state === "installed") noteUpdate(w);
         });
       });
-      /* Проверяем при каждом возвращении к вкладке, но не чаще раза в минуту:
-       так правки доезжают до тех, у кого приложение месяцами не закрывается. */
+
+      /* Раз в пять секунд: не пропустили ли обновление и не стало ли безопасно.
+         Обе проверки дешёвые — сравнение пары полей. */
+      setInterval(function(){
+        if(!pending && reg.waiting) noteUpdate(reg.waiting);
+        tryReload();
+      }, 5000);
+
+      /* Спрашиваем сервер о новой версии при возвращении к вкладке, но не чаще
+         раза в минуту: так правки доезжают до тех, у кого приложение месяцами
+         не закрывается. */
       var last = 0;
       function check(){
         if(document.hidden || Date.now() - last < 60000) return;
