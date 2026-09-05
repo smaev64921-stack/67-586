@@ -32,7 +32,7 @@ const yookassa = require('./yookassa');
 const { sanitizeCms, scrubCmsInput, tryonServerConfigured } = require('./cms-safe');
 const { runTryon } = require('./tryon');
 const telegramBot = require('./telegram-bot');
-const { resolvePublicUrl, logPublicUrlDebug, isValidPublicHttps } = require('./public-url');
+const { resolvePublicUrl, logPublicUrlDebug, isValidPublicHttps, isLocal } = require('./public-url');
 const { authLog } = require('./auth-log');
 const errors = require('./error-report');
 /* Ставим ловушки до всего остального: ошибка при запуске тоже должна дойти. */
@@ -1030,7 +1030,17 @@ app.listen(PORT, '0.0.0.0', () => {
     `Ошибки → ${errors.enabled() ? 'Telegram, чат ' + errors.chatId() : 'только data/errors.log'}`
   );
   startBackupSchedule();
-  telegramBot.boot(PUBLIC_URL).catch((e) => console.error(e));
+  /* На запуске с локальным адресом бота не поднимаем.
+     Иначе он идёт за обновлениями тем же токеном, что и рабочий сервер, и
+     Telegram начинает отдавать их то одному, то другому: владельцу летит
+     поток «ошибка на сервере», а живой бот отвечает покупателям через раз.
+     TELEGRAM_POLLING=1 оставляет возможность поднять его вручную. */
+  const botForced = String(process.env.TELEGRAM_POLLING || '') === '1';
+  if (isLocal(PUBLIC_URL) && !botForced) {
+    console.log(`Telegram: бот не запущен — локальный адрес ${PUBLIC_URL}`);
+  } else {
+    telegramBot.boot(PUBLIC_URL).catch((e) => console.error(e));
+  }
   let lastCdekSync = 0;
   const tick = () => {
     try { expireUnpaidOrders(); } catch (e) { console.warn('expire unpaid:', e.message); }

@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { DATA_DIR } = require('./db');
+const { isLocal } = require('./public-url');
 
 const LOG_FILE = path.join(DATA_DIR, 'errors.log');
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -30,7 +31,16 @@ const CHAT = () =>
     '8133757512'
   ).trim();
 
-const ENABLED = () => String(process.env.ERRORS_TO_TELEGRAM || '1') !== '0';
+/**
+ * Локальный запуск. Разработческая копия поднимается с тем же токеном, что и
+ * рабочая, и её ошибки — не новость для владельца, а шум. Пишем их только в
+ * файл. Адрес проверяем лениво: хуки ставятся раньше, чем index.js успевает
+ * разобраться с PUBLIC_URL.
+ */
+const LOCAL_RUN = () => isLocal(String(process.env.PUBLIC_URL || '').trim());
+
+const ENABLED = () =>
+  String(process.env.ERRORS_TO_TELEGRAM || '1') !== '0' && !LOCAL_RUN();
 /** Перехват console.error можно выключить, оставив падения и Express. */
 const HOOK_CONSOLE = () => String(process.env.ERRORS_HOOK_CONSOLE || '1') !== '0';
 

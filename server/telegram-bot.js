@@ -3000,7 +3000,10 @@ async function startPolling() {
         try { await handleUpdate(u); } catch (e) { console.error('TG handle:', e.message); }
       }
     } catch (e) {
-      console.error('TG poll:', e.message);
+      /* warn, а не error: это сбой самого канала связи с Telegram, и
+         жаловаться на него через Telegram бессмысленно — сообщение
+         уйдёт тем же путём, который сейчас не работает. */
+      console.warn('TG poll:', e.message);
       await new Promise((r) => setTimeout(r, 2500));
     }
     if (polling) setImmediate(tick);
