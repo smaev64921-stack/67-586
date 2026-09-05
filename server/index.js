@@ -989,7 +989,9 @@ app.use(express.static(publicDir, {
     const alwaysCheck =
       /\.html?$/i.test(p) ||
       /\/(logo|logo-white|apple-touch-icon)\.png$/i.test(p) ||
-      /\/favicon\.svg$/i.test(p);
+      /* sw.js — критично: застрянет в кэше, и установленное приложение перестанет
+         получать обновления совсем, достучаться до него будет уже нечем. */
+      /\/(favicon\.svg|sw\.js|manifest\.webmanifest)$/i.test(p);
     res.setHeader('Cache-Control', alwaysCheck ? 'no-cache' : 'public, max-age=604800');
   }
 }));
