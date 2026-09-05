@@ -150,7 +150,8 @@ html.lc-leaving::after{opacity:0;transition-duration:.4s}
 .pwa.is-on{transform:none}
 @media(min-width:720px){.pwa{left:auto;right:20px;width:400px}}
 .pwa__ic{width:42px;height:42px;border-radius:11px;flex:none;object-fit:cover}
-.pwa__tx{flex:1;min-width:0}
+/* Колонкой: заголовок и подпись — обычные span, без этого они слипались в строку. */
+.pwa__tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .pwa__t{font-size:13.5px;font-weight:700;line-height:1.25}
 .pwa__d{font-size:12px;color:var(--muted2);margin-top:2px;line-height:1.35}
 .pwa__go{
@@ -158,6 +159,27 @@ html.lc-leaving::after{opacity:0;transition-duration:.4s}
   font-size:12.5px;font-weight:700;white-space:nowrap
 }
 .pwa__no{flex:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--muted2);font-size:19px;line-height:1}
+/* Второй ряд: «завтра» и «больше не показывать». Отдельной строкой, а не
+   в ряд с «Установить» — три кнопки подряд на телефоне не помещаются. */
+.pwa--col{flex-wrap:wrap}
+.pwa__row2{flex:1 0 100%;display:flex;gap:16px;padding-left:54px;margin-top:-2px}
+.pwa__lnk{font-size:12px;color:var(--muted2);text-decoration:underline;text-underline-offset:2px}
+.pwa__lnk:hover{color:var(--ink)}
+
+/* Окно «Приложение» из настроек */
+.appm{position:fixed;inset:0;z-index:950;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(11,11,11,.5);opacity:0;transition:opacity .3s var(--ease)}
+.appm.is-on{opacity:1}
+.appm__c{width:100%;max-width:340px;background:var(--card);border-radius:var(--r-lg);padding:26px 22px 20px;
+  text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.28);
+  transform:translateY(14px) scale(.97);transition:transform .35s cubic-bezier(.16,1,.3,1)}
+.appm.is-on .appm__c{transform:none}
+.appm__ic{width:76px;height:76px;border-radius:19px;margin:0 auto 14px;display:block}
+.appm__n{font-size:17px;font-weight:800;letter-spacing:.01em}
+.appm__d{font-size:13px;color:var(--muted2);line-height:1.5;margin-top:7px}
+.appm__b{display:block;width:100%;margin-top:16px;padding:14px;border-radius:var(--r-sm);
+  background:var(--ink);color:#fff;font-size:13.5px;font-weight:700}
+.appm__x{display:block;width:100%;margin-top:8px;padding:11px;font-size:13px;color:var(--muted2)}
 
 /* ===================== ТОКЕНЫ ===================== */
 :root{
@@ -655,7 +677,11 @@ s{color:var(--muted2)}
 .card__track{
   display:flex;height:100%;overflow-x:auto;overflow-y:hidden;
   scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none;touch-action:pan-x
+  scrollbar-width:none;
+  /* pan-x пропускал только горизонтальные движения, и палец, попавший на фото,
+     не прокручивал страницу вниз. Оба направления: браузер сам решит по первому
+     движению — вбок листается галерея, вниз едет страница. */
+  touch-action:pan-x pan-y
 }
 .card__track::-webkit-scrollbar{display:none}
 .card__slide{
@@ -795,7 +821,8 @@ s{color:var(--muted2)}
   overflow:hidden;border-radius:var(--r-lg) var(--r-lg) 0 0}
 .pd__track{
   display:flex;height:100%;overflow-x:auto;overflow-y:hidden;
-  scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x
+  scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  touch-action:pan-x pan-y
 }
 .pd__track::-webkit-scrollbar{display:none}
 .pd__slide{
@@ -6971,6 +6998,9 @@ function scrProfile(){
     ['user','Личные данные','go:pdata'],['box','Мои заказы','go:orders'],
     ['bell','Уведомления','go:notif'],['sup','Поддержка','chat']
   ];
+  /* Пункт показываем, только пока приложение не установлено: установленному
+     человеку он бесполезен и только путает. */
+  if(window.lcApp && !lcApp.installed()) items.push(['phone','Приложение','appinstall']);
   if(isAdmin()) items.push(['set','Админ-панель','admin']);
   const u = S.user;
   const tgBadge = u
@@ -10182,6 +10212,7 @@ document.addEventListener('click', e => {
     case 'search': modalSearch(); break;
     case 'menu': sheetMenu(); break;
     case 'chat': modalChat(); break;
+    case 'appinstall': if(window.lcApp) lcApp.open(); break;
     case 'support_open':
       closeOv();
       (async () => {
@@ -13884,19 +13915,28 @@ bootFromServer().catch((err) => {
 
   /* --- полоса снизу: одна на все сообщения --- */
   var bar = null;
-  function showBar(title, note, action, onGo, onNo){
+  /* links — необязательный второй ряд: [{t:'текст', on:функция}, ...] */
+  function showBar(title, note, action, onGo, onNo, links){
     hideBar();
     bar = document.createElement("div");
-    bar.className = "pwa";
+    bar.className = "pwa" + (links && links.length ? " pwa--col" : "");
     bar.innerHTML = '<img class="pwa__ic" src="/icon-192.png" alt="">' +
       '<span class="pwa__tx"><span class="pwa__t"></span><span class="pwa__d"></span></span>' +
       '<button type="button" class="pwa__go"></button>' +
-      '<button type="button" class="pwa__no" aria-label="Закрыть">×</button>';
+      '<button type="button" class="pwa__no" aria-label="Закрыть">×</button>' +
+      (links && links.length ? '<span class="pwa__row2"></span>' : '');
     bar.querySelector(".pwa__t").textContent = title;
     bar.querySelector(".pwa__d").textContent = note;
     bar.querySelector(".pwa__go").textContent = action;
     bar.querySelector(".pwa__go").onclick = function(){ hideBar(); onGo(); };
     bar.querySelector(".pwa__no").onclick = function(){ hideBar(); if(onNo) onNo(); };
+    var row = bar.querySelector(".pwa__row2");
+    (links || []).forEach(function(l){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "pwa__lnk"; b.textContent = l.t;
+      b.onclick = function(){ hideBar(); l.on(); };
+      row.appendChild(b);
+    });
     document.body.appendChild(bar);
     /* принудительная перерисовка вместо requestAnimationFrame: в фоновой
        вкладке кадры не идут, и полоса осталась бы за краем экрана */
@@ -13910,44 +13950,108 @@ bootFromServer().catch((err) => {
     setTimeout(function(){ b.remove(); }, 500);
   }
 
-  /* --- предложение установить --- */
-  var HIDE_KEY = "lc_install_hidden_until";
+  /* --- предложение установить ---
+     Раз в сутки. «Напомнить завтра» — то же самое, что просто закрыть.
+     «Больше не показывать» молчит неделю, потом снова раз в сутки: совсем
+     навсегда не прячем, потому что человек мог нажать не глядя. */
+  var NEXT_KEY = "lc_install_next";
+  var DAY = 864e5;
   var standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  function muted(){
-    try{ return +(localStorage.getItem(HIDE_KEY) || 0) > Date.now(); }catch(e){ return false; }
+  function dueNow(){
+    try{ return Date.now() >= +(localStorage.getItem(NEXT_KEY) || 0); }catch(e){ return true; }
   }
-  function mute(days){
-    try{ localStorage.setItem(HIDE_KEY, String(Date.now() + days * 864e5)); }catch(e){}
+  function snooze(days){
+    try{ localStorage.setItem(NEXT_KEY, String(Date.now() + days * DAY)); }catch(e){}
   }
 
   var deferred = null;
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var iosSafari = ios && !/crios|fxios|edgios|yabrowser|opera/i.test(navigator.userAgent);
+  /* Установить можно, если браузер дал своё приглашение либо это Safari на
+     iPhone, где приглашения нет, но добавить на экран руками можно. */
+  function canInstall(){ return !standalone && (!!deferred || iosSafari); }
+
+  function runPrompt(){
+    if(!deferred) return false;
+    var d = deferred; deferred = null;   /* приглашение одноразовое */
+    d.prompt();
+    d.userChoice.catch(function(){});
+    return true;
+  }
+
+  function offerInstall(){
+    if(standalone || !dueNow() || !canInstall()) return;
+    /* Показали — значит на сегодня хватит, чем бы человек ни ответил. */
+    snooze(1);
+    if(deferred){
+      showBar("Установить Canvas", "Свой значок на экране, запускается быстрее", "Установить",
+        runPrompt, null,
+        [{ t: "Напомнить завтра", on: function(){ snooze(1); } },
+         { t: "Больше не показывать", on: function(){ snooze(7); } }]);
+    } else {
+      showBar("Добавьте Canvas на экран", "Поделиться → «На экран «Домой»»", "Понятно",
+        function(){}, null,
+        [{ t: "Напомнить завтра", on: function(){ snooze(1); } },
+         { t: "Больше не показывать", on: function(){ snooze(7); } }]);
+    }
+  }
+
   window.addEventListener("beforeinstallprompt", function(e){
     e.preventDefault();          /* своё окно вместо стандартного браузерного */
     deferred = e;
-    if(standalone || muted()) return;
     /* Не в первую секунду: пусть человек сперва увидит, что за магазин. */
-    setTimeout(function(){
-      if(!deferred) return;
-      showBar("Установить Canvas", "Свой значок на экране, запускается быстрее", "Установить",
-        function(){
-          var d = deferred; deferred = null;
-          d.prompt();
-          d.userChoice.then(function(r){ if(r.outcome !== "accepted") mute(14); }).catch(function(){});
-        },
-        function(){ mute(14); });
-    }, 2500);
+    setTimeout(offerInstall, 2500);
   });
-  window.addEventListener("appinstalled", function(){ deferred = null; hideBar(); mute(3650); });
+  if(iosSafari) setTimeout(offerInstall, 3500);
 
-  /* iOS своего окна установки не даёт — только подсказка, и только в Safari. */
-  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  var safari = ios && !/crios|fxios|edgios|yabrowser|opera/i.test(navigator.userAgent);
-  if(safari && !standalone && !muted()){
-    setTimeout(function(){
-      showBar("Добавьте Canvas на экран", "Поделиться → «На экран «Домой»»", "Понятно",
-        function(){ mute(60); }, function(){ mute(60); });
-    }, 3500);
+  window.addEventListener("appinstalled", function(){
+    deferred = null; hideBar(); closeAppModal();
+    snooze(3650);
+    try{ if(typeof render === "function") render(true); }catch(e){}   /* убрать пункт из настроек */
+  });
+
+  /* --- окно «Приложение» из настроек --- */
+  var appModal = null;
+  function closeAppModal(){
+    if(!appModal) return;
+    var m = appModal; appModal = null;
+    m.classList.remove("is-on");
+    setTimeout(function(){ m.remove(); }, 320);
   }
+  function openAppModal(){
+    closeAppModal();
+    appModal = document.createElement("div");
+    appModal.className = "appm";
+    appModal.innerHTML = '<div class="appm__c" role="dialog" aria-modal="true">' +
+      '<img class="appm__ic" src="/icon-192.png" alt="">' +
+      '<div class="appm__n">Canvas</div>' +
+      '<p class="appm__d"></p>' +
+      '<button type="button" class="appm__b"></button>' +
+      '<button type="button" class="appm__x">Закрыть</button></div>';
+    var note = appModal.querySelector(".appm__d");
+    var go = appModal.querySelector(".appm__b");
+    if(deferred){
+      note.textContent = "Свой значок на экране и быстрый запуск. Заказы, оплата и доставка — как на сайте.";
+      go.textContent = "Установить";
+      go.onclick = function(){ if(runPrompt()) closeAppModal(); };
+    } else if(iosSafari){
+      note.textContent = "Нажмите «Поделиться» внизу браузера, затем «На экран «Домой»».";
+      go.textContent = "Понятно";
+      go.onclick = closeAppModal;
+    } else {
+      note.textContent = "Этот браузер установку не предлагает. Откройте магазин в Chrome или Safari — там появится кнопка.";
+      go.textContent = "Понятно";
+      go.onclick = closeAppModal;
+    }
+    appModal.querySelector(".appm__x").onclick = closeAppModal;
+    appModal.onclick = function(e){ if(e.target === appModal) closeAppModal(); };
+    document.body.appendChild(appModal);
+    void appModal.offsetWidth;   /* см. выше: без перерисовки переход не запустится */
+    appModal.classList.add("is-on");
+  }
+
+  /* Наружу — для пункта «Приложение» в настройках. */
+  window.lcApp = { canInstall: canInstall, open: openAppModal, installed: function(){ return standalone; } };
 
   /* --- service worker и обновления --- */
   if(!("serviceWorker" in navigator)) return;
