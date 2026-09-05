@@ -210,42 +210,29 @@ img{display:block;max-width:100%}
 .pal.is-in .pal__t,
 .pal.is-in .pal__d{opacity:1;transform:none}
 
-.pal__band{
-  position:relative;display:flex;overflow:hidden;margin-top:28px;
-  height:clamp(180px,30svh,264px);
-  background:linear-gradient(90deg,
-    #0b0b0b 0%,  #0b0b0b 15%,
-    #4a3128 25%, #4a3128 35%,
-    #d81e28 45%, #d81e28 55%,
-    #b3d2ef 65%, #b3d2ef 75%,
-    #ffffff 85%, #ffffff 100%);
-  /* Белый край иначе растворился бы в светлой странице — обводка держит границу. */
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);
-  clip-path:inset(0 100% 0 0);
-  transition:clip-path 1.25s var(--out) .35s
+/* Кнопки те же, что и были, но кружок внутри — не заливка, а растяжка:
+   слева цвет в полную силу, справа выбелен. Кружки крупнее прежних, иначе на
+   восемнадцати пикселях растяжку попросту не разглядеть. */
+.pal__row{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.tone{
+  display:flex;align-items:center;gap:13px;padding:11px 22px 11px 11px;
+  border:1px solid var(--line);border-radius:999px;background:#fff;
+  font-size:14px;font-weight:600;
+  opacity:0;transform:translateY(18px) scale(.95);
+  transition:opacity .6s var(--out), transform .6s var(--out)
 }
-.pal.is-in .pal__band{clip-path:inset(0 0 0 0)}
-
-/* Подпись стоит в середине своей доли — там цвет ровный, без перехода,
-   поэтому её видно на любом из пяти.
-   Вертикальный текст живёт во вложенном элементе нарочно: writing-mode на самой
-   ячейке развернул бы и оси флексбокса, и центрирование поехало бы вбок. */
-.pal__seg{
-  flex:1;display:flex;align-items:center;justify-content:center;
-  opacity:0;transform:translateY(-12px);
-  transition:opacity .55s var(--ease), transform .55s var(--out)
+.pal.is-in .tone{opacity:1;transform:none}
+.pal.is-in .tone:nth-child(1){transition-delay:.42s}
+.pal.is-in .tone:nth-child(2){transition-delay:.5s}
+.pal.is-in .tone:nth-child(3){transition-delay:.58s}
+.pal.is-in .tone:nth-child(4){transition-delay:.66s}
+.pal.is-in .tone:nth-child(5){transition-delay:.74s}
+.tone i{
+  width:34px;height:34px;border-radius:50%;flex:none;
+  background:linear-gradient(90deg,var(--a) 0%,var(--b) 100%);
+  /* Светлый край растяжки иначе растворился бы в белой кнопке — кольцо держит форму. */
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)
 }
-.pal__seg i{
-  writing-mode:vertical-rl;font-style:normal;
-  font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
-  color:var(--t)
-}
-.pal.is-in .pal__seg{opacity:1;transform:none}
-.pal.is-in .pal__seg:nth-child(1){transition-delay:.75s}
-.pal.is-in .pal__seg:nth-child(2){transition-delay:.87s}
-.pal.is-in .pal__seg:nth-child(3){transition-delay:.99s}
-.pal.is-in .pal__seg:nth-child(4){transition-delay:1.11s}
-.pal.is-in .pal__seg:nth-child(5){transition-delay:1.23s}
 
 /* ================= БЕГУЩАЯ СТРОКА ================= */
 .tick{overflow:hidden;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -321,10 +308,10 @@ img{display:block;max-width:100%}
 /* ---------- если анимации мешают ---------- */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
-  .look__ph,.pal__band{clip-path:none}
+  .look__ph{clip-path:none}
   .look__ph img{transform:none}
   .tick__row{animation:none}
-  .look__txt > *,.pal__k,.pal__t,.pal__d,.pal__seg,
+  .look__txt > *,.pal__k,.pal__t,.pal__d,.tone,
   .fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
   .fin__wall{opacity:.2;transform:none}
 }
@@ -388,12 +375,12 @@ img{display:block;max-width:100%}
     <p class="pal__k"><b>04</b><i></i>Цвет</p>
     <h2 class="pal__t">Пять цветов<em>и один крой</em></h2>
     <p class="pal__d">От чёрного до белого. Посадка во всех одинаковая, так что размер подбирать заново не придётся.</p>
-    <div class="pal__band">
-      <span class="pal__seg" style="--t:#fff"><i>Чёрный</i></span>
-      <span class="pal__seg" style="--t:#fff"><i>Шоколад</i></span>
-      <span class="pal__seg" style="--t:#fff"><i>Красный</i></span>
-      <span class="pal__seg" style="--t:#0b0b0b"><i>Голубой</i></span>
-      <span class="pal__seg" style="--t:#0b0b0b"><i>Белый</i></span>
+    <div class="pal__row">
+      <span class="tone"><i style="--a:#000000;--b:#e2e2e2"></i>Чёрный</span>
+      <span class="tone"><i style="--a:#33201a;--b:#d9c6ba"></i>Шоколад</span>
+      <span class="tone"><i style="--a:#b00d16;--b:#ff9ea2"></i>Красный</span>
+      <span class="tone"><i style="--a:#5ea2dd;--b:#eaf4fd"></i>Голубой</span>
+      <span class="tone"><i style="--a:#cfcfcf;--b:#ffffff"></i>Белый</span>
     </div>
   </div>
 
