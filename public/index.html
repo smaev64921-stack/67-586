@@ -1047,6 +1047,10 @@ s{color:var(--muted2)}
   65%{transform:scale(.92)}
 }
 .hd__b.hit{animation:shake .42s var(--ease)}
+.tab.hit{animation:shake .42s var(--ease)}
+/* прибавившаяся цифра на значке */
+@keyframes countPop{0%{transform:scale(.35);opacity:0}55%{transform:scale(1.28)}100%{transform:none;opacity:1}}
+.hd__n.is-new,.tab__n.is-new{animation:countPop .4s cubic-bezier(.34,1.15,.5,1)}
 
 /* описание — ниже сгиба, не мешает основному экрану */
 .pd__extra{background:var(--card);margin-top:8px;padding:18px var(--pad) 26px}
@@ -5437,7 +5441,19 @@ const money = n => Number(n).toLocaleString('ru-RU') + '\u00a0₽';
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const byId = id => PRODUCTS.find(p => +p.id === +id);
 const cartCount = () => S.cart.reduce((s,i) => s + i.qty, 0);
-const cartKey = p => p.id + '-' + S.size + (S.color ? '-' + S.color : '');
+/* Цвет по умолчанию — первый из палитры товара. */
+const defColor = p => (p && Array.isArray(p.colors) && p.colors[0] ? p.colors[0].hex : '');
+/* Ключ строки корзины: товар + размер + цвет. Один и тот же набор всегда даёт
+   один ключ, кто бы строку ни создал. Раньше цвет подставлялся «только если
+   выбран», и один размер лежал в корзине двумя строками: «5-M» (добавили
+   размер прямо из корзины) и «5-M-#111» (добавили из карточки). Количество
+   считалось по сумме строк, а показывалось построчно — отсюда и расхождение
+   цифр, которое видно на экране. */
+function lineKey(p, size, color){
+  const c = color || defColor(p);
+  return p.id + '-' + size + (c ? '-' + c : '');
+}
+const cartKey = p => lineKey(p, S.size, S.color);
 /* название цвета для строки корзины */
 function colorNameOf(p, hex){
   const c = (p && Array.isArray(p.colors) ? p.colors : []).find(x => x && x.hex === hex);
@@ -5539,9 +5555,33 @@ function orderTotal(){ return cartTotal() + shipCost(); }
    Настоящая брони́ остатка возможна только на сервере — здесь мы
    защищаемся от заведомо невыполнимого заказа, а не от гонки.
    ========================================================== */
+/* Сводит строки с одинаковым ключом в одну. Нужен и для старых корзин: они
+   лежат в localStorage с ключами, посчитанными по прежнему правилу. */
+function mergeCartLines(){
+  const seen = new Map();
+  const out = [];
+  S.cart.forEach(i => {
+    const p = byId(i.id);
+    if(p){
+      /* Цвет тоже дописываем: строка, добавленная до появления палитры,
+         иначе останется без названия цвета, хотя ключ у неё уже цветной. */
+      if(!i.color) i.color = defColor(p);
+      i.key = lineKey(p, i.size, i.color);
+    }
+    const was = seen.get(i.key);
+    if(was){ was.qty += i.qty; return; }
+    seen.set(i.key, i);
+    out.push(i);
+  });
+  if(out.length === S.cart.length) return false;
+  S.cart = out;
+  return true;
+}
+
 function revalidateCart(){
   const notes = [];
   const keep = [];
+  const glued = mergeCartLines();
   /* сколько штук каждого размера уже разобрали строки выше по списку */
   const takenBySize = new Map();
   S.cart.forEach(i => {
@@ -5555,11 +5595,14 @@ function revalidateCart(){
       if(was !== i.gone) notes.push(`«${i.name}» больше не продаётся`);
       return;
     }
+    /* Фото и название подтягиваем всегда, а не только вместе с ценой:
+       карточку могли переснять, и в корзине висело бы вчерашнее фото. */
+    if(p.img) i.img = p.img;
+    if(p.name) i.name = p.name;
+    i.colorName = colorNameOf(p, i.color) || i.colorName || '';
     if(+p.price && +p.price !== +i.price){
       notes.push(`«${i.name}»: цена изменилась на ${money(p.price)}`);
       i.price = +p.price;
-      i.name = p.name;
-      i.img = p.img || i.img;
     }
     const left = stockOf(p, i.size);
     if(left <= 0){
@@ -5586,7 +5629,7 @@ function revalidateCart(){
   });
   const dropped = keep.length !== (S.cart || []).length;
   if(dropped) S.cart = keep;
-  if(notes.length || dropped){
+  if(notes.length || dropped || glued){
     revalidatePromo();
     saveUser();
   }
@@ -5700,10 +5743,12 @@ function cartSummaryHTML(opts = {}){
 /* Шапка магазина: поиск · профиль · избранное · корзина */
 function hdActions(){
   const n = cartCount();
+  const f = S.favs.length;
   return `<div class="hd__acts">
     <button class="hd__b" data-a="search" aria-label="Поиск">${svg('search')}</button>
     <button class="hd__b" data-a="${S.user ? 'go:profile' : 'go:auth'}" aria-label="${S.user ? 'Профиль' : 'Вход'}">${svg('user')}</button>
-    <button class="hd__b" data-a="go:favs" aria-label="Избранное">${svg('heart')}</button>
+    <button class="hd__b" data-a="go:favs" aria-label="Избранное${f ? `: ${f}` : ''}">${svg('heart')}
+      ${f ? `<span class="hd__n">${f}</span>` : ''}</button>
     <button class="hd__b" id="cartIco" data-a="go:cart" aria-label="Корзина">${svg('bag')}
       ${n ? `<span class="hd__n">${n}</span>` : ''}</button>
   </div>`;
@@ -5723,9 +5768,13 @@ const hdLeft = () => `<div class="hd__l">
 
 const hdBack = () => `<header class="hd">${hdLeft()}<div class="hd__sp"></div></header>`;
 
-/* на карточке товара нижняя панель скрыта, поэтому избранное и корзина — здесь */
+/* На карточке товара нижняя панель скрыта, поэтому избранное и корзина — здесь.
+   Сердце в шапке ведёт в список и показывает, сколько там всего; сердце на
+   фото закрашивается и относится только к этой вещи. */
 const hdProduct = () => `<header class="hd">${hdLeft()}<div class="hd__sp"></div>
   <div class="hd__acts">
+    <button class="hd__b" data-a="go:favs" aria-label="Избранное${S.favs.length ? `: ${S.favs.length}` : ''}">${svg('heart')}
+      ${S.favs.length ? `<span class="hd__n">${S.favs.length}</span>` : ''}</button>
     <button class="hd__b" id="cartIco" data-a="go:cart" aria-label="Корзина">${svg('bag')}
       ${cartCount() ? `<span class="hd__n">${cartCount()}</span>` : ''}</button>
   </div></header>`;
@@ -5795,6 +5844,13 @@ function renderTabs(){
   const cartBadge = bar.querySelectorAll('.tab')[4].querySelector('.tab__n');
   cartBadge.textContent = n;
   cartBadge.classList.toggle('hide', n === 0);
+  // счётчик избранного
+  const favN = S.favs.length;
+  const favBadge = bar.querySelectorAll('.tab')[2].querySelector('.tab__n');
+  if(favBadge){
+    favBadge.textContent = favN;
+    favBadge.classList.toggle('hide', favN === 0);
+  }
   const unseen = unseenOrderCount();
   const profBadge = bar.querySelectorAll('.tab')[3].querySelector('.tab__n');
   if(profBadge){
@@ -6057,8 +6113,9 @@ function scrCart(){
       <button class="ghb btn--wide" data-a="back">${svg('back','ic ic--sm')} Назад</button>
     </div></div>`;
 
+  /* Полоски шагов здесь нет: корзина — это ещё не оформление. Она
+     появляется с первого шага после кнопки «Оформить заказ». */
   return `
-  ${stepBar(0)}
   <div class="sec">
     ${S.cart.map(i => `
     <div class="ci${i.gone ? ' ci--gone' : ''}">
@@ -9030,6 +9087,29 @@ function fly(fromEl, toEl, img, reverse){
     dot.remove();
     if(!reverse) toEl.classList.add('hit'), setTimeout(() => toEl.classList.remove('hit'), 440);
   };
+  /* Страховка. В свёрнутой вкладке анимации стоят, onfinish не приходит — и
+     точка висела бы на странице до перезагрузки. Два раза remove() ничего не
+     стоит, а мусор на экране убирает. */
+  setTimeout(() => dot.remove(), 2000);
+}
+
+/* Куда летит фото при добавлении в избранное: сердце в шапке, а если его
+   на этом экране нет — вкладка «Избранное» внизу. На карточке товара нет
+   ни того, ни другого: там сердце закрашивается на месте, и этого хватает. */
+function favTarget(){
+  const hd = document.querySelector('.hd__b[data-a="go:favs"]');
+  if(hd) return hd;
+  const bar = document.getElementById('tabs');
+  return bar ? bar.querySelectorAll('.tab')[2] : null;
+}
+
+/* Цифра на значке должна вырасти заметно, иначе её прибавления не видно. */
+function popCount(el){
+  if(!el) return;
+  el.classList.remove('is-new');
+  void el.offsetWidth;
+  el.classList.add('is-new');
+  setTimeout(() => el.classList.remove('is-new'), 420);
 }
 
 function popBtn(el){
@@ -9508,8 +9588,9 @@ function quickAddSizes(p, sizes, before, qty){
     const lines = S.cart.filter(x => x.id === p.id && x.size === s);
     const want = q(s);
     if(!lines.length){
-      S.cart.push({key:p.id + '-' + s, id:p.id, sku:p.sku || '', name:p.name,
-        img:p.img, price:p.price, size:s, qty:want});
+      const c = defColor(p);
+      S.cart.push({key:lineKey(p, s, ''), id:p.id, sku:p.sku || '', name:p.name,
+        img:p.img, price:p.price, size:s, color:c, colorName:colorNameOf(p, c), qty:want});
       return;
     }
     let have = lines.reduce((n, l) => n + (+l.qty || 0), 0);
@@ -9538,14 +9619,16 @@ function quickAddSizes(p, sizes, before, qty){
 }
 
 function addFromCard(p, btn, qty){
-  const key = p.id + '-' + S.size;
+  const key = lineKey(p, S.size, '');
   const n = Math.max(1, +qty || 1);
   if(S.cart.some(x => x.key === key)){
     toast('Уже в корзине · размер ' + S.size);
     closeOv();
     return;
   }
-  S.cart.push({key, id:p.id, sku:p.sku || '', name:p.name, img:p.img, price:p.price, size:S.size, qty:n});
+  const c = defColor(p);
+  S.cart.push({key, id:p.id, sku:p.sku || '', name:p.name, img:p.img, price:p.price,
+    size:S.size, color:c, colorName:colorNameOf(p, c), qty:n});
   closeOv();
   saveUser();
   renderTabs();
@@ -10392,23 +10475,29 @@ document.addEventListener('click', e => {
 
     case 'fav': {
       const id = +a;
-      S.favs.includes(id) ? S.favs = S.favs.filter(x => x !== id) : S.favs.push(id);
-      const added = S.favs.includes(id);
+      const added = !S.favs.includes(id);
+      S.favs = added ? S.favs.concat(id) : S.favs.filter(x => x !== id);
       // анимируем именно ту кнопку, по которой попали
       el.classList.remove('beat','burst'); void el.offsetWidth;
       el.classList.add('beat');
       if(added) el.classList.add('burst');
       setTimeout(() => el.classList.remove('beat','burst'), 520);
       saveUser();
+      document.querySelectorAll(`[data-a="fav:${id}"]`)
+        .forEach(b => b.setAttribute('aria-pressed', String(added)));
       if(S.screen === 'favs'){
+        renderTabs();
         setTimeout(() => render(true), 220);   // даём сердцу доиграть, потом убираем карточку
-      } else {
-        document.querySelectorAll(`[data-a="fav:${id}"]`)
-          .forEach(b => b.setAttribute('aria-pressed', S.favs.includes(id)));
-        renderTabs();                     // счётчик в таб-баре
-        if(S.screen === 'product'){       // и счётчик в шапке товара
-          document.getElementById('hdSlot').innerHTML = SCREENS.product.hd();
-        }
+        break;
+      }
+      /* Сначала перерисовываем счётчики, потом ищем цель: иначе фото полетит
+         в кнопку, которую перерисовка тут же выбросит, и удара не будет видно. */
+      renderTabs();
+      if(added){
+        const p = byId(id);
+        const tgt = favTarget();
+        fly(el, tgt, p && p.img, false);       // фото летит к сердцу, как в корзину
+        popCount(tgt && tgt.querySelector('.hd__n, .tab__n'));
       }
       break;
     }
@@ -10420,8 +10509,12 @@ document.addEventListener('click', e => {
         return toast(stockOf(p, S.size) ? 'Весь остаток уже в корзине' : 'Этого размера нет в наличии');
       }
       const qty = Math.max(1, Math.min(+S.qty || 1, maxAddQty(p, S.size)));
-      S.cart.push({key:cartKey(p), id:p.id, sku:p.sku || '', name:p.name, img:p.img, price:p.price,
-        size:S.size, color:S.color || '', colorName:colorNameOf(p, S.color), qty});
+      const key = cartKey(p);
+      const line = S.cart.find(x => x.key === key);
+      /* Доливаем в существующую строку, а не заводим вторую такую же. */
+      if(line) line.qty += qty;
+      else S.cart.push({key, id:p.id, sku:p.sku || '', name:p.name, img:p.img, price:p.price,
+        size:S.size, color:S.color || defColor(p), colorName:colorNameOf(p, S.color || defColor(p)), qty});
       S.qty = 1;
       paintQty();
       if(qty > 1) toast(`В корзине · ${S.size} · ${qty} шт`);
@@ -10519,7 +10612,11 @@ document.addEventListener('click', e => {
       const size = decodeURIComponent(b || '');
       if(!p || !size) break;
       const left = stockOf(p, size);
-      const line = S.cart.find(x => x.id === p.id && x.size === size);
+      /* Ключ считаем тем же правилом, что и в карточке, — иначе один размер
+         раздваивается на «с цветом» и «без цвета». */
+      const key = lineKey(p, size, '');
+      const line = S.cart.find(x => x.key === key)
+                || S.cart.find(x => x.id === p.id && x.size === size);
       if(left <= 0){ toast(`Размер ${size} закончился`); break; }
       /* сравниваем с СУММОЙ по размеру: один размер может лежать несколькими
          строками (разные цвета), и построчная проверка пропускала перебор */
@@ -10528,8 +10625,11 @@ document.addEventListener('click', e => {
         break;
       }
       if(line) line.qty += 1;
-      else S.cart.push({key:p.id + '-' + size, id:p.id, sku:p.sku || '', name:p.name,
-        img:p.img, price:p.price, size, qty:1});
+      else {
+        const c = defColor(p);
+        S.cart.push({key, id:p.id, sku:p.sku || '', name:p.name, img:p.img, price:p.price,
+          size, color:c, colorName:colorNameOf(p, c), qty:1});
+      }
       revalidatePromo(); saveUser(); render(true); renderTabs(); refreshCardBuys();
       toast(`Размер ${size} · ${(line ? line.qty : 1)} шт`);
       break;
@@ -10755,14 +10855,15 @@ document.addEventListener('click', e => {
         if(!p || soldOut(p)){ skipped += 1; return; }
         const size = it.size || (p.sizes && p.sizes[0]) || 'ONESIZE';
         if((p.sizes || []).length && stockOf(p, size) <= 0){ skipped += 1; return; }
-        const key = p.id + '-' + size;
+        const key = lineKey(p, size, '');
         const exist = S.cart.find(x => x.key === key);
         const qty = Math.max(1, +it.qty || 1);
         if(exist) exist.qty += qty;
         else {
+          const c = defColor(p);
           S.cart.push({
             key, id:p.id, sku:p.sku || '', name:p.name, img:p.img || it.img,
-            price:p.price, size, qty
+            price:p.price, size, color:c, colorName:colorNameOf(p, c), qty
           });
         }
         added += 1;
