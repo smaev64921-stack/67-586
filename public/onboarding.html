@@ -52,6 +52,18 @@ a{color:inherit;text-decoration:none}
 img{display:block;max-width:100%}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 
+/* ---------- прокрутка с остановкой на каждом экране ----------
+   Одного сильного движения больше не хватает, чтобы пролистать всё насквозь:
+   браузер останавливает на каждом развороте. Ключевая часть — scroll-snap-stop,
+   без неё резкий взмах пролетал бы мимо нескольких экранов подряд.
+   Включаем только на достаточно высоком экране: на низком (телефон лёжа,
+   сильное увеличение шрифта) разворот не помещается целиком, и прилипание
+   не давало бы дочитать. */
+@media (min-height:620px){
+  html{scroll-snap-type:y mandatory}
+  .snap{scroll-snap-align:start;scroll-snap-stop:always}
+}
+
 /* ---------- прогресс прокрутки ---------- */
 /* Растягиваем полосу через scaleX, а не через width: ширина заставляла бы
    браузер пересчитывать раскладку на каждом кадре прокрутки. */
@@ -129,7 +141,7 @@ img{display:block;max-width:100%}
    как будто камера наконец успокоилась */
 .look__ph{
   position:relative;overflow:hidden;background:#eaeaea;
-  aspect-ratio:4/5;max-height:56svh;width:100%;
+  aspect-ratio:4/5;max-height:44svh;width:100%;
   clip-path:inset(0 0 100% 0);
   transition:clip-path 1.05s var(--out)
 }
@@ -167,30 +179,73 @@ img{display:block;max-width:100%}
 .look__t em{font-style:normal;display:block;color:var(--muted)}
 .look__d{font-size:14.5px;line-height:1.65;color:var(--soft);max-width:34ch}
 
-/* ================= ПАЛИТРА ================= */
-.tones{padding:8px 20px 72px}
-.tones__in{max-width:940px;margin:0 auto}
-.tones__k{
-  font-size:10.5px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-  color:var(--muted);margin-bottom:14px;
-  opacity:0;transform:translateY(14px);transition:all .6s var(--out)
+/* ================= ПАЛИТРА =================
+   Одна цельная полоса вместо кружков: слева чёрный, справа белый, между ними
+   остальные цвета. Каждый цвет держит ровную площадку в середине своей доли, а
+   переходы — только на стыках. Так полоса читается как растяжка, но при этом
+   видно, что цветов ровно пять, а не бесконечный спектр. */
+.pal{
+  min-height:100svh;display:flex;flex-direction:column;justify-content:center;
+  gap:38px;padding:64px 0
 }
-.tones.is-in .tones__k{opacity:1;transform:none}
-.tones__row{display:flex;gap:9px;flex-wrap:wrap}
-.tone{
-  display:flex;align-items:center;gap:9px;padding:9px 15px 9px 10px;
-  border:1px solid var(--line);border-radius:999px;background:#fff;
-  font-size:12.5px;font-weight:600;
-  opacity:0;transform:translateY(16px) scale(.95);
-  transition:opacity .6s var(--out), transform .6s var(--out)
+.pal__in{width:100%;max-width:940px;margin:0 auto;padding:0 20px}
+.pal__k{
+  display:flex;align-items:center;gap:10px;margin-bottom:15px;
+  font-size:10.5px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  opacity:0;transform:translateY(20px);transition:all .8s var(--out) .12s
 }
-.tones.is-in .tone{opacity:1;transform:none}
-.tones.is-in .tone:nth-child(1){transition-delay:.08s}
-.tones.is-in .tone:nth-child(2){transition-delay:.15s}
-.tones.is-in .tone:nth-child(3){transition-delay:.22s}
-.tones.is-in .tone:nth-child(4){transition-delay:.29s}
-.tones.is-in .tone:nth-child(5){transition-delay:.36s}
-.tone i{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.15);flex:none}
+.pal__k b{color:var(--ink);font-weight:800}
+.pal__k i{flex:1;height:1px;background:var(--line);max-width:70px}
+.pal__t{
+  font-size:clamp(29px,7.6vw,46px);font-weight:800;line-height:1.06;
+  letter-spacing:-.035em;margin-bottom:15px;
+  opacity:0;transform:translateY(22px);transition:all .85s var(--out) .22s
+}
+.pal__t em{font-style:normal;display:block;color:var(--muted)}
+.pal__d{
+  font-size:14.5px;line-height:1.65;color:var(--soft);max-width:38ch;
+  opacity:0;transform:translateY(22px);transition:all .85s var(--out) .32s
+}
+.pal.is-in .pal__k,
+.pal.is-in .pal__t,
+.pal.is-in .pal__d{opacity:1;transform:none}
+
+.pal__band{
+  position:relative;display:flex;overflow:hidden;margin-top:28px;
+  height:clamp(180px,30svh,264px);
+  background:linear-gradient(90deg,
+    #0b0b0b 0%,  #0b0b0b 15%,
+    #4a3128 25%, #4a3128 35%,
+    #d81e28 45%, #d81e28 55%,
+    #b3d2ef 65%, #b3d2ef 75%,
+    #ffffff 85%, #ffffff 100%);
+  /* Белый край иначе растворился бы в светлой странице — обводка держит границу. */
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);
+  clip-path:inset(0 100% 0 0);
+  transition:clip-path 1.25s var(--out) .35s
+}
+.pal.is-in .pal__band{clip-path:inset(0 0 0 0)}
+
+/* Подпись стоит в середине своей доли — там цвет ровный, без перехода,
+   поэтому её видно на любом из пяти.
+   Вертикальный текст живёт во вложенном элементе нарочно: writing-mode на самой
+   ячейке развернул бы и оси флексбокса, и центрирование поехало бы вбок. */
+.pal__seg{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  opacity:0;transform:translateY(-12px);
+  transition:opacity .55s var(--ease), transform .55s var(--out)
+}
+.pal__seg i{
+  writing-mode:vertical-rl;font-style:normal;
+  font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--t)
+}
+.pal.is-in .pal__seg{opacity:1;transform:none}
+.pal.is-in .pal__seg:nth-child(1){transition-delay:.75s}
+.pal.is-in .pal__seg:nth-child(2){transition-delay:.87s}
+.pal.is-in .pal__seg:nth-child(3){transition-delay:.99s}
+.pal.is-in .pal__seg:nth-child(4){transition-delay:1.11s}
+.pal.is-in .pal__seg:nth-child(5){transition-delay:1.23s}
 
 /* ================= БЕГУЩАЯ СТРОКА ================= */
 .tick{overflow:hidden;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -211,14 +266,16 @@ img{display:block;max-width:100%}
 /* мозаика позади — из тех же снимков, что уже пролистали: лишних байтов не тянем */
 .fin__wall{
   position:absolute;inset:-2%;z-index:0;
-  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:5px;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(5,1fr);gap:5px;
   opacity:0;transform:scale(1.1);
   transition:opacity 1.5s var(--ease), transform 1.7s var(--out)
 }
 /* Ряды задаём явно: иначе они выросли бы по высоте самих снимков и мозаика
-   либо не дотянулась бы до низа экрана, либо вылезла за него. */
+   либо не дотянулась бы до низа экрана, либо вылезла за него.
+   Клеток ровно 15 — пять снимков, выложенных трижды. Мельче нельзя: крупные
+   плитки читаются как отдельные фото и спорят с текстом поверх них. */
 @media(min-width:700px){
-  .fin__wall{grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(2,1fr)}
+  .fin__wall{grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(3,1fr)}
 }
 .fin.is-in .fin__wall{opacity:.2;transform:none}
 .fin__wall img{width:100%;height:100%;object-fit:cover;filter:grayscale(1)}
@@ -264,10 +321,11 @@ img{display:block;max-width:100%}
 /* ---------- если анимации мешают ---------- */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
-  .look__ph{clip-path:none}
+  .look__ph,.pal__band{clip-path:none}
   .look__ph img{transform:none}
   .tick__row{animation:none}
-  .look__txt > *,.tone,.tones__k,.fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
+  .look__txt > *,.pal__k,.pal__t,.pal__d,.pal__seg,
+  .fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
   .fin__wall{opacity:.2;transform:none}
 }
 </style>
@@ -278,14 +336,14 @@ img{display:block;max-width:100%}
 <button class="skip" id="skip" type="button">Пропустить</button>
 
 <!-- ====== заставка ====== -->
-<section class="intro">
-  <img class="intro__mark" src="/logo.png" alt="Canvas" width="238" height="400">
+<section class="intro snap">
+  <img class="intro__mark" src="/logo.png" alt="Canvas" width="325" height="520">
   <h1 class="intro__sub" id="introSub">Базовые вещи, которые носят каждый день</h1>
   <div class="intro__go"><span class="intro__line"></span>Листайте</div>
 </section>
 
 <!-- ====== развороты ====== -->
-<section class="look" data-look>
+<section class="look snap" data-look>
   <div class="look__in">
     <div class="look__ph">
       <img src="/onboarding/look-14.jpg" alt="Двое в чёрной и белой футболках" loading="eager" decoding="async" fetchpriority="high">
@@ -298,7 +356,7 @@ img{display:block;max-width:100%}
   </div>
 </section>
 
-<section class="look" data-look data-flip>
+<section class="look snap" data-look data-flip>
   <div class="look__in">
     <div class="look__ph">
       <img src="/onboarding/look-02.jpg" alt="Белая футболка вблизи" loading="lazy" decoding="async">
@@ -311,7 +369,7 @@ img{display:block;max-width:100%}
   </div>
 </section>
 
-<section class="look" data-look>
+<section class="look snap" data-look>
   <div class="look__in">
     <div class="look__ph">
       <img src="/onboarding/look-12.jpg" alt="Оверсайз-футболка сбоку" loading="lazy" decoding="async">
@@ -325,33 +383,29 @@ img{display:block;max-width:100%}
 </section>
 
 <!-- ====== палитра ====== -->
-<section class="tones" data-look>
-  <div class="tones__in">
-    <p class="tones__k">Цвета в наличии</p>
-    <div class="tones__row">
-      <span class="tone"><i style="background:#111"></i>Чёрный</span>
-      <span class="tone"><i style="background:#fff"></i>Белый</span>
-      <span class="tone"><i style="background:#b3d2ef"></i>Голубой</span>
-      <span class="tone"><i style="background:#4a3128"></i>Шоколад</span>
-      <span class="tone"><i style="background:#e01f26"></i>Красный</span>
+<section class="pal snap" data-look>
+  <div class="pal__in">
+    <p class="pal__k"><b>04</b><i></i>Цвет</p>
+    <h2 class="pal__t">Пять цветов<em>и один крой</em></h2>
+    <p class="pal__d">От чёрного до белого. Посадка во всех одинаковая, так что размер подбирать заново не придётся.</p>
+    <div class="pal__band">
+      <span class="pal__seg" style="--t:#fff"><i>Чёрный</i></span>
+      <span class="pal__seg" style="--t:#fff"><i>Шоколад</i></span>
+      <span class="pal__seg" style="--t:#fff"><i>Красный</i></span>
+      <span class="pal__seg" style="--t:#0b0b0b"><i>Голубой</i></span>
+      <span class="pal__seg" style="--t:#0b0b0b"><i>Белый</i></span>
+    </div>
+  </div>
+
+  <div class="tick" aria-hidden="true">
+    <div class="tick__row">
+      <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
+      <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
     </div>
   </div>
 </section>
 
-<section class="look" data-look data-flip>
-  <div class="look__in">
-    <div class="look__ph">
-      <img src="/onboarding/look-03.jpg" alt="Красная футболка" loading="lazy" decoding="async">
-    </div>
-    <div class="look__txt">
-      <p class="look__k"><b>04</b><i></i>Цвет</p>
-      <h2 class="look__t">Не только<em>база</em></h2>
-      <p class="look__d">Красный, голубой и шоколад — если чёрного мало. Крой во всех цветах один и тот же, так что размер подбирать заново не придётся.</p>
-    </div>
-  </div>
-</section>
-
-<section class="look" data-look>
+<section class="look snap" data-look>
   <div class="look__in">
     <div class="look__ph">
       <img src="/onboarding/look-09.jpg" alt="Футболка со спины" loading="lazy" decoding="async">
@@ -364,7 +418,7 @@ img{display:block;max-width:100%}
   </div>
 </section>
 
-<section class="look" data-look data-flip>
+<section class="look snap" data-look data-flip>
   <div class="look__in">
     <div class="look__ph">
       <img src="/onboarding/look-13.jpg" alt="Голубая футболка" loading="lazy" decoding="async">
@@ -377,20 +431,12 @@ img{display:block;max-width:100%}
   </div>
 </section>
 
-<!-- ====== бегущая строка ====== -->
-<div class="tick" aria-hidden="true">
-  <div class="tick__row">
-    <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
-    <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
-  </div>
-</div>
-
 <!-- ====== финал ====== -->
-<section class="fin" data-look>
+<section class="fin snap" data-look>
   <div class="fin__wall" id="wall" aria-hidden="true"></div>
   <div class="fin__veil"></div>
   <div class="fin__in">
-    <img class="fin__mark" src="/logo.png" alt="" width="238" height="400">
+    <img class="fin__mark" src="/logo.png" alt="" width="325" height="520">
     <h2 class="fin__t">Теперь выбирайте</h2>
     <p class="fin__d">Вся коллекция — в каталоге. Размеры, цвета и наличие обновляются в реальном времени.</p>
     <a class="cta" id="go" href="/#catalog">
@@ -427,8 +473,8 @@ img{display:block;max-width:100%}
      и фон за кнопкой не стоит ни одного лишнего килобайта. */
   var wall = document.getElementById('wall');
   if(wall){
-    var shots = ['look-14','look-02','look-12','look-03','look-09','look-13'];
-    for(var pass = 0; pass < 2; pass++){
+    var shots = ['look-14','look-02','look-12','look-09','look-13'];
+    for(var pass = 0; pass < 3; pass++){   /* 5 снимков x 3 = 15 клеток сетки */
       shots.forEach(function(n){
         var im = document.createElement('img');
         im.src = '/onboarding/' + n + '.jpg';
