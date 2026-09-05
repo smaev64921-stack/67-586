@@ -978,10 +978,16 @@ app.get('/index.html', indexHandler);
 app.get('/api-bridge.js', serveTextFile(path.join(publicDir, 'api-bridge.js')));
 app.use(express.static(publicDir, {
   extensions: ['html'],
-  /* картинки и шрифты не меняются на месте — их можно держать в кэше долго,
-     а html всегда перепроверять, иначе правки не доедут до покупателя */
+  /* Картинки товаров лежат под именами с хешем и правда не меняются — их держим
+     в кэше долго. HTML перепроверяем всегда, иначе правки не доедут до покупателя.
+     А вот знак бренда — исключение, и на нём мы уже обожглись: он лежит под
+     постоянным именем /logo.png, файл заменили, но у всех, кто заходил раньше,
+     ещё неделю показывался старый. Такие файлы обязаны перепроверяться; с ETag
+     это стоит одного ответа «не изменилось» на 22 КБ картинки. */
   setHeaders(res, filePath) {
-    res.setHeader('Cache-Control', /\.html?$/i.test(filePath) ? 'no-cache' : 'public, max-age=604800');
+    const p = String(filePath).replace(/\\/g, '/');
+    const alwaysCheck = /\.html?$/i.test(p) || /\/(logo|logo-white)\.png$/i.test(p) || /\/favicon\.svg$/i.test(p);
+    res.setHeader('Cache-Control', alwaysCheck ? 'no-cache' : 'public, max-age=604800');
   }
 }));
 /* Браузер сам просит эти адреса на каждой странице. Своего файла у них
