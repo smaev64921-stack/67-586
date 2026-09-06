@@ -225,6 +225,78 @@ img{display:block;max-width:100%}
 .look__t em{font-style:normal;display:block;color:var(--ink-2)}
 .look__d{font-size:clamp(14.5px,3.9vw,15.5px);line-height:1.6;color:var(--soft);max-width:36ch}
 
+/* Первый разворот — двое спина к спине, снимок квадратный. В общей рамке 4/5
+   у правого парня срезало бы рукав: пара занимает почти всю ширину кадра. */
+.look--sq .look__ph{aspect-ratio:1/1}
+
+/* ================= РАЗВОРОТ НА ДВА КАДРА =================
+   Одна вещь двумя снимками. Класс один на обе пары, меняется только начинка.
+
+   Кадры НЕ стоят встык. Встык они физически не могут быть крупными: на
+   телефоне вся колонка 350 px, пополам — по 170, и разворот читается как два
+   превью, случайно попавших между двумя полноценными экранами. Поэтому
+   меньший кадр заезжает на больший: 64% + 52% − 16% нахлёста = ровно 100%
+   ширины, и высокий кадр получается 291 px вместо 180 — не мельче соседей.
+
+   Высокий кадр берёт пропорции самого файла (--ar), поэтому вертикали не
+   режутся вовсе. Меньший всегда квадрат: туда идёт горизонтальный снимок,
+   который в вертикальной рамке потерял бы руки по краям (они на 33% и 71%
+   ширины), — в квадрате видно 67% ширины, руки внутри с запасом. */
+.duo{
+  position:relative;display:flex;align-items:flex-end;
+  width:100%;margin-right:auto;padding-bottom:13px;
+  /* Потолок задан ширине, а не высоте: высоту тут диктует ширина (высокий
+     кадр = 0,64 x ширина x 1,5 = 0,96 её), а обрезать по высоте значило бы
+     резать снимок. 41svh подобран так, чтобы вместе с текстом и полями
+     разворот влезал в экран 360x640 — самый тесный, где ещё есть прилипание. */
+  max-width:min(100%, 41svh)
+}
+/* Линия набора, на которой стоят оба кадра: прочерчивается слева направо.
+   Через scaleX, а не width, — ширину браузер пересчитывал бы каждый кадр. */
+.duo::after{
+  content:'';position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:var(--line);
+  transform:scaleX(0);transform-origin:0 50%;
+  transition:transform .9s var(--out) .1s
+}
+.look.is-in .duo::after{transform:scaleX(1)}
+
+.duo__ph{
+  position:relative;overflow:hidden;background:#eaeaea;flex:none;
+  aspect-ratio:var(--ar,2/3);
+  clip-path:inset(0 0 100% 0);
+  transition:clip-path 1.05s var(--out)
+}
+.duo__ph img{
+  width:100%;height:100%;object-fit:cover;object-position:var(--op,center 12%);
+  transform:scale(1.12);transition:transform 1.5s var(--out)
+}
+.look.is-in .duo__ph{clip-path:inset(0 0 0 0)}
+.look.is-in .duo__ph img{transform:scale(1)}
+
+.duo__ph--hi{width:64%}
+/* Поле цвета страницы по двум ведущим краям — без него верхний снимок
+   слипся бы с нижним в одно пятно. Именно border, а не тень: clip-path
+   обрезает всё, что выходит за рамку, и тень до экрана бы не дожила. */
+.duo__ph--lo{
+  width:52%;margin-left:-16%;
+  border-left:7px solid var(--bg);border-top:7px solid var(--bg);
+  /* Вторая склейка идёт поперёк первой и с задержкой: одновременно и в одну
+     сторону два кадра читались бы как одна картинка, разрезанная пополам. */
+  clip-path:inset(0 100% 0 0);
+  transition-delay:.18s
+}
+.look.is-in .duo__ph--lo{clip-path:inset(0 0 0 0)}
+.look.is-in .duo__ph--lo img{transition-delay:.18s}
+
+@media(min-width:820px){
+  /* Рядом с текстом колонка и так узкая — потолок по высоте больше не нужен,
+     ширину ограничивает сама колонка. data-flip уводит пару вправо, ровно как
+     это уже сделано для одиночного кадра. */
+  .duo{max-width:100%;padding-bottom:16px}
+  .look[data-flip] .duo{order:2}
+}
+
 /* ================= ПАЛИТРА =================
    Одна цельная полоса вместо кружков: слева чёрный, справа белый, между ними
    остальные цвета. Каждый цвет держит ровную площадку в середине своей доли, а
@@ -280,6 +352,11 @@ img{display:block;max-width:100%}
   /* Светлый край растяжки иначе растворился бы в белой кнопке — кольцо держит форму. */
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)
 }
+
+/* На низком экране (телефон лёжа, крупный системный шрифт) палитра вместе с
+   бегущей строкой не помещалась в разворот и вылезала на 40 пикселей. Отбираем
+   воздух, а не содержимое: кнопки и строка остаются как были. */
+@media (max-height:700px){ .pal{gap:24px;padding:48px 0} }
 
 /* ================= БЕГУЩАЯ СТРОКА ================= */
 .tick{overflow:hidden;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -376,8 +453,9 @@ img{display:block;max-width:100%}
 /* ---------- если анимации мешают ---------- */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
-  .look__ph{clip-path:none}
-  .look__ph img{transform:none}
+  .look__ph,.duo__ph,.duo__ph--lo{clip-path:none}
+  .look__ph img,.duo__ph img{transform:none}
+  .duo::after{transform:none}
   .tick__row{animation:none}
   .look__txt > *,.pal__k,.pal__t,.pal__d,.tone,
   .fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
@@ -398,41 +476,54 @@ img{display:block;max-width:100%}
 </section>
 
 <!-- ====== развороты ====== -->
-<section class="look snap" data-look>
+<section class="look look--sq snap" data-look>
   <div class="look__in">
     <div class="look__ph">
-      <img src="/onboarding/look-14.jpg" alt="Двое в чёрной и белой футболках" loading="eager" decoding="async" fetchpriority="high">
+      <img src="/onboarding/look-14.jpg" alt="Двое спина к спине: чёрная и белая футболки" loading="eager" decoding="async" fetchpriority="high">
     </div>
     <div class="look__txt">
       <p class="look__k"><b>01</b><i></i>Коллекция</p>
       <h2 class="look__t">Чёрное<em>и белое</em></h2>
-      <p class="look__d">Два цвета, с которых начинается гардероб. Свободный крой, ровная горловина, ничего лишнего — такую футболку надеваешь не задумываясь.</p>
+      <p class="look__d">Два цвета, с которых начинается гардероб. Такую футболку надеваешь не задумываясь.</p>
     </div>
   </div>
 </section>
 
+<!-- Одна футболка двумя кадрами: силуэт целиком и ткань вблизи. -->
 <section class="look snap" data-look data-flip>
   <div class="look__in">
-    <div class="look__ph">
-      <img src="/onboarding/look-02.jpg" alt="Белая футболка вблизи" loading="lazy" decoding="async">
+    <div class="duo">
+      <div class="duo__ph duo__ph--hi" style="--ar:852/1280">
+        <img src="/onboarding/look-12.jpg" alt="Белая футболка сбоку, руки в карманах" loading="lazy" decoding="async">
+      </div>
+      <div class="duo__ph duo__ph--lo" style="--ar:1/1">
+        <img src="/onboarding/look-15.jpg" alt="Полотно белой футболки оттянуто пальцами" loading="lazy" decoding="async">
+      </div>
     </div>
     <div class="look__txt">
       <p class="look__k"><b>02</b><i></i>Ткань</p>
-      <h2 class="look__t">Плотный<em>хлопок</em></h2>
-      <p class="look__d">Не просвечивает и держит форму. Тот случай, когда вещь хочется потрогать до покупки — на снимках видно и плотность полотна, и как оно лежит.</p>
+      <h2 class="look__t">Оттяните<em>и отпустите</em></h2>
+      <p class="look__d">Полотно оттянуто пальцами: плотное, на просвет ничего. Рядом та же футболка в покое — плечо спущено, край падает ровно.</p>
     </div>
   </div>
 </section>
 
+<!-- Та же вещь анфас и в профиль. Профиль сдвинут по горизонтали: девушка
+     стоит правее середины кадра, и по центру квадрат срезал бы ей спину. -->
 <section class="look snap" data-look>
   <div class="look__in">
-    <div class="look__ph">
-      <img src="/onboarding/look-12.jpg" alt="Оверсайз-футболка сбоку" loading="lazy" decoding="async">
+    <div class="duo">
+      <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
+        <img src="/onboarding/look-16.jpg" alt="Чёрная женская футболка, вид спереди" loading="lazy" decoding="async">
+      </div>
+      <div class="duo__ph duo__ph--lo" style="--ar:1/1">
+        <img src="/onboarding/look-17.jpg" alt="Та же футболка в профиль" loading="lazy" decoding="async" style="--op:34% 12%">
+      </div>
     </div>
     <div class="look__txt">
       <p class="look__k"><b>03</b><i></i>Посадка</p>
-      <h2 class="look__t">Оверсайз<em>как надо</em></h2>
-      <p class="look__d">Спущенное плечо и прямой силуэт. Не мешок и не в облипку — вещь садится ровно и не тянет в плечах, когда поднимаешь руки.</p>
+      <h2 class="look__t">Свободно<em>но не мешком</em></h2>
+      <p class="look__d">Анфас и строгий профиль подряд. Сбоку видно главное: полотно идёт от груди вниз, не касаясь фигуры.</p>
     </div>
   </div>
 </section>
@@ -442,7 +533,7 @@ img{display:block;max-width:100%}
   <div class="pal__in">
     <p class="pal__k"><b>04</b><i></i>Цвет</p>
     <h2 class="pal__t">Пять цветов<em>и один крой</em></h2>
-    <p class="pal__d">От чёрного до белого. Посадка во всех одинаковая, так что размер подбирать заново не придётся.</p>
+    <p class="pal__d">От чёрного до белого. Посадка во всех одинаковая: взяли чёрную — красная сядет так же.</p>
     <div class="pal__row">
       <span class="tone"><i style="--a:#000000;--b:#e2e2e2"></i>Чёрный</span>
       <span class="tone"><i style="--a:#33201a;--b:#d9c6ba"></i>Шоколад</span>
@@ -463,12 +554,12 @@ img{display:block;max-width:100%}
 <section class="look snap" data-look>
   <div class="look__in">
     <div class="look__ph">
-      <img src="/onboarding/look-09.jpg" alt="Футболка со спины" loading="lazy" decoding="async">
+      <img src="/onboarding/look-05.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
     </div>
     <div class="look__txt">
       <p class="look__k"><b>05</b><i></i>Съёмка</p>
       <h2 class="look__t">Видно<em>со всех сторон</em></h2>
-      <p class="look__d">Каждую вещь снимаем спереди, сзади и вполоборота. В карточке товара фото можно приблизить пальцами и рассмотреть шов вблизи.</p>
+      <p class="look__d">Спереди, сзади и вполоборота, при одном свете — цвет на экране такой же, каким приедет.</p>
     </div>
   </div>
 </section>
@@ -476,12 +567,12 @@ img{display:block;max-width:100%}
 <section class="look snap" data-look data-flip>
   <div class="look__in">
     <div class="look__ph">
-      <img src="/onboarding/look-13.jpg" alt="Голубая футболка" loading="lazy" decoding="async">
+      <img src="/onboarding/look-03.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
     </div>
     <div class="look__txt">
       <p class="look__k"><b>06</b><i></i>Доставка</p>
       <h2 class="look__t">Заберёте<em>рядом с домом</em></h2>
-      <p class="look__d">Любой пункт выдачи СДЭК на выбор. Оплата картой прямо на сайте, а статус заказа можно получать в Telegram — если подключите бота.</p>
+      <p class="look__d">Любой пункт выдачи СДЭК на выбор, оплата картой на сайте. Статус заказа придёт в Telegram, если подключите бота.</p>
     </div>
   </div>
 </section>
@@ -526,7 +617,7 @@ img{display:block;max-width:100%}
      и фон за кнопкой не стоит ни одного лишнего килобайта. */
   var wall = document.getElementById('wall');
   if(wall){
-    var shots = ['look-14','look-02','look-12','look-09','look-13'];
+    var shots = ['look-14','look-15','look-16','look-05','look-03'];
     for(var pass = 0; pass < 3; pass++){   /* 5 снимков x 3 = 15 клеток сетки */
       shots.forEach(function(n){
         var im = document.createElement('img');
