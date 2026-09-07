@@ -35,6 +35,7 @@ const telegramBot = require('./telegram-bot');
 const { resolvePublicUrl, logPublicUrlDebug, isValidPublicHttps, isLocal } = require('./public-url');
 const { authLog } = require('./auth-log');
 const errors = require('./error-report');
+const deployNotice = require('./deploy-notice');
 /* Ставим ловушки до всего остального: ошибка при запуске тоже должна дойти. */
 errors.installProcessHooks();
 errors.installConsoleHook();
@@ -1084,7 +1085,19 @@ app.listen(PORT, '0.0.0.0', () => {
   if (isLocal(PUBLIC_URL) && !botForced) {
     console.log(`Telegram: бот не запущен — локальный адрес ${PUBLIC_URL}`);
   } else {
-    telegramBot.boot(PUBLIC_URL).catch((e) => console.error(e));
+    telegramBot.boot(PUBLIC_URL)
+      .then(() => {
+        /* Бот поднялся — можно сообщить админам, что магазин перезапустился
+           уже на новой версии. Внутри сверка отпечатка: если в public ничего
+           не менялось, обычный перезапуск пройдёт молча. */
+        return deployNotice.run({ url: PUBLIC_URL });
+      })
+      .then((r) => {
+        if (!r) return;
+        if (r.sent) console.log(`Выкат: сообщил админам (${r.sent} из ${r.of}), версия ${r.stamp}`);
+        else console.log(`Выкат: не сообщал — ${r.reason}`);
+      })
+      .catch((e) => console.error(e));
   }
   let lastCdekSync = 0;
   const tick = () => {

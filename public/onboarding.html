@@ -596,7 +596,9 @@ img{display:block;max-width:100%}
 <script>
 (function(){
   'use strict';
-  var HOME = '/#catalog';
+  /* Кнопка называется «Перейти в каталог», но приводит на главный экран:
+     оттуда видно и подборки, и разделы, а каталог — в одно касание. */
+  var HOME = '/#home';
   var HANDOFF = 'lc_enter';   /* по нему магазин узнаёт, что мы пришли отсюда */
 
   /* --- подпись проявляется по словам --- */
@@ -685,15 +687,33 @@ img{display:block;max-width:100%}
   window.addEventListener('load', measure);   /* дозагрузились картинки — перемерим */
   measure();
 
+  /* Вернулись сюда «назад» — браузер отдаёт страницу из кэша нетронутой,
+     вместе с чёрным занавесом поверх всего. Снимаем его руками: pageshow
+     приходит и при обычной загрузке, и при возврате из кэша. */
+  window.addEventListener('pageshow', function(){
+    var curtain = document.querySelector('.exit');
+    if(curtain) curtain.remove();
+    leaving = false;
+  });
+
   /* --- выход --- */
   var go = document.getElementById('go');
   var leaving = false;
+
+  /* Уходим ЗАМЕНОЙ записи, а не переходом. Иначе знакомство остаётся в
+     истории, и кнопка «Назад» из магазина возвращает сюда — причём браузер
+     достаёт страницу из своего кэша ровно в том виде, в каком её покинули:
+     с уже разлившимся чёрным кругом на весь экран. Человек нажимал «назад»
+     и упирался в чёрный экран со знаком, из которого нет выхода. */
+  function leave(){
+    location.replace(HOME);
+  }
 
   /* «Пропустить» уходит сразу: человек сказал, что не хочет это смотреть, —
      заставлять его ждать анимацию было бы издевательством. */
   if(skip) skip.addEventListener('click', function(e){
     e.preventDefault();
-    location.href = HOME;
+    leave();
   });
 
   if(go) go.addEventListener('click', function(e){
@@ -703,7 +723,7 @@ img{display:block;max-width:100%}
 
     var reduce = false;
     try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}
-    if(reduce){ location.href = HOME; return; }
+    if(reduce){ leave(); return; }
 
     /* Флажок для магазина: он поднимет такую же черноту со знаком и проявится
        уже из неё, вместо того чтобы мигнуть белым. */
@@ -737,7 +757,7 @@ img{display:block;max-width:100%}
     void el.offsetWidth;
     el.classList.add('is-on');
 
-    setTimeout(function(){ location.href = HOME; }, 880);
+    setTimeout(leave, 880);
   });
 })();
 </script>
