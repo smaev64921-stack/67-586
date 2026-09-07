@@ -14276,9 +14276,27 @@ bootFromServer().catch((err) => {
   let _adminFeed = false;
   const seen = {products:'', reviews:'', cms:''};
 
+  /* Свёрнутое приложение раньше не спрашивало сервер вообще. Экономия
+     разумная — рисовать всё равно некому, — но вместе с ней пропадала
+     единственная причина, по которой уведомление о смене статуса имеет
+     смысл: человек не смотрит в приложение, статус меняется, и сообщить об
+     этом некому, потому что никто не спросил.
+
+     Поэтому в свёрнутом виде опрос не выключаем, а урежаем до раза в минуту
+     и берём только заказы: каталог, отзывы и настройки подождут до возврата.
+     Чаще всё равно не выйдет — браузер сам душит таймеры скрытой вкладки
+     примерно до одного срабатывания в минуту. */
+  const BG_EVERY = 60000;
+  let bgLast = 0;
+
   async function pullLive(){
-    if(pulling || document.hidden || !window.LC) return;
-    if(livePaintQueued && !liveUiBusy()) requestLivePaint();
+    if(pulling || !window.LC) return;
+    const hidden = document.hidden;
+    if(hidden){
+      if(Date.now() - bgLast < BG_EVERY) return;
+      bgLast = Date.now();
+    }
+    if(!hidden && livePaintQueued && !liveUiBusy()) requestLivePaint();
     pulling = true;
     try{
       const adminOn = !!adm.querySelector('.ad');
@@ -14287,7 +14305,9 @@ bootFromServer().catch((err) => {
       /* что изменилось на сервере */
       let ver = null;
       try{ ver = await LC.liveVersion(); }catch(_){}
-      const changed = key => !ver || !ver[key] || ver[key] !== seen[key];
+      /* В фоне рисовать некому: каталог, отзывы и настройки не трогаем,
+         иначе свёрнутое приложение качало бы мегабайты впустую. */
+      const changed = key => !hidden && (!ver || !ver[key] || ver[key] !== seen[key]);
       /* в админке каталог и отзывы приходят другим запросом (со скрытыми
          позициями), поэтому при её открытии отпечатки сбрасываем */
       if(admin !== _adminFeed){ _adminFeed = admin; seen.products = ''; seen.reviews = ''; }
@@ -14299,7 +14319,8 @@ bootFromServer().catch((err) => {
         jobs.push(admin ? LC.loadCatalogAll().catch(() => LC.loadCatalog()) : LC.loadCatalog());
       }
       /* заказы отпечатка не имеют — опрашиваем реже, они меняются не мгновенно */
-      const wantOrders = (++ordTick % 3 === 1);
+      /* В фоне опрос и так раз в минуту — прореживать его ещё втрое незачем. */
+      const wantOrders = hidden || (++ordTick % 3 === 1);
       /* Пока открыта админка, свои покупательские заказы не трогаем: ниже
          тем же тиком грузятся ВСЕ заказы магазина, и список ORDERS
          перезаписывался дважды разным содержимым. «Что-то изменилось»
@@ -14424,6 +14445,7 @@ bootFromServer().catch((err) => {
   });
   document.addEventListener('visibilitychange', () => {
     if(document.hidden) return;
+    bgLast = 0;              /* вернулись — спрашиваем сразу, не дожидаясь минуты */
     pullLive();
     refreshAuthUser().catch(() => {});
   });
