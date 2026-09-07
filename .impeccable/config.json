@@ -1,0 +1,16 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "public/onboarding.html"
+        ],
+        "createdAt": "2026-09-07T15:54:54.496Z"
+      }
+    ]
+  }
+}
