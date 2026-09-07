@@ -9216,6 +9216,54 @@ async function notifShow(title, body, tag, url){
   }catch(_){ return false; }
 }
 
+/* Магазин сам предлагает включить уведомления.
+
+   Почему полосой, а не сразу системным окном: браузер разрешает спросить
+   только один раз за всю жизнь сайта. Отказали — вернуть окно нельзя ничем,
+   человеку придётся лезть в настройки браузера, чего он не сделает никогда.
+   Поэтому сначала спрашиваем своей полосой, которую не жалко показать ещё
+   раз через неделю, и только по нажатию «Разрешить» дёргаем настоящее окно.
+   Заодно это то, чего требует Chrome: запрос без явного действия человека
+   он считает навязчивым и глушит сайт целиком.
+
+   Когда: через минуту после открытия, на спокойном экране. Не в корзине и
+   не на оформлении — там человек занят делом, и полоса поверх кнопки
+   «Оформить заказ» только мешала бы. */
+const NOTIF_WAIT = 'lc_notif_wait';
+const NOTIF_CALM = /^(home|catalog|product|favs|profile)$/;
+
+function notifSnooze(days){
+  try{ localStorage.setItem(NOTIF_WAIT, String(Date.now() + days * 864e5)); }catch(_){}
+}
+function notifWaiting(){
+  try{ return Date.now() < (+localStorage.getItem(NOTIF_WAIT) || 0); }catch(_){ return false; }
+}
+
+function offerNotif(){
+  /* Спрашивать нечего: уже решили, браузер не умеет, или на айфоне нужно
+     сперва поставить приложение — про это написано в «Уведомлениях». */
+  if(notifState() !== 'default' || notifWaiting()) return;
+  setTimeout(function tick(){
+    if(notifState() !== 'default' || notifWaiting()) return;
+    /* Момент неудачный — не бросаем затею, а ждём следующего. */
+    /* Полоса на экране уже есть — скорее всего предложение поставить
+       приложение. Перебивать её своей значило бы отнять у человека ответ,
+       который он ещё не дал. */
+    if(document.hidden || !NOTIF_CALM.test(S.screen) || (ov && ov.innerHTML)
+       || document.querySelector('.pwa')){
+      return setTimeout(tick, 20000);
+    }
+    if(!window.lcApp || !lcApp.bar) return;
+    lcApp.bar(
+      'Сообщать о заказе?',
+      'Напишем, когда заказ поедет и когда его можно забрать.',
+      'Разрешить',
+      function(){ notifAsk(); },
+      function(){ notifSnooze(7); }        /* «не сейчас» — вернёмся через неделю */
+    );
+  }, 60000);
+}
+
 async function notifAsk(){
   const st = notifState();
   if(st === 'need-install') return toast('На айфоне — сначала «Поделиться» → «На экран „Домой“»');
@@ -9230,6 +9278,8 @@ async function notifAsk(){
     } else if(r === 'denied'){
       toast('Уведомления запрещены — включить можно в настройках браузера');
     } else {
+      /* Окно закрыли, не выбрав. Спросить ещё можно — но не сегодня. */
+      notifSnooze(7);
       toast('Можно включить позже в Профиль → Уведомления');
     }
   }catch(_){ toast('Не удалось включить уведомления'); }
@@ -14144,6 +14194,7 @@ async function bootFromServer(){
   restorePlaceScroll();
   persistPlace();
   armBack();          /* с первого экрана «Назад» уже под нашим присмотром */
+  offerNotif();       /* через минуту предложим уведомления, если уместно */
   /* Ссылка вида #admin открывает панель через таймер, уже после этой строки:
      сверяемся ещё раз, иначе из панели первое же «Назад» уводило бы с сайта. */
   setTimeout(syncBack, 600);
@@ -14499,7 +14550,10 @@ bootFromServer().catch((err) => {
   }
 
   /* Наружу — для пункта «Приложение» в настройках. */
-  window.lcApp = { canInstall: canInstall, open: openAppModal, installed: function(){ return standalone; } };
+  /* bar отдаём наружу: тем же способом магазин предлагает включить
+     уведомления — заводить вторую такую полосу незачем. */
+  window.lcApp = { canInstall: canInstall, open: openAppModal, bar: showBar,
+    installed: function(){ return standalone; } };
 
   /* --- service worker и обновления --- */
   if(!("serviceWorker" in navigator)) return;
