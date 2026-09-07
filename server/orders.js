@@ -228,13 +228,56 @@ function pushSafe(fn) {
   } catch (_) {}
 }
 
+/* Заголовок несёт суть, номер уходит в строку под ним: в шторке телефона
+   видно прежде всего заголовок, и «Заказ №10003» там не говорит ничего. */
+const PUSH_TITLES = {
+  'В обработке': 'Заказ принят',
+  'Едет': 'Заказ в пути',
+  'Доставка': 'Заказ в пути',
+  'Доставлен': 'Заказ доставлен',
+  'Отменён': 'Заказ отменён',
+  'Возврат': 'Оформлен возврат',
+  'Ожидает оплаты': 'Ждём оплату'
+};
+
+/** Короткий состав заказа: «Косметичка-чехол и ещё 2». */
+function orderItemsLine(order) {
+  let items = [];
+  try {
+    items = Array.isArray(order.items)
+      ? order.items
+      : JSON.parse((order.items_json) || '[]');
+  } catch (_) {}
+  if (!items.length) return '';
+  const first = String(items[0].name || '').trim();
+  if (!first) return '';
+  const more = items.length - 1;
+  return more > 0 ? first + ' и ещё ' + more : first;
+}
+
+/** Фото первой позиции — Android показывает его крупно под текстом. */
+function orderImage(order) {
+  let items = [];
+  try {
+    items = Array.isArray(order.items)
+      ? order.items
+      : JSON.parse((order.items_json) || '[]');
+  } catch (_) {}
+  const img = items.length ? String(items[0].img || '') : '';
+  /* Только свои адреса: data:URL в уведомление не пролезет, чужой хост
+     показывать незачем. */
+  return img.startsWith('/media/') ? img : '';
+}
+
 /** Владельцам — о новом заказе. */
 function pushOrderToAdmins(order) {
   if (!order) return;
+  const who = order.customerName || order.name || 'Покупатель';
+  const what = orderItemsLine(order);
   pushSafe((push) => push.sendToAdmins({
-    title: 'Новый заказ №' + order.num,
-    body: [order.customerName || order.name || 'Покупатель', (order.price || 0) + ' ₽']
-      .filter(Boolean).join(' · '),
+    title: 'Новый заказ · ' + (order.price || 0) + ' ₽',
+    body: ['№' + order.num, who, what].filter(Boolean).join(' · '),
+    image: orderImage(order),
     tag: 'lc-new-' + order.num,
     url: '/#admin'
   }));
@@ -243,9 +286,12 @@ function pushOrderToAdmins(order) {
 /** Покупателю — о смене статуса его заказа. */
 function pushOrderToBuyer(order, status) {
   if (!order || order.userId == null) return;
+  const st = String(status || order.status || '');
+  const what = orderItemsLine(order);
   pushSafe((push) => push.sendToUser(order.userId, {
-    title: 'Заказ №' + order.num,
-    body: String(status || order.status || ''),
+    title: PUSH_TITLES[st] || ('Заказ · ' + st),
+    body: ['№' + order.num, what].filter(Boolean).join(' · '),
+    image: orderImage(order),
     tag: 'lc-order-' + order.num,
     url: '/#orders'
   }));
