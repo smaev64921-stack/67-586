@@ -224,6 +224,41 @@ async function pushNewOrder(order) {
   } catch (_) {}
 }
 
+/* Деньги пришли, а заказ под них не нашёлся — молчать тут нельзя.
+   Раньше такой случай оставался строкой в логе, которую никто не читает,
+   и владелец узнавал о нём только от покупателя. */
+const _anomalySeen = new Set();
+
+async function pushPaymentAnomaly(what, payment, order) {
+  try {
+    /* ЮKassa повторяет уведомление, пока не получит 200, — сутками. Без этой
+       памяти владелец получил бы одну и ту же тревогу десятки раз. Список
+       живёт в памяти процесса: после перезапуска напомнить один раз не
+       страшно, а вот сыпать повторами страшно. */
+    const key = (payment && payment.id) || '';
+    if (key) {
+      if (_anomalySeen.has(key)) return;
+      _anomalySeen.add(key);
+    }
+    const { sendText } = require('./telegram-bot');
+    const { getOwnerChatIds } = require('./tg-owner');
+    const paid = payment && payment.amount ? `${payment.amount.value} ${payment.amount.currency}` : '?';
+    const text = [
+      '⚠️ Оплата пришла, но заказ не сошёлся',
+      '',
+      what,
+      `Платёж: ${(payment && payment.id) || '?'}`,
+      `Сумма: ${paid}`,
+      order ? `Заказ в базе: №${order.num} на ${order.price} ₽` : 'Заказ в базе не найден',
+      '',
+      'Проверьте платёж в кабинете ЮKassa и заказ в админке.'
+    ].join('\n');
+    for (const id of getOwnerChatIds()) {
+      try { await sendText(id, text); } catch (_) {}
+    }
+  } catch (_) {}
+}
+
 /** Привязать гостевые заказы с тем же email к аккаунту. */
 function claimOrdersForUser(user) {
   if (!user || !user.id || !user.email) return 0;
@@ -539,10 +574,20 @@ async function handleWebhook(event) {
   if (!order && metaNum) {
     order = db.prepare('SELECT * FROM orders WHERE num = ?').get(metaNum);
   }
-  if (!order) return { ok: true, skipped: true };
+  if (!order) {
+    if (payment.status === 'succeeded') {
+      pushPaymentAnomaly('Заказа с таким номером в базе нет.', payment, null);
+    }
+    /* ok:false — чтобы ЮKassa повторила: заказ мог не найтись из-за
+       временного сбоя базы, а второй попытки без этого не будет. */
+    return { ok: false, error: 'order_not_found' };
+  }
 
   if (metaNum && String(order.num) !== metaNum) {
     console.warn('yookassa webhook: orderNum mismatch', paymentId, order.num, metaNum);
+    if (payment.status === 'succeeded') {
+      pushPaymentAnomaly(`Платёж указывает на заказ №${metaNum}, а в базе под ним №${order.num}.`, payment, order);
+    }
     return { ok: false, error: 'order_mismatch' };
   }
 
@@ -555,6 +600,7 @@ async function handleWebhook(event) {
         currency: payment.amount && payment.amount.currency,
         order: order.num
       });
+      pushPaymentAnomaly('Сумма платежа не совпала с суммой заказа.', payment, order);
       return { ok: false, error: 'amount_mismatch' };
     }
     markPaid(order, paymentId);

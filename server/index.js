@@ -838,7 +838,11 @@ app.post('/api/checkout', authRequired, async (req, res) => {
 app.post('/api/yookassa/webhook', async (req, res) => {
   try {
     const out = await handleWebhook(req.body);
-    if (out && out.error === 'payment_not_found') {
+    /* Двести в ответ ЮKassa читает как «доставлено» и больше не повторяет.
+       Поэтому успехом отвечаем только на настоящий успех: если заказ не
+       нашёлся или суммы не сошлись, отдаём 503 — уведомление придёт ещё
+       раз, и у сбоя будет второй шанс разрешиться сам. */
+    if (out && out.ok === false) {
       return res.status(503).json(out);
     }
     res.json(out);
