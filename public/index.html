@@ -634,6 +634,25 @@ s{color:var(--muted2)}
 .mnu__i .ic{color:var(--ink)}
 .mnu__i .ic--sm:last-child{color:var(--muted2)}
 
+/* Соцсети внизу шторки. Ряд кружков, а не список строк: пять коротких
+   названий списком заняли бы пол-экрана и спорили бы с разделами выше. */
+.mnu__soc{
+  display:flex;flex-wrap:wrap;gap:8px;
+  border-top:1px solid var(--line);margin-top:6px;padding:14px 4px 4px
+}
+.mnu__soc-b{
+  width:44px;height:44px;border-radius:var(--r-pill);flex:none;
+  border:1.5px solid var(--line2);background:var(--card);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease),
+             border-color var(--dur) var(--ease), transform var(--dur) var(--out)
+}
+.mnu__soc-b:hover{background:var(--ink);color:#fff;border-color:var(--ink);transform:translateY(-2px)}
+.mnu__soc-b:active{transform:none}
+/* Ссылки ещё нет — значок приглушён, но кликается и честно об этом говорит. */
+.mnu__soc-b.is-soon{color:var(--muted2);border-style:dashed}
+.mnu__soc-b .ic{width:21px;height:21px}
+
 /* ===================== КАТАЛОГ ===================== */
 .crumbs{display:flex;flex-wrap:wrap;gap:7px;align-items:center;padding:16px var(--pad) 0;font-size:13px;color:var(--muted)}
 .crumbs i{font-style:normal;color:var(--line2)}
@@ -4904,9 +4923,15 @@ const LINKS = {
   email: '',
   phone: '',
   /* Реальные URL соцсетей — когда появятся. Пустые не показываем. */
+  /* Соцсети. Порядок здесь = порядок значков в шторке. Пустая ссылка не
+     прячет значок: он остаётся на месте и говорит, что раздел готовится, —
+     так видно, что бренд там будет, и не приходится верстать заново. */
   social: {
-    // instagram: 'https://instagram.com/...',
-    // vk: 'https://vk.com/...'
+    whatsapp: '',    // https://wa.me/7XXXXXXXXXX
+    telegram: '',    // https://t.me/...  (пусто — возьмётся ссылка на бота)
+    instagram: '',   // https://instagram.com/...
+    max: '',         // https://max.ru/...
+    vk: ''           // https://vk.com/...
   },
   /* Юр. реквизиты — заполните перед запуском продаж.
      Документы в футере подставят их сами. Пустые поля покажут «укажите…». */
@@ -5021,6 +5046,15 @@ const I = {
   dl:'<path d="M12 3.5v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 20h15"/>',
   telegram:'<path d="M20.5 4.5 3.8 11.2c-1.1.4-1.1 1.1-.2 1.4l4.3 1.3 1.6 5c.2.6.1.8.7.8.4 0 .6-.2.8-.4l2.3-2.2 4.5 3.3c.8.5 1.4.2 1.6-.8L21.7 5.7c.3-1.2-.4-1.7-1.2-1.2ZM9.7 13.7l8.2-5.2c.4-.2.7 0 .4.3l-6.6 6"/>',
   tg:'<path d="M21.5 4.2 3.7 11.1c-1.2.5-1.2 1.2-.2 1.5l4.6 1.4 1.8 5.4c.2.7.1.9.8.9.5 0 .7-.2 1-.5l2.2-2.3 4.6 3.4c.8.5 1.4.2 1.6-.8L22.9 5.3c.3-1.2-.4-1.7-1.4-1.1Z" fill="currentColor" stroke="none"/>',
+  /* Фирменные знаки. Часть рисуется контуром, часть заливкой — не по прихоти:
+     самолётик Telegram и «В» ВКонтакте узнаются только силуэтом, а рамка
+     Instagram и плитка MAX, наоборот, живут линией. */
+  whatsapp:'<path d="M12.04 2.5A9.4 9.4 0 0 0 2.63 11.9c0 1.66.44 3.28 1.26 4.7L2.5 21.5l5-1.31a9.4 9.4 0 0 0 4.54 1.16h.01a9.4 9.4 0 0 0 0-18.85Zm5.48 13.35c-.23.65-1.35 1.24-1.87 1.32-.48.07-1.07.1-1.72-.11-.4-.13-.91-.3-1.56-.58-2.74-1.18-4.53-3.94-4.67-4.12-.14-.18-1.11-1.48-1.11-2.82s.7-2 .95-2.28c.25-.28.54-.35.72-.35h.52c.17 0 .39-.06.61.47.23.55.78 1.9.85 2.04.07.14.11.3.02.48-.09.18-.14.29-.28.45-.14.16-.29.35-.41.47-.14.14-.28.29-.12.56.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.69-.81.88-1.08.18-.28.37-.23.61-.14.25.09 1.59.75 1.86.89.28.14.46.21.53.32.07.12.07.66-.16 1.3Z"/>',
+  instagram:'<rect x="3" y="3" width="18" height="18" rx="5.2"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.15" fill="currentColor" stroke="none"/>',
+  max:'<rect x="3" y="3" width="18" height="18" rx="5.2"/><path d="M7.9 15.6V8.7l4.1 4.2 4.1-4.2v6.9"/>',
+  /* Знак ВКонтакте широкий и низкий, рядом с остальными смотрелся мельче —
+     поэтому чуть увеличен относительно середины. */
+  vk:'<g transform="translate(12 12) scale(1.14) translate(-12 -12)"><path d="M12.9 16.9c-5.1 0-8.3-3.6-8.43-9.5h2.6c.09 4.35 2.06 6.2 3.57 6.57V7.4h2.49v3.8c1.46-.16 2.99-1.86 3.5-3.8h2.45c-.4 2.4-2.06 4.1-3.24 4.8 1.18.56 3.06 2.05 3.8 4.7h-2.7c-.58-1.82-1.98-3.23-3.81-3.42v3.42Z" fill="currentColor" stroke="none"/></g>',
   box:'<path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4Z"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9"/>',
   check:'<path d="m5 12.5 5 5 9-11"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/>',
@@ -7822,8 +7856,37 @@ const INFO_PAGES = {
   /* Текст даёт владелец и правит его сам. Ничего не подставляем сюда из
      LINKS.legal: юридический документ не должен молча меняться от того,
      что кто-то поправил поле в настройках. */
-  legal:{title:'Юридическая информация', body:() => legalDocCompany()}
+  legal:{title:'Юридическая информация', body:() => legalDocCompany()},
+  /* Два раздела заведены заранее и ждут содержимого. Пустая страница честнее
+     мёртвого пункта меню: человек видит, что раздел есть и что в нём будет. */
+  gallery:{
+    title:'Галерея стиля',
+    body:() => soonBlock(
+      'Собираем галерею: как вещи носят в жизни, а не на студийном фоне.',
+      'Здесь появятся образы с покупателями и съёмки на улице. Если хотите попасть в галерею — пришлите фото в Telegram, мы будем рады.'
+    )
+  },
+  certs:{
+    title:'Сертификаты',
+    body:() => soonBlock(
+      'Документы на ткань и пошив готовятся к публикации.',
+      'Здесь будут сертификаты соответствия и составы тканей — всё, чем можно подтвердить, из чего сшита вещь. Пока их можно запросить у нас напрямую.'
+    )
+  }
 };
+
+/* Раздел заведён, содержимого пока нет. Не «страница в разработке», а внятный
+   рассказ, что здесь будет, — и куда идти тем, кому нужно прямо сейчас. */
+function soonBlock(lead, text){
+  return `
+  <p class="info__lead">${esc(lead)}</p>
+  <div class="info__block">
+    <p class="info__p">${esc(text)}</p>
+    <button class="btn" style="margin-top:18px;max-width:420px" data-a="chat">
+      ${svg('chat','ic ic--sm')} Написать нам
+    </button>
+  </div>`;
+}
 
 function legalDocCompany(){
   return `
@@ -9923,12 +9986,46 @@ function sheetMenu(){
       <div class="mnu__sec">
         <div class="mnu__cap">О бренде</div>
         ${item('info:about','info','О бренде')}
+        ${item('info:gallery','img','Галерея стиля')}
+        ${item('info:certs','shield','Сертификаты')}
         ${item('info:contact','chat','Связаться с нами')}
         ${item('info:legal','shield','Юридическая информация')}
       </div>
       ${isAdmin() ? `<div class="mnu__sec">${item('admin','set','Админ-панель')}</div>` : ''}
+      ${socialRow()}
     </div>
   </aside>`);
+}
+
+/* Соцсети внизу шторки, под всеми разделами. Значок показываем и без ссылки:
+   так видно, что бренд там будет, а нажатие честно говорит, что ссылка ещё
+   готовится, — вместо мёртвой кнопки или пустого места. */
+const SOCIALS = [
+  { k:'whatsapp',  ic:'whatsapp',  t:'WhatsApp' },
+  { k:'telegram',  ic:'tg',        t:'Telegram' },
+  { k:'instagram', ic:'instagram', t:'Instagram' },
+  { k:'max',       ic:'max',       t:'MAX' },
+  { k:'vk',        ic:'vk',        t:'ВКонтакте' }
+];
+
+function socialUrl(k){
+  const u = String((LINKS.social && LINKS.social[k]) || '').trim();
+  if(u.startsWith('http')) return u;
+  /* У Telegram ссылка уже есть — та же, что ведёт в бота. Дублировать её
+     в настройках соцсетей незачем. */
+  if(k === 'telegram' && telegramReady()) return TELEGRAM_BOT_URL;
+  return '';
+}
+
+function socialRow(){
+  return `<div class="mnu__soc">${SOCIALS.map(s => {
+    const u = socialUrl(s.k);
+    return u
+      ? `<a class="mnu__soc-b" href="${esc(u)}" target="_blank" rel="noopener noreferrer"
+           aria-label="${esc(s.t)}" title="${esc(s.t)}">${svg(s.ic)}</a>`
+      : `<button class="mnu__soc-b is-soon" type="button" data-a="soon:${s.k}"
+           aria-label="${esc(s.t)} — скоро" title="${esc(s.t)}">${svg(s.ic)}</button>`;
+  }).join('')}</div>`;
 }
 
 function sheetSort(){
@@ -10838,6 +10935,13 @@ document.addEventListener('click', e => {
     case 'info': goInfo(a); break;
 
     case 'notifask': notifAsk(); break;
+
+    case 'soon': {
+      /* Значок соцсети без ссылки. Не молчим и не делаем вид, что сломалось. */
+      const s = SOCIALS.find(x => x.k === a);
+      toast(`${s ? s.t : 'Ссылка'} — скоро`);
+      break;
+    }
     case 'admin':
       closeOv();
       (async () => {
