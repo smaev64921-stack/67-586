@@ -216,12 +216,48 @@ function shipCost(goodsAfterDiscount, promo) {
   return pickup;
 }
 
+/* Push доходит и до закрытого приложения, и не требует Телеграма. Каналы
+   не заменяют друг друга: Телеграм есть у тех, кто подключил бота, push —
+   у тех, кто разрешил уведомления. Шлём в оба, лишнего дубля не будет:
+   в приложении показывается push, в Телеграме — сообщение бота. */
+function pushSafe(fn) {
+  try {
+    const push = require('./push');
+    if (!push.configured()) return;
+    Promise.resolve(fn(push)).catch(() => {});
+  } catch (_) {}
+}
+
+/** Владельцам — о новом заказе. */
+function pushOrderToAdmins(order) {
+  if (!order) return;
+  pushSafe((push) => push.sendToAdmins({
+    title: 'Новый заказ №' + order.num,
+    body: [order.customerName || order.name || 'Покупатель', (order.price || 0) + ' ₽']
+      .filter(Boolean).join(' · '),
+    tag: 'lc-new-' + order.num,
+    url: '/#admin'
+  }));
+}
+
+/** Покупателю — о смене статуса его заказа. */
+function pushOrderToBuyer(order, status) {
+  if (!order || order.userId == null) return;
+  pushSafe((push) => push.sendToUser(order.userId, {
+    title: 'Заказ №' + order.num,
+    body: String(status || order.status || ''),
+    tag: 'lc-order-' + order.num,
+    url: '/#orders'
+  }));
+}
+
 async function pushNewOrder(order) {
   try {
     const { notifyOwnerNewOrder, notifyCustomerNewOrder } = require('./telegram-bot');
     await notifyOwnerNewOrder(order);
     await notifyCustomerNewOrder(order);
   } catch (_) {}
+  pushOrderToAdmins(order);
 }
 
 /* Деньги пришли, а заказ под них не нашёлся — молчать тут нельзя.
@@ -552,6 +588,10 @@ function markPaid(order, paymentId) {
     const { notifyOwnerNewOrder, notifyCustomerNewOrder } = require('./telegram-bot');
     notifyOwnerNewOrder(paid).catch(() => {});
     notifyCustomerNewOrder(paid).catch(() => {});
+    /* Оплата прошла — это и есть момент, когда заказ становится настоящим.
+       Владельцу push о новом заказе, покупателю — что заказ принят в работу. */
+    pushOrderToAdmins(paid);
+    pushOrderToBuyer(paid, 'В обработке');
   } catch (_) {}
   return paid;
 }
@@ -822,6 +862,9 @@ function applyOrderAdminPatch(order, patch) {
       const { notifyCustomerOrder } = require('./telegram-bot');
       notifyCustomerOrder(updated).catch(() => {});
     } catch (_) {}
+    /* Только на смену статуса: трек-номер меняют и молча, дёргать ради
+       этого уведомлением незачем. */
+    if (String(prevStatus) !== String(status)) pushOrderToBuyer(updated, status);
   }
   return updated;
 }

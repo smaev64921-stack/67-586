@@ -36,6 +36,7 @@ const { resolvePublicUrl, logPublicUrlDebug, isValidPublicHttps, isLocal } = req
 const { authLog } = require('./auth-log');
 const errors = require('./error-report');
 const deployNotice = require('./deploy-notice');
+const push = require('./push');
 const seedProducts = require('./seed-products');
 /* Ставим ловушки до всего остального: ошибка при запуске тоже должна дойти. */
 errors.installProcessHooks();
@@ -154,6 +155,7 @@ function healthPayload() {
     brand: 'Canvas',
     publicUrl: PUBLIC_URL,
     yookassa: yookassa.configured(),
+    push: push.configured(),
     telegram: telegramBot.configured(),
     telegramBot: telegramBot.botUsername() || '',
     telegramGateway,
@@ -867,6 +869,31 @@ app.post('/api/orders/:num/pay', authOptional, async (req, res) => {
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message });
   }
+});
+
+/* ---- push-уведомления ----
+   Ключ отдаём всем: он публичный по устройству, им браузер шифрует подписку.
+   Сама подписка — только вошедшим: без аккаунта некому её адресовать. */
+app.get('/api/push/key', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ key: push.publicKey() });
+});
+
+app.post('/api/push/subscribe', authRequired, (req, res) => {
+  try {
+    push.save((req.body && req.body.subscription) || req.body, req.user.id, req.headers['user-agent']);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Не удалось подписать' });
+  }
+});
+
+app.post('/api/push/unsubscribe', authOptional, (req, res) => {
+  /* Отписку разрешаем и без входа: человек мог выйти из аккаунта, а адрес
+     устройства всё равно надо убрать — иначе ему продолжат приходить чужие
+     уведомления. Адрес знает только владелец устройства, подделать нечего. */
+  push.drop((req.body && req.body.endpoint) || '');
+  res.json({ ok: true });
 });
 
 app.get('/api/orders/mine', authRequired, (req, res) => {

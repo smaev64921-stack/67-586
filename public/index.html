@@ -9278,6 +9278,55 @@ function offerNotif(){
   }, 60000);
 }
 
+/* ---------- push: уведомления доходят и до закрытого приложения ----------
+
+   Разрешение само по себе даёт немного: показывать уведомления умеет только
+   живое приложение. Push устроен иначе — сообщение идёт через службу
+   браузера, она держит связь с устройством постоянно и будит service worker,
+   даже когда приложение закрыто совсем.
+
+   Чтобы она знала, куда стучаться, устройство надо подписать: браузер выдаёт
+   его «адрес», мы отправляем адрес на сервер и кладём рядом с аккаунтом.
+   Без аккаунта подписка бессмысленна — некому адресовать заказ. */
+function b64ToBytes(str){
+  /* Ключ приходит в base64url — в нём вместо + / стоят - _, а хвостовые
+     знаки = отброшены. atob такого не понимает, поэтому возвращаем на место. */
+  const pad = '='.repeat((4 - str.length % 4) % 4);
+  const raw = atob((str + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  const out = new Uint8Array(raw.length);
+  for(let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+async function pushSubscribe(){
+  try{
+    if(notifState() !== 'granted') return false;
+    if(!window.LC || !S.user) return false;
+    if(!('serviceWorker' in navigator)) return false;
+    const reg = await navigator.serviceWorker.ready;
+    if(!reg || !reg.pushManager) return false;
+
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      const key = await LC.pushKey();
+      if(!key) return false;
+      sub = await reg.pushManager.subscribe({
+        /* Обязательное обещание браузеру: на каждый push мы что-то покажем.
+           Тихие push он не разрешает вовсе. */
+        userVisibleOnly: true,
+        applicationServerKey: b64ToBytes(key)
+      });
+    }
+    /* Отправляем при каждом запуске, а не только при первой подписке: адрес
+       устройства служба иногда меняет сама, и сервер должен узнать новый. */
+    await LC.pushSubscribe(sub.toJSON());
+    return true;
+  }catch(e){
+    console.warn('push subscribe:', e && e.message);
+    return false;
+  }
+}
+
 async function notifAsk(){
   const st = notifState();
   if(st === 'need-install') return toast('На айфоне — сначала «Поделиться» → «На экран „Домой“»');
@@ -9287,6 +9336,7 @@ async function notifAsk(){
   try{
     const r = await Notification.requestPermission();
     if(r === 'granted'){
+      pushSubscribe();
       notifShow('Уведомления включены', 'Сообщим, когда заказ сменит статус.', 'lc-hello', '/#orders');
       toast('Уведомления включены');
     } else if(r === 'denied'){
@@ -14231,6 +14281,9 @@ async function bootFromServer(){
   persistPlace();
   armBack();          /* с первого экрана «Назад» уже под нашим присмотром */
   offerNotif();       /* через минуту предложим уведомления, если уместно */
+  /* Разрешение уже дали раньше — убеждаемся, что устройство подписано:
+     адрес мог смениться, а мог и не доехать до сервера в прошлый раз. */
+  pushSubscribe();
   /* Ссылка вида #admin открывает панель через таймер, уже после этой строки:
      сверяемся ещё раз, иначе из панели первое же «Назад» уводило бы с сайта. */
   setTimeout(syncBack, 600);

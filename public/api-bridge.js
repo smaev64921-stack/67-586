@@ -126,6 +126,17 @@
       const d = await api('/api/cdek/deliverypoints' + (q.toString() ? '?' + q.toString() : ''));
       return d.points || [];
     },
+    /* Push-уведомления: ключ, подписка устройства и отписка. */
+    async pushKey() {
+      const d = await api('/api/push/key');
+      return (d && d.key) || '';
+    },
+    async pushSubscribe(subscription) {
+      return api('/api/push/subscribe', { method: 'POST', body: { subscription } });
+    },
+    async pushUnsubscribe(endpoint) {
+      return api('/api/push/unsubscribe', { method: 'POST', body: { endpoint } });
+    },
     async myOrders() {
       const d = await api('/api/orders/mine');
       return d.orders || [];
