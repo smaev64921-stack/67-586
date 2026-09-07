@@ -6345,7 +6345,9 @@ function scrDone(){
     <span class="done__ic">${svg(awaitingPay ? 'lock' : 'check','ic')}</span>
     <h1 class="done__t">${title}</h1>
     <p class="done__s">${sub}</p>
-    ${notifCard('Сообщим, когда заказ передадут в доставку — не придётся заходить и проверять.')}
+    ${(window.lcApp && lcApp.installed())
+      ? notifCard('Сообщим, когда заказ передадут в доставку — не придётся заходить и проверять.')
+      : ''}
     ${o ? `<div class="cosec" style="margin:18px 0 0;text-align:left">
       <div class="cosec__t">Детали заказа</div>
       <div class="row"><span class="row__l">Сумма</span><span class="row__v">${money(o.price)}</span></div>
@@ -9253,7 +9255,12 @@ function offerNotif(){
        || document.querySelector('.pwa')){
       return setTimeout(tick, 20000);
     }
-    if(!window.lcApp || !lcApp.bar) return;
+    /* Модуль приложения поднимается позже магазина — подождём его. */
+    if(!window.lcApp || !lcApp.bar) return setTimeout(tick, 20000);
+    /* И только в установленном приложении: на сайте не спрашиваем. Человек
+       зашёл посмотреть витрину, а не заводить отношения с уведомлениями;
+       в приложении разговор другой — его поставили осознанно. */
+    if(!lcApp.installed()) return;
     lcApp.bar(
       'Сообщать о заказе?',
       'Напишем, когда заказ поедет и когда его можно забрать.',

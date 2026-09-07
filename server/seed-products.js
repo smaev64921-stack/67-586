@@ -62,19 +62,24 @@ function writeMarks(applied) {
    Сами посевы. Ключ — то, по чему считается «уже применён»; менять его нельзя,
    иначе товар заведётся второй раз.
    -------------------------------------------------------------------------- */
+/** Фотографии косметички в порядке показа. */
+function bagPhotos() {
+  return [
+    dataUrl('seed/bag/01-glavnoe.jpg'),
+    dataUrl('seed/bag/02-vnutri.jpg'),
+    dataUrl('seed/bag/03-razmery.jpg'),
+    dataUrl('seed/bag/04-kachestvo.jpg'),
+    dataUrl('seed/bag/05-korobka.jpg')
+  ].filter(Boolean);
+}
+
 const SEEDS = [
   {
     key: 'bag-treeza-2026-09',
     title: 'косметичка-чехол TREEZA',
     sku: 'LC-BAG-TREEZA',
     build: () => {
-      const photos = [
-        dataUrl('seed/bag/01-glavnoe.jpg'),
-        dataUrl('seed/bag/02-vnutri.jpg'),
-        dataUrl('seed/bag/03-razmery.jpg'),
-        dataUrl('seed/bag/04-kachestvo.jpg'),
-        dataUrl('seed/bag/05-korobka.jpg')
-      ].filter(Boolean);
+      const photos = bagPhotos();
       /* Без фотографий карточку не заводим: пустая плитка на витрине хуже,
          чем отсутствующая. */
       if (!photos.length) return null;
@@ -103,6 +108,22 @@ const SEEDS = [
         on: true
       };
     }
+  },
+  {
+    /* Съёмка пришла в 3:4, а витрина показывает фото в рамке 2:3 и режет
+       лишнее по бокам: у инфографики обрывался текст — «13 см» теряло букву,
+       «для насадок» обрезалось, у коробки срезало края. Кадры дополнены до
+       2:3 полями цвета студийного фона, у одного сняты впечатанные чёрные
+       поля. Меняем только фотографии: название, цена и описание — дело
+       владельца, их не трогаем. */
+    key: 'bag-treeza-photos-2x3',
+    title: 'фото косметички под рамку витрины',
+    sku: 'LC-BAG-TREEZA',
+    patch: (p) => {
+      const photos = bagPhotos();
+      if (!photos.length) return null;
+      return { id: p.id, img: photos[0], gal: photos };
+    }
   }
 ];
 
@@ -120,14 +141,32 @@ function run() {
     /* Подстраховка от повторного заведения, если отметка потерялась, а товар
        на месте: одинаковый артикул — почти наверняка он и есть. */
     let already = false;
-    try {
-      already = (listProducts({ all: true }) || []).some(
-        (p) => String(p.sku || '').trim() === seed.sku
-      );
-    } catch (_) {}
+    if (!seed.patch) {
+      try {
+        already = (listProducts({ all: true }) || []).some(
+          (p) => String(p.sku || '').trim() === seed.sku
+        );
+      } catch (_) {}
+    }
 
     try {
-      if (already) {
+      if (seed.patch) {
+        /* Правка существующей карточки. Нет её — значит владелец удалил;
+           навязывать нечего, отмечаем как отработанный и идём дальше. */
+        const cur = (listProducts({ all: true }) || [])
+          .find((p) => String(p.sku || '').trim() === seed.sku);
+        if (!cur) {
+          console.log(`Посев «${seed.title}»: карточки нет, править нечего`);
+        } else {
+          const patch = seed.patch(cur);
+          if (!patch) {
+            console.warn(`Посев «${seed.title}»: нечем править, пропускаю`);
+            continue;        /* отметку не ставим — попробуем в следующий раз */
+          }
+          upsertProduct({ ...cur, ...patch });
+          console.log(`Посев «${seed.title}»: карточка #${cur.id} обновлена`);
+        }
+      } else if (already) {
         console.log(`Посев «${seed.title}»: уже есть в каталоге, пропускаю`);
       } else {
         const payload = seed.build();
