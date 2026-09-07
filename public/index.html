@@ -3519,9 +3519,21 @@ function stockTotal(p){
 }
 const soldOut = p => stockTotal(p) <= 0;
 /* первый размер, который реально есть на складе */
+/* Вещи, которые не бывают разных размеров, — косметичка, аксессуары.
+   Внутри такой товар всё равно живёт с размером: на нём держатся ключ строки
+   корзины, склад и проверка «уже в корзине». Поэтому даём служебную метку,
+   а покупателю её нигде не показываем — см. sizeless(). */
+const ONESIZE = 'ONESIZE';
+const sizeless = z => !z || z === ONESIZE;
+
 function firstSize(p){
   const list = (p && p.sizes) || [];
-  return list.find(s => stockOf(p, s) > 0) || list[0] || null;
+  /* Раньше здесь возвращался null, и товар без размеров нельзя было купить:
+     кнопка «В корзину» на его же карточке упиралась в «Выберите размер»,
+     а выбирать было нечего. Быстрое добавление с плитки работало — там этот
+     трюк с ONESIZE уже был, просто в одном месте из двух. */
+  if(!list.length) return ONESIZE;
+  return list.find(z => stockOf(p, z) > 0) || list[0] || ONESIZE;
 }
 /* сколько штук этого размера уже лежит в корзине */
 function inCartQty(p, size){
@@ -3796,7 +3808,7 @@ function rvItemHTML(r, opts = {}){
     </div>
     <div class="rvi__top">
       ${rvStars(r.rating,'sm')}
-      ${r.size ? `<span class="rvi__tag">Размер ${esc(r.size)}</span>` : ''}
+      ${r.size && !sizeless(r.size) ? `<span class="rvi__tag">Размер ${esc(r.size)}</span>` : ''}
       ${fit ? `<span class="rvi__tag">${fit.t}</span>` : ''}
     </div>
     <p class="rvi__t">${esc(r.text)}</p>
@@ -4941,7 +4953,18 @@ function legalLineAuto(){
    админку — фильтр по категориям появится в шторке сам. */
 const CATS_M = ['Футболки'];
 const CATS_W = ['Футболки'];
-const CATS_U = ['Футболки'];
+/* «Аксессуары» стоят только в унисексе: косметичка не мужская и не женская.
+   Этот же список — источник кнопок категории в форме товара, своей строки
+   там не напечатать, так что без правки категорию было бы не выбрать. */
+const CATS_U = ['Футболки', 'Аксессуары'];
+/* Категории, у которых размеров не бывает: форма товара не требует их отметить. */
+const SIZELESS_CATS = ['Аксессуары'];
+
+/* Какие категории реально есть в разделе — считаем по самим товарам, а не
+   держим отдельным флагом. Тогда всё чинится само: сняли последний аксессуар
+   с продажи — и фильтр, и заголовок раздела возвращаются к прежнему виду,
+   без единой правки кода. */
+const catsOf = g => [...new Set(PRODUCTS.filter(p => p.on && p.gender === g).map(p => p.cat))];
 /* Подписи пола. Порядок ключей — порядок вкладок на витрине: унисекс первым. */
 const GENDER_LAB = {u:'Унисекс', w:'Женское', m:'Мужское'};
 const SIZES = ['XS','S','M','L','XL','XXL'];
@@ -5949,7 +5972,11 @@ function scrCatalog(){
   <nav class="crumbs"><a href="#" data-a="go:home">Главная</a><i>/</i><a href="#" data-a="go:catalog">Каталог</a><i>/</i>
     <b>${GENDER_LAB[S.gender] || GENDER_LAB.u}</b></nav>
   <div class="ph">
-    <h1 class="ph__t">${S.gender === 'm' ? 'Мужские футболки' : S.gender === 'u' ? 'Футболки унисекс' : 'Женские футболки'}</h1>
+    <h1 class="ph__t">${catsOf(S.gender).length > 1
+      /* В разделе не только футболки — говорить «Футболки унисекс» над
+         косметичкой было бы прямым враньём на первом же экране. */
+      ? (GENDER_LAB[S.gender] || 'Каталог')
+      : (S.gender === 'm' ? 'Мужские футболки' : S.gender === 'u' ? 'Футболки унисекс' : 'Женские футболки')}</h1>
     ${MARK('ph__m')}
   </div>
   <div class="gen">
@@ -5978,7 +6005,7 @@ function stockNote(p){
   if(left === STOCK_ANY || left > 5) return '';
   const mine = inCartQty(p, S.size);
   if(mine >= left) return `<p class="pd__stock pd__stock--out">Весь остаток уже у вас в корзине</p>`;
-  return `<p class="pd__stock">Осталось ${left} шт · размер ${S.size}</p>`;
+  return `<p class="pd__stock">Осталось ${left} шт${sizeless(S.size) ? '' : ' · размер ' + S.size}</p>`;
 }
 
 /* Строка «Количество» на карточке товара. Считается от остатка: больше,
@@ -6072,7 +6099,7 @@ function scrProduct(){
     <p class="pd__ed">${esc(p.desc)}</p>
   </div>` : ''}
 
-  ${(CMS.sizeChart) ? `<div class="pd__extra pd__chart">
+  ${(CMS.sizeChart && (p.sizes || []).length) ? `<div class="pd__extra pd__chart">
     <h2 class="pd__el">Таблица размеров</h2>
     <img src="${CMS.sizeChart}" alt="Таблица размеров" loading="lazy">
   </div>` : ''}
@@ -6125,7 +6152,10 @@ function scrCart(){
       <img class="ci__i" src="${i.img}" alt="" loading="lazy" decoding="async">
       <div class="ci__b">
         <p class="ci__n">${i.name}</p>
-        <p class="ci__m">Размер ${i.size}${i.colorName ? ` · ${esc(i.colorName)}` : ''}</p>
+        ${(() => {
+          const bits = [sizeless(i.size) ? '' : 'Размер ' + i.size, i.colorName ? esc(i.colorName) : ''].filter(Boolean);
+          return bits.length ? `<p class="ci__m">${bits.join(' · ')}</p>` : '';
+        })()}
         ${i.gone
           ? `<p class="ci__gone">${svg('info','ic ic--sm')} ${GONE_TEXT}</p>
              <button class="ci__drop" data-a="del:${i.key}">Убрать из корзины</button>`
@@ -9685,7 +9715,7 @@ function syncFilterFooter(){
 function sheetFilters(){
   // берём категории из самих товаров: пока продаём одни футболки,
   // блок не нужен и не показывается
-  const cats = [...new Set(PRODUCTS.filter(p => p.on && p.gender === S.gender).map(p => p.cat))];
+  const cats = catsOf(S.gender);
   openOv(`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Фильтры">
     <div class="sheet__g"></div>
     <div class="sheet__h"><span class="sheet__t">Фильтры</span>
@@ -9926,7 +9956,7 @@ function addFromCard(p, btn, qty){
   refreshCardBuys();
   const cartIco = document.getElementById('cartIco');
   if(btn && cartIco) fly(btn, cartIco, p.img, false);
-  toast(`В корзине · размер ${S.size}${n > 1 ? ` · ${n} шт` : ''}`);
+  toast(`В корзине${sizeless(S.size) ? '' : ' · размер ' + S.size}${n > 1 ? ` · ${n} шт` : ''}`);
 }
 
 function refreshCardBuys(){
@@ -9965,7 +9995,9 @@ function modalSearch(){
       const blob = [
         p.name, p.cat, p.sku || '', p.desc || '',
         p.gender === 'w' ? 'женское женщинам девушкам' : p.gender === 'u' ? 'унисекс unisex всем' : 'мужское мужчинам',
-        'футболка футболки tshirt tee'
+        /* Синонимы подмешиваем только футболкам: иначе косметичка находилась
+           бы по запросу «футболка», и человек решил бы, что поиск сломан. */
+        (p.cat === 'Футболки' ? 'футболка футболки tshirt tee' : '')
       ].join(' ').toLowerCase();
       if(!tokens.every(t => blob.includes(t))) return 0;
       let s = 0;
@@ -10810,7 +10842,7 @@ document.addEventListener('click', e => {
         size:S.size, color:S.color || defColor(p), colorName:colorNameOf(p, S.color || defColor(p)), qty});
       S.qty = 1;
       paintQty();
-      if(qty > 1) toast(`В корзине · ${S.size} · ${qty} шт`);
+      if(qty > 1) toast(`В корзине${sizeless(S.size) ? '' : ' · ' + S.size} · ${qty} шт`);
       const btn = document.querySelector('.pd__cta .btn');
       popBtn(btn);
       fly(btn, document.getElementById('cartIco'), p.img, false);
@@ -13772,7 +13804,13 @@ function pForm(p){
     if(!name){ toast('Впишите название'); return w.querySelector('#xn').focus(); }
     if(!price || price <= 0){ toast('Укажите цену больше нуля'); return w.querySelector('#xp').focus(); }
     const sizes = [...w.querySelectorAll('.xz:checked')].map(i => i.value);
-    if(!sizes.length){ toast('Отметьте хотя бы один размер'); return; }
+    /* У аксессуара размеров не бывает, и требовать их — значит не дать его
+       сохранить вовсе. У одежды требуем как прежде: пустые размеры там почти
+       всегда забывчивость, а не замысел. */
+    if(!sizes.length && !SIZELESS_CATS.includes(cat)){
+      toast('Отметьте хотя бы один размер');
+      return;
+    }
     const stock = {};
     w.querySelectorAll('.xs').forEach(inp => {
       if(sizes.includes(inp.dataset.sz)) stock[inp.dataset.sz] = Math.max(0, +inp.value||0);

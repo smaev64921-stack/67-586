@@ -165,6 +165,10 @@ function restoreStock(items) {
       let stock = {};
       try { stock = JSON.parse(row.stock_json || '{}'); } catch (_) {}
       const sz = it.size;
+      /* Ключа не было — значит склад по этому товару не ведётся вовсе (аксессуар,
+         вещь без размеров). Создать его здесь значило бы превратить безлимитный
+         товар в товар с остатком «1 шт» после первой же отмены заказа. */
+      if (stock[sz] == null) continue;
       stock[sz] = Math.max(0, (+stock[sz] || 0) + (+it.qty || 0));
       set.run(JSON.stringify(stock), it.id);
     }
