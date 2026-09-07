@@ -36,6 +36,7 @@ const { resolvePublicUrl, logPublicUrlDebug, isValidPublicHttps, isLocal } = req
 const { authLog } = require('./auth-log');
 const errors = require('./error-report');
 const deployNotice = require('./deploy-notice');
+const seedProducts = require('./seed-products');
 /* Ставим ловушки до всего остального: ошибка при запуске тоже должна дойти. */
 errors.installProcessHooks();
 errors.installConsoleHook();
@@ -1076,6 +1077,10 @@ app.listen(PORT, '0.0.0.0', () => {
     `Ошибки → ${errors.enabled() ? 'Telegram, чат ' + errors.chatId() : 'только data/errors.log'}`
   );
   startBackupSchedule();
+  /* Карточки, которые едут вместе с кодом. Каждая заводится ровно один раз;
+     что владелец сделает с ней дальше — правки, снятие с продажи, удаление —
+     отсюда уже не трогается. */
+  try { seedProducts.run(); } catch (e) { console.warn('Посев товаров:', e.message); }
   /* На запуске с локальным адресом бота не поднимаем.
      Иначе он идёт за обновлениями тем же токеном, что и рабочий сервер, и
      Telegram начинает отдавать их то одному, то другому: владельцу летит
