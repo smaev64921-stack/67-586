@@ -6308,6 +6308,7 @@ function scrDone(){
     <span class="done__ic">${svg(awaitingPay ? 'lock' : 'check','ic')}</span>
     <h1 class="done__t">${title}</h1>
     <p class="done__s">${sub}</p>
+    ${notifCard('Сообщим, когда заказ передадут в доставку — не придётся заходить и проверять.')}
     ${o ? `<div class="cosec" style="margin:18px 0 0;text-align:left">
       <div class="cosec__t">Детали заказа</div>
       <div class="row"><span class="row__l">Сумма</span><span class="row__v">${money(o.price)}</span></div>
@@ -7573,6 +7574,19 @@ function scrNotif(){
     <p style="font-size:14px;color:var(--muted);line-height:1.55;margin-bottom:18px">
       Подключите Telegram — статусы заказа придут в бот. Пуш только когда заказ <b>доставлен</b>.
     </p>
+    ${(() => {
+      const st = notifState();
+      if(st === 'granted') return `<div class="pcard" style="margin-bottom:14px">
+        <p class="pcard__n">Уведомления браузера включены</p>
+        <p class="pcard__e">Сообщим, когда заказ сменит статус. Приложение при этом может быть свёрнуто —
+        но не закрыто совсем.</p></div>`;
+      if(st === 'denied') return `<div class="pcard" style="margin-bottom:14px">
+        <p class="pcard__n">Уведомления запрещены</p>
+        <p class="pcard__e">Разрешение снято в браузере. Вернуть его можно там же — в настройках сайта,
+        раздел «Уведомления».</p></div>`;
+      return notifCard('Сообщим, когда заказ сменит статус. Разрешение спросит сам браузер — одним касанием.')
+        .replace('margin-top:14px', 'margin-bottom:14px');
+    })()}
     ${!u ? `<div class="pcard" style="margin-bottom:14px">
       <p class="pcard__n">Нужен вход</p>
       <p class="pcard__e">Сначала зарегистрируйтесь или войдите — потом подключите уведомления.</p>
@@ -9125,10 +9139,107 @@ async function pullOrderByNum(num){
   if(S.lastOrder && String(S.lastOrder.num) === String(fresh.num)) S.lastOrder = ORDERS.find(x => String(x.num) === String(fresh.num)) || fresh;
   return fresh;
 }
+/* ==========================================================
+   УВЕДОМЛЕНИЯ БРАУЗЕРА
+
+   Разрешение спрашиваем ТОЛЬКО по нажатию и только там, где понятно
+   зачем: в «Уведомлениях» и сразу после оформления заказа. Запрос без
+   повода, на входе, браузеры считают навязчивым — Chrome такие сайты
+   потом глушит насовсем, и второго шанса спросить уже не будет.
+
+   Что они умеют без пуш-сервера: сообщить о смене статуса заказа, пока
+   приложение открыто или свёрнуто. Разбудить закрытое приложение они не
+   могут — для этого нужен отдельный сервер с VAPID-ключами и хранением
+   подписок. Поэтому в тексте ничего лишнего не обещаем.
+   ========================================================== */
+function notifState(){
+  try{
+    if(typeof Notification === 'undefined'){
+      /* На айфоне Notification появляется только в установленном приложении. */
+      return /iP(hone|ad|od)/.test(navigator.userAgent) ? 'need-install' : 'none';
+    }
+    return Notification.permission;         /* default | granted | denied */
+  }catch(_){ return 'none'; }
+}
+
+/* Показываем через регистрацию воркера, а не через new Notification():
+   только так уведомление переживает свёрнутую вкладку и остаётся кликабельным. */
+async function notifShow(title, body, tag, url){
+  try{
+    if(notifState() !== 'granted') return false;
+    const opts = {
+      body, tag, lang:'ru', renotify:false,
+      icon:'/icon-192.png', badge:'/icon-192.png',
+      data:{ url: url || '/' }
+    };
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if(reg && reg.showNotification) await reg.showNotification(title, opts);
+    else new Notification(title, opts);
+    return true;
+  }catch(_){ return false; }
+}
+
+async function notifAsk(){
+  const st = notifState();
+  if(st === 'need-install') return toast('На айфоне — сначала «Поделиться» → «На экран „Домой“»');
+  if(st === 'none') return toast('Этот браузер не умеет уведомления');
+  if(st === 'denied') return toast('Уведомления запрещены — включите их в настройках браузера');
+  if(st === 'granted') return toast('Уведомления уже включены');
+  try{
+    const r = await Notification.requestPermission();
+    if(r === 'granted'){
+      notifShow('Уведомления включены', 'Сообщим, когда заказ сменит статус.', 'lc-hello', '/#orders');
+      toast('Уведомления включены');
+    } else if(r === 'denied'){
+      toast('Уведомления запрещены — включить можно в настройках браузера');
+    } else {
+      toast('Можно включить позже в Профиль → Уведомления');
+    }
+  }catch(_){ toast('Не удалось включить уведомления'); }
+  render(true);
+}
+
+/** Готовая карточка «включить уведомления». Пустая строка, если предлагать нечего. */
+function notifCard(lead){
+  const st = notifState();
+  if(st === 'granted' || st === 'none') return '';
+  if(st === 'denied') return '';
+  const need = st === 'need-install';
+  return `<div class="pcard" style="margin-top:14px">
+    <p class="pcard__n">${need ? 'Уведомления на айфоне' : 'Уведомления о заказе'}</p>
+    <p class="pcard__e">${need
+      ? 'Работают только в установленном приложении: «Поделиться» → «На экран „Домой“».'
+      : esc(lead || 'Сообщим, когда заказ сменит статус. Разрешение спросит браузер.')}</p>
+    ${need ? '' : '<button class="btn" style="margin-top:14px" data-a="notifask">Разрешить уведомления</button>'}
+  </div>`;
+}
+
+/** Снимок «номер заказа → статус» — по нему ловим, что изменилось. */
+function orderStatusMap(){
+  const m = {};
+  (ORDERS || []).forEach(o => { if(o && o.num) m[String(o.num)] = String(o.status || ''); });
+  return m;
+}
+
+/* Статус поменялся, пока человек смотрел другой экран или свернул приложение.
+   Если он как раз стоит на «Моих заказах», молчим: там всё и так перерисовалось,
+   и уведомление о том, что видно на экране, — просто шум. */
+function notifyOrderChanges(before){
+  if(!before) return;
+  if(!document.hidden && S.screen === 'orders') return;
+  const now = orderStatusMap();
+  Object.keys(now).forEach(num => {
+    const was = before[num];
+    if(!was || was === now[num] || !now[num]) return;
+    notifShow('Заказ №' + num, now[num], 'lc-order-' + num, '/#orders');
+  });
+}
+
 async function refreshMyOrders(rerender, opts){
   const onlyIfChanged = !!(opts && opts.onlyIfChanged);
   if(!window.LC) return false;
   const before = buyerOrderFingerprint();
+  const statusBefore = orderStatusMap();
   try{
     const guestNums = [];
     if(S.user){
@@ -9160,7 +9271,10 @@ async function refreshMyOrders(rerender, opts){
     }
     const after = buyerOrderFingerprint();
     const changed = before !== after;
-    if(changed) saveUser();
+    if(changed){
+      saveUser();
+      notifyOrderChanges(statusBefore);
+    }
     if(rerender && (!onlyIfChanged || changed)) repaintBuyerOrderUi();
     return true;
   }catch(e){
@@ -10548,6 +10662,8 @@ document.addEventListener('click', e => {
       break;
     }
     case 'info': goInfo(a); break;
+
+    case 'notifask': notifAsk(); break;
     case 'admin':
       closeOv();
       (async () => {

@@ -25,7 +25,7 @@
    Работает это только потому, что сервер отдаёт /sw.js с no-cache.
    ========================================================================== */
 
-const VERSION = 'canvas-v1';
+const VERSION = 'canvas-v2';
 /* Сколько ждём сеть на переходе, прежде чем показать сохранённую копию.
    Меньше — чаще будет мелькать вчерашняя версия; больше — дольше висит
    заставка на плохой связи. Три с половиной секунды — заметно, но терпимо. */
@@ -106,6 +106,23 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('message', (e) => {
   if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
+
+/* Нажали на уведомление о заказе. Открытую вкладку поднимаем и переводим на
+   нужный экран, а не открываем вторую копию магазина рядом. */
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of open) {
+      if (new URL(c.url).origin !== self.location.origin) continue;
+      await c.focus();
+      if (c.navigate) await c.navigate(url).catch(() => {});
+      return;
+    }
+    await self.clients.openWindow(url);
+  })());
 });
 
 self.addEventListener('fetch', (e) => {
