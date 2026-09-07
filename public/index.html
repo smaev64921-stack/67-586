@@ -9152,6 +9152,13 @@ function buyerOrderFingerprint(){
 function adminOrderFingerprint(){
   return (ADMIN_ORDERS || []).map(o => [o.num, o.status, o.payStatus, o.now, o.track || o.tracking || '', o.note || '', o.addr || ''].join('|')).join(';');
 }
+/* ВНИМАНИЕ, два разных списка заказов.
+   ORDERS       — заказы того, кто вошёл. Их видно на «Мои заказы».
+   ADMIN_ORDERS — заказы ВСЕХ покупателей, с /api/admin/orders. Только их
+                  и должна показывать админ-панель.
+   Панель раньше читала ORDERS и потому показывала владельцу его собственные
+   покупки, а заказы покупателей не появлялись в ней никогда: список с сервера
+   исправно приезжал в ADMIN_ORDERS, но ни одна рисующая функция его не читала. */
 function applyAdminOrders(remote){
   ADMIN_ORDERS.length = 0;
   (remote || []).forEach(o => ADMIN_ORDERS.push(normalizeServerOrder(o)));
@@ -9306,6 +9313,27 @@ function notifCard(lead){
       : esc(lead || 'Сообщим, когда заказ сменит статус. Разрешение спросит браузер.')}</p>
     ${need ? '' : '<button class="btn" style="margin-top:14px" data-a="notifask">Разрешить уведомления</button>'}
   </div>`;
+}
+
+/* Пришёл новый заказ, пока владелец занимался чем-то другим. Сообщаем ему
+   тем же способом, что и покупателю о смене статуса, — уведомлением
+   приложения. Телеграм при этом никуда не девается: бот пишет владельцу
+   как писал, просто теперь есть и второй канал, который работает даже без
+   Телеграма на устройстве. */
+function notifyAdminNewOrders(numsBefore){
+  /* Пустой снимок — это первая загрузка списка, а не новые заказы:
+     сообщить сразу обо всех, что накопились, было бы шумом. */
+  if(!numsBefore || !numsBefore.size) return;
+  ADMIN_ORDERS.forEach(o => {
+    const num = String((o && o.num) || '');
+    if(!num || numsBefore.has(num)) return;
+    notifShow(
+      'Новый заказ №' + num,
+      [o.customerName || 'Покупатель', money(o.price)].filter(Boolean).join(' · '),
+      'lc-new-' + num,
+      '/#admin'
+    );
+  });
 }
 
 /** Снимок «номер заказа → статус» — по нему ловим, что изменилось. */
@@ -11602,7 +11630,7 @@ function daysAgo(n){
   const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-n); return d;
 }
 function analytics(){
-  const all = ORDERS.slice();
+  const all = ADMIN_ORDERS.slice();
   const from7 = daysAgo(6);
   const today = daysAgo(0);
   const in7 = all.filter(o => { const d = parseOrderDate(o); return d && d >= from7 && o.status !== 'Отменён'; });
@@ -11662,7 +11690,7 @@ async function loadAccounts(){
 
 function customersList(){
   const map = {};
-  ORDERS.forEach(o => {
+  ADMIN_ORDERS.forEach(o => {
     const email = (o.email || (o.customer && o.customer.email) || '').toLowerCase() || 'guest@' + o.num;
     const name = o.customerName || (o.customer && o.customer.name) || 'Гость';
     const phone = o.phone || (o.customer && o.customer.phone) || '';
@@ -11696,7 +11724,7 @@ function customersList(){
 
 /* «3 заказа», а не «3 заказов» */
 function adOrdersLine(a){
-  const n = ORDERS.length;
+  const n = ADMIN_ORDERS.length;
   return `${n} ${plural(n, ['заказ','заказа','заказов'])} · ${money(a.weekSum)} / 7д`;
 }
 
@@ -11851,7 +11879,7 @@ function statusBadge(st){
 }
 
 function viewOrders(){
-  const list = ORDERS.filter(o => adOrdFilter==='all' || o.status===adOrdFilter);
+  const list = ADMIN_ORDERS.filter(o => adOrdFilter==='all' || o.status===adOrdFilter);
   const rows = list.length ? list.map(o => `
     <button class="ad__row ad__row--click" data-ordview="${o.num}">
       <img class="ad__th" src="${(o.items&&o.items[0]&&o.items[0].img)||''}" alt="">
@@ -11866,7 +11894,7 @@ function viewOrders(){
   <div class="ad__panel">
     <div class="ad__hrow"><div>
       <h1 class="ad__h">Заказы</h1>
-      <p class="ad__sub">${ORDERS.length} всего · статусы и трек-номера</p>
+      <p class="ad__sub">${ADMIN_ORDERS.length} всего · статусы и трек-номера</p>
     </div></div>
     <div class="ad__filters" id="aOrdF">
       <button class="ad__pick-b" data-of="all" aria-pressed="${adOrdFilter==='all'}">Все</button>
@@ -11877,7 +11905,7 @@ function viewOrders(){
 }
 
 function orderDrawer(num){
-  const o = ORDERS.find(x => x.num === num);
+  const o = ADMIN_ORDERS.find(x => x.num === num);
   if(!o) return;
   if(o.status === 'Доставка') o.status = 'Едет';
   const w = document.createElement('div');
@@ -11998,7 +12026,7 @@ function clientDrawer(email){
       : '<p class="ad__hint">Аккаунта с такой почтой нет — права выдать не получится. Права даются зарегистрированным, а этот клиент оформлял заказ как гость.</p>'}
     <div class="ad__sec">Заказы</div>
     ${(c.nums||[]).length ? c.nums.map(n => {
-      const o = ORDERS.find(x => x.num===n);
+      const o = ADMIN_ORDERS.find(x => x.num===n);
       return o ? `<button class="ad__b" style="margin:0 8px 8px 0" data-ordview="${o.num}">№${o.num} · ${o.status}</button>` : '';
     }).join('') : '<p class="ad__m">Заказов нет</p>'}
     <div class="ad__foot">
@@ -13227,8 +13255,9 @@ async function openAdmin(){
     const loaded = await refreshAdminOrders();
     if(!loaded.ok){
       toast(loaded.error || 'Не удалось загрузить заказы');
-      /* без серверных прав панель пустая по заказам — не подменяем локальным мусором */
-      if(loaded.status === 403) ORDERS.length = 0;
+      /* Без серверных прав панель по заказам пустая. Чистим именно её список:
+         личные заказы владельца тут ни при чём, их незачем терять. */
+      if(loaded.status === 403) ADMIN_ORDERS.length = 0;
     }
     try{ await rvHydrateFromServer(); }catch(_){}
   }
@@ -14311,6 +14340,7 @@ bootFromServer().catch((err) => {
 
       if(Array.isArray(orders)){
         const before = buyerOrderFingerprint();
+        const statusBefore = orderStatusMap();
         const leftover = new Map((ORDERS || []).map(o => [String(o.num), o]));
         ORDERS.length = 0;
         orders.forEach(o => {
@@ -14328,6 +14358,10 @@ bootFromServer().catch((err) => {
         if(before !== buyerOrderFingerprint()){
           saveUser();
           dirty = true;
+          /* Владелец сменил статус в панели — покупателю приходит уведомление.
+             Раньше это ловил только refreshMyOrders, то есть заход на экран
+             заказов; живой опрос менял статус молча. */
+          notifyOrderChanges(statusBefore);
         }
       } else if(!S.user && ORDERS.length && wantOrders){
         const before = buyerOrderFingerprint();
@@ -14338,12 +14372,15 @@ bootFromServer().catch((err) => {
       if(adminOrdersIdx >= 0){
         const adminOrders = got(adminOrdersIdx);
         if(Array.isArray(adminOrders)){
-          const before = buyerOrderFingerprint();
-          ORDERS.length = 0;
-          adminOrders.forEach(o => ORDERS.push(normalizeServerOrder(o)));
-          if(before !== buyerOrderFingerprint()){
-            saveUser();
+          /* Заказы всех покупателей кладём в ADMIN_ORDERS, а не в ORDERS:
+             ORDERS — личные заказы вошедшего, и подменять их чужими значит
+             показать владельцу в «Мои заказы» покупки посторонних людей. */
+          const before = adminOrderFingerprint();
+          const numsBefore = new Set(ADMIN_ORDERS.map(o => String(o.num)));
+          applyAdminOrders(adminOrders);
+          if(before !== adminOrderFingerprint()){
             dirty = true;
+            notifyAdminNewOrders(numsBefore);
           }
         }
       }

@@ -17,12 +17,28 @@ function awaitingPayRow(row) {
   return !!(row && row.status === 'Ожидает оплаты' && row.pay_status !== 'paid' && row.pay_status !== 'manual');
 }
 
+/* Час прошёл, а оплаты нет. Раньше строка отсюда УДАЛЯЛАСЬ, и это стоило
+   слишком дорого:
+     — уведомление от ЮKassa могло опоздать (её вебхук повторяется, а сервер
+       перезапускается при каждом выкате) — деньги списаны, а заказа нет;
+     — возврат покупателя с оплаты идёт через getOrderByNum, а тот сначала
+       чистит просрочку и только потом читает строку: запрос, который должен
+       был подтвердить оплату, сам же заказ и уносил;
+     — номера выдаются как «последний в таблице плюс один», поэтому после
+       удаления они начинали повторяться, и поздний вебхук от стёртого заказа
+       мог пометить оплаченным чужой новый.
+   Теперь заказ не исчезает, а становится отменённым. Владелец видит его в
+   панели, номер занят навсегда, а если оплата всё-таки придёт — markPaid
+   поднимет заказ обратно в работу. */
 function expireUnpaidOrder(row) {
   if (!row || !awaitingPayRow(row)) return false;
   const created = orderCreatedMs(row);
   if (!created || Date.now() - created < PAY_WAIT_MS) return false;
   const info = db.prepare(`
-    DELETE FROM orders
+    UPDATE orders
+       SET status = 'Отменён',
+           pay_status = 'expired',
+           updated_at = datetime('now')
     WHERE id = ? AND status = 'Ожидает оплаты' AND pay_status != 'paid' AND pay_status != 'manual'
   `).run(row.id);
   if (!info.changes) return false;
