@@ -4817,28 +4817,49 @@ function mountDeliveryMap(){
   if(!pvzView.loading) deliveryAutoLoad();
 }
 
-/* Пункты подтягиваем сами, без нажатий: город берём из уже выбранного
-   или сохранённого пункта, а геолокацию просим только если разрешение
-   уже дано. Спрашивать её без жеста браузеры не дают, и человек видит
-   отказ вместо карты. */
+/* Ближайшие пункты показываем сами, без единого нажатия: спрашиваем
+   геопозицию сразу на входе. Это главный сценарий — «зашёл, разрешил,
+   увидел, что рядом». Спрашиваем один раз за сеанс: повторное окно
+   на каждой перерисовке раздражает и браузер его всё равно задавит.
+
+   Отказались или браузер не дал — молча уходим на город: из уже
+   выбранного пункта, из сохранённого с прошлого заказа, иначе просим
+   вписать руками. Ни один из этих путей не тупик. */
+let dlvGeoAsked = false;
 async function deliveryAutoLoad(){
   if(pvzView.loading || !window.LC) return;
-  const known = S.checkout.pvz || S.defaultPvz;
-  if(known && +known.cityCode){
-    pvzView.city = {code:+known.cityCode, city:known.city || ''};
-    pvzView.q = known.city || '';
-    const inp = document.getElementById('pvzSearch');
-    if(inp && !inp.value) inp.value = pvzView.q;
-    await pvzLoadPoints();
-    return;
-  }
-  try{
-    if(navigator.permissions){
-      const st = await navigator.permissions.query({name:'geolocation'});
-      if(st.state === 'granted'){ pvzLocate(false); return; }
+
+  if(!dlvGeoAsked && navigator.geolocation){
+    dlvGeoAsked = true;
+    let state = '';
+    try{
+      if(navigator.permissions){
+        const st = await navigator.permissions.query({name:'geolocation'});
+        state = st.state;
+      }
+    }catch(e){}
+    if(state !== 'denied'){
+      /* Показываем город из прошлого заказа, пока человек думает над
+         окном разрешения: пустая карта на это время ни к чему. */
+      deliveryCityFallback();
+      pvzLocate(false);
+      return;
     }
-  }catch(e){}
-  pvzPaint();
+  }
+
+  if(!(await deliveryCityFallback())) pvzPaint();
+}
+
+/** Город из выбранного или сохранённого пункта. true — есть что грузить. */
+async function deliveryCityFallback(){
+  const known = S.checkout.pvz || S.defaultPvz;
+  if(!known || !+known.cityCode) return false;
+  pvzView.city = {code:+known.cityCode, city:known.city || ''};
+  pvzView.q = known.city || '';
+  const inp = document.getElementById('pvzSearch');
+  if(inp && !inp.value) inp.value = pvzView.q;
+  await pvzLoadPoints();
+  return true;
 }
 
 /** Сбросить состояние выбора при входе на шаг. */
@@ -4851,6 +4872,7 @@ function pvzResetView(){
     me: null,
     q: (chosen && chosen.city) || '',
     all: false,
+    byGeo: false,
     geo: 'idle',
     loading: false,
     error: '',
@@ -4865,7 +4887,8 @@ function pvzResetView(){
    ========================================================== */
 let pvzView = {
   city:null, cities:[], points:[], me:null, q:'',
-  all:false, geo:'idle', loading:false, error:'', req:0
+  /* byGeo — ищем ближайшие по координатам, не ограничиваясь городом. */
+  all:false, byGeo:false, geo:'idle', loading:false, error:'', req:0
 };
 let pvzMap = null, pvzLayer = null;          // Leaflet
 let gisMap = null, gisMarks = [], gisBox = null;   // 2ГИС
@@ -5009,6 +5032,7 @@ async function pvzSearchCity(force){
     }
     pvzView.city = pvzView.cities[0];
     pvzView.me = null;
+    pvzView.byGeo = false;
     pvzView.geo = 'idle';
     await pvzLoadPoints(q);
   }catch(e){
@@ -5041,18 +5065,21 @@ function pvzLocate(force){
       pvzView.me = {lat: pos.coords.latitude, lng: pos.coords.longitude};
       pvzView.geo = 'ok';
       pvzView.all = false;
+      /* Ищем строго по расстоянию, без привязки к городу: человек
+         в Химках должен видеть и московские пункты в трёх километрах,
+         а не только химкинские. */
+      pvzView.byGeo = true;
       pvzPaint();
       try{
+        await pvzLoadPoints();
+        /* Название города нужно только для подписи и тарифной зоны —
+         спрашиваем его после точек, чтобы карта появилась раньше. */
         if(window.LC){
           const cities = await LC.cdekCities({lat: pvzView.me.lat, lng: pvzView.me.lng});
           pvzView.cities = cities || [];
-          if(pvzView.cities[0]) pvzView.city = pvzView.cities[0];
+          if(pvzView.cities[0] && !pvzView.city) pvzView.city = pvzView.cities[0];
+          deliveryPaint();
         }
-        if(!pvzView.city){
-          pvzSetError('Не удалось определить город СДЭК по геолокации. Введите город вручную.');
-          return;
-        }
-        await pvzLoadPoints();
       }catch(e){
         pvzSetError(e.message || 'Не удалось загрузить ближайшие ПВЗ');
       }
@@ -5068,14 +5095,14 @@ function pvzLocate(force){
 
 async function pvzLoadPoints(q){
   if(!window.LC) return pvzSetError('API сайта недоступен');
-  if(!pvzView.city) return pvzSetError('Сначала выберите город');
+  if(!pvzView.city && !pvzView.byGeo) return pvzSetError('Сначала выберите город');
   const req = ++pvzView.req;
   pvzView.loading = true;
   pvzView.error = '';
   pvzPaint();
   try{
     const raw = await LC.cdekPoints({
-      city_code: pvzView.city && pvzView.city.code,
+      city_code: pvzView.byGeo ? '' : (pvzView.city && pvzView.city.code),
       lat: pvzView.me && pvzView.me.lat,
       lng: pvzView.me && pvzView.me.lng,
       q: q || '',
@@ -11495,11 +11522,14 @@ document.addEventListener('click', e => {
       pvzView.me = null;
       pvzView.geo = 'idle';
       pvzView.all = false;
+      /* Выбрали город руками — значит смотрим его целиком, а не то,
+         что рядом с нами. */
+      pvzView.byGeo = false;
       pvzView.city = (pvzView.cities || []).find(c => String(c.code) === String(decodeURIComponent(a))) || null;
       pvzLoadPoints(pvzView.q);
       break;
     case 'pvzgeo':
-      if(pvzView.me){ pvzView.me = null; pvzView.geo = 'idle'; pvzPaint(); pvzLoadPoints(pvzView.q); }
+      if(pvzView.me){ pvzView.me = null; pvzView.geo = 'idle'; pvzView.byGeo = false; pvzPaint(); pvzLoadPoints(pvzView.q); }
       else pvzLocate(true);
       break;
     case 'pvzmore': pvzView.all = true; pvzPaint(); pvzDrawMap(); break;
@@ -12295,8 +12325,21 @@ function defaultCms(){
     /* Старый справочник ПВЗ оставлен для админки; чекаут берёт реальные ПВЗ из CDEK API. */
     pvz: [],
     /* Ключ карты 2ГИС. Пустой — карта рисуется на OpenStreetMap.
-       Ключ публичный: он и так уезжает в браузер покупателя, секрета
-       в нём нет. Берётся на platform.2gis.ru. */
+
+       Ключ здесь, а не в переменных окружения, по простой причине: он
+       и так уезжает в браузер каждого покупателя вместе со страницей —
+       спрятать его негде, секрета в нём нет. Худшее, что может сделать
+       чужой человек, — выбрать месячную квоту, и тогда карта сама
+       вернётся на OpenStreetMap.
+
+       Демо-ключ для этого магазина уже получен:
+         0340744d-56d8-4914-9eb7-f18de996f8dd
+       (создан 09.09.2026, блокировка 09.10.2026). Здесь он НЕ прописан
+       намеренно: в день выдачи 2ГИС отдавал по нему стиль, но не отдавал
+       тайлы — карта выходила пустой даже на голой тестовой странице.
+       Пустая карта хуже честного OpenStreetMap, поэтому ключ вписывается
+       вручную в админке (Контент → «Карта пунктов выдачи») — тогда и
+       видно сразу, заработал он или нет. */
     maps:{dgis:''},
     /* Тарифы доставки. Правятся в админке → Контент.
        freeFrom = 0 отключает бесплатную доставку.
@@ -13432,6 +13475,10 @@ function viewContent(){
       <p class="ad__m" style="margin-top:10px">С ключом карта в оформлении рисуется на 2ГИС.
         Без ключа — на OpenStreetMap: пункты и выбор работают одинаково, отличается только сама карта.
         Ключ берётся бесплатно на platform.2gis.ru → «Создать демо-ключ», нужен доступ к Map Tiles API.</p>
+      <p class="ad__m">Для этого магазина ключ уже получен:
+        <b style="user-select:all">0340744d-56d8-4914-9eb7-f18de996f8dd</b> (действует до 09.10.2026).
+        Вставьте его и сохраните. Если карта окажется пустой — ключ ещё не раздался
+        на серверы 2ГИС, очистите поле и попробуйте позже.</p>
     </div>
 
     <div class="ad__box" style="margin-top:12px">
@@ -14895,6 +14942,7 @@ async function bootFromServer(){
           legal: Object.assign({}, defaultCms().legal, cms.legal || {}),
           texts: Object.assign({}, defaultCms().texts, cms.texts || {}),
           shipping: Object.assign({}, defaultCms().shipping, cms.shipping || {}),
+          maps: Object.assign({}, defaultCms().maps, cms.maps || {}),
           tryon: Object.assign({}, defaultCms().tryon, cms.tryon || {}),
           reviews: Object.assign({}, defaultCms().reviews, cms.reviews || {}),
           pvz: (Array.isArray(cms.pvz) && cms.pvz.length) ? cms.pvz : defaultCms().pvz,
