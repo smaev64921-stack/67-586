@@ -1466,11 +1466,19 @@ function formatOwnerGoods(order) {
   return lines.join('\n');
 }
 
-function formatOwnerPvz(order) {
+/* Куда везти. Способов два, и подпись обязана их различать: владелец,
+   увидев «ПВЗ: ул. Ленина 5, кв. 12», отвезёт заказ не туда. */
+function formatOwnerWhere(order) {
   const pvz = order.pvz || order.addr || '';
-  if (!pvz) return '—';
-  if (typeof pvz === 'string') return pvz;
-  return [pvz.city, pvz.addr].filter(Boolean).join(', ') || pvz.addr || '—';
+  const courier = String(order.shipMode || '') === 'courier'
+    || (pvz && typeof pvz === 'object' && (pvz.mode === 'courier' || pvz.code === 'courier'));
+  const label = courier ? 'Курьером' : 'ПВЗ';
+  if (!pvz) return { label, text: '—' };
+  if (typeof pvz === 'string') return { label, text: pvz };
+  const text = courier
+    ? [pvz.addr, pvz.addressComment && ('(' + pvz.addressComment + ')')].filter(Boolean).join(' ')
+    : ([pvz.city, pvz.addr].filter(Boolean).join(', ') || pvz.addr || '—');
+  return { label, text: text || '—' };
 }
 
 function formatOwnerOrder(order) {
@@ -1481,7 +1489,7 @@ function formatOwnerOrder(order) {
   const track = String(order.tracking || '').trim();
   const status = order.status || '—';
   const goods = formatOwnerGoods(order);
-  const pvz = formatOwnerPvz(order);
+  const where = formatOwnerWhere(order);
   const goodsHtml = goods === '—' ? '—' : goods;
   const goodsLine = goodsHtml.includes('\n')
     ? `<b>Товары:</b>\n${goodsHtml}`
@@ -1496,7 +1504,7 @@ function formatOwnerOrder(order) {
     `<b>Email:</b> ${escHtml(email)}`,
     '',
     goodsLine,
-    `<b>ПВЗ:</b> ${escHtml(pvz)}`,
+    `<b>${where.label}:</b> ${escHtml(where.text)}`,
     `<b>Статус:</b> ${statusEmoji(status)} ${escHtml(status)}`,
     `<b>Трек:</b> ${track ? `<code>${escHtml(track)}</code>` : '—'}`
   ].join('\n');

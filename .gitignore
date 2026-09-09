@@ -15,6 +15,7 @@ data/tg-owner-notified.json
 data/deploy-notice.json
 data/seeded.json
 data/vapid.json
+data/pvz-cdek.json
 data/auth.log
 data/errors.log
 data/errors.log.1

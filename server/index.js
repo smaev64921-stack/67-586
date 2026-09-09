@@ -22,7 +22,7 @@ const {
   listProducts, getProduct, upsertProduct, deleteProduct, getRev
 } = require('./products');
 const {
-  createCheckout, handleWebhook, syncPaymentStatus, ensurePayment,
+  createCheckout, quoteForCart, handleWebhook, syncPaymentStatus, ensurePayment,
   listOrdersForUser, listAllOrders, getOrderByNum, updateOrderAdmin,
   cancelOrderBuyer, requestReturnBuyer,
   claimOrdersForUser, getCms, saveCms, toPublicOrder, canAccessOrder,
@@ -44,6 +44,10 @@ errors.installConsoleHook();
 const { startBackupSchedule } = require('./backup');
 const { hit, clientIp } = require('./rate-limit');
 const cdek = require('./cdek');
+/* Второй источник пунктов выдачи — открытый справочник СДЭК, без ключей.
+   Нужен, чтобы карта в оформлении работала до того, как магазин заключит
+   договор с СДЭК, а не показывала пустоту. */
+const cdekOpen = require('./cdek-open');
 const reviews = require('./reviews');
 const media = require('./media');
 const { jsonCompression, serveTextFile } = require('./compress');
@@ -165,6 +169,10 @@ function healthPayload() {
     smtp: smtpConfigured(),
     tryon: tryonServerConfigured(),
     cdek: cdek.configured(),
+    /* Витрина спрашивает не «есть ли договор», а «есть ли что показать
+       на карте». Это разные вопросы: точки у нас есть и без договора. */
+    pvz: cdek.configured() || cdekOpen.ready(),
+    pvzCount: cdekOpen.count(),
     time: new Date().toISOString()
   };
 }
@@ -366,34 +374,64 @@ app.delete('/api/admin/reviews/:id', adminRequired, (req, res) => {
   }
 });
 
-/* -------- CDEK pickup points -------- */
-app.get('/api/cdek/cities', async (req, res) => {
+/* Сколько будет стоить доставка при таком способе и в такой город.
+   Витрина показывает эту цифру ещё до оплаты, и она обязана совпасть
+   с той, что уйдёт в ЮKassa, — поэтому считает сервер, а не браузер. */
+app.post('/api/delivery/quote', (req, res) => {
   try {
-    const q = String(req.query.q || '').trim();
-    const hasGeo = req.query.lat && req.query.lng;
-    if (q.length < 2 && !hasGeo) return res.json({ cities: [] });
-    const cities = await cdek.searchCities(q, {
-      lat: req.query.lat,
-      lng: req.query.lng
-    });
-    res.json({ cities });
+    res.json(quoteForCart({
+      items: req.body.items,
+      promoCode: req.body.promoCode,
+      delivery: req.body.delivery,
+      pvz: req.body.pvz
+    }));
   } catch (e) {
-    res.status(e.status || 502).json({ error: e.message || 'Ошибка API СДЭК' });
+    res.status(400).json({ error: e.message || 'Не удалось рассчитать доставку' });
+  }
+});
+
+/* -------- CDEK pickup points -------- */
+/* С ключами берём живой API — он точнее и знает про новые пункты сегодня.
+   Без ключей и когда API не ответил — открытый справочник: вчерашние
+   адреса лучше пустого экрана. Витрина разницы не видит. */
+app.get('/api/cdek/cities', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const geo = { lat: req.query.lat, lng: req.query.lng };
+  const hasGeo = req.query.lat && req.query.lng;
+  if (q.length < 2 && !hasGeo) return res.json({ cities: [] });
+  if (cdek.configured()) {
+    try {
+      return res.json({ cities: await cdek.searchCities(q, geo) });
+    } catch (e) {
+      console.warn('СДЭК города:', e.message, '— отвечаем из справочника');
+    }
+  }
+  try {
+    res.json({ cities: cdekOpen.searchCities(q, geo) });
+  } catch (e) {
+    res.status(502).json({ error: 'Не удалось получить список городов' });
   }
 });
 
 app.get('/api/cdek/deliverypoints', async (req, res) => {
+  const args = {
+    cityCode: req.query.city_code,
+    lat: req.query.lat,
+    lng: req.query.lng,
+    q: req.query.q,
+    limit: req.query.limit
+  };
+  if (cdek.configured()) {
+    try {
+      return res.json({ points: await cdek.deliveryPoints(args) });
+    } catch (e) {
+      console.warn('СДЭК пункты:', e.message, '— отвечаем из справочника');
+    }
+  }
   try {
-    const points = await cdek.deliveryPoints({
-      cityCode: req.query.city_code,
-      lat: req.query.lat,
-      lng: req.query.lng,
-      q: req.query.q,
-      limit: req.query.limit
-    });
-    res.json({ points });
+    res.json({ points: cdekOpen.deliveryPoints(args) });
   } catch (e) {
-    res.status(e.status || 502).json({ error: e.message || 'Ошибка API СДЭК' });
+    res.status(502).json({ error: 'Не удалось получить пункты выдачи' });
   }
 });
 
@@ -827,6 +865,7 @@ app.post('/api/checkout', authRequired, async (req, res) => {
       items: req.body.items,
       guest: req.body.guest,
       pvz: req.body.pvz,
+      delivery: req.body.delivery,
       promoCode: req.body.promoCode,
       user: req.user,
       publicUrl: shopUrlFromRequest(req)
@@ -1108,6 +1147,10 @@ app.listen(PORT, '0.0.0.0', () => {
     `Ошибки → ${errors.enabled() ? 'Telegram, чат ' + errors.chatId() : 'только data/errors.log'}`
   );
   startBackupSchedule();
+  /* Справочник ПВЗ поднимаем сразу: первая же карта в оформлении должна
+     показать точки, а не спиннер на 16 мегабайт. Загрузка идёт фоном и
+     старт сервера не задерживает. */
+  try { cdekOpen.boot(); } catch (e) { console.warn('Справочник ПВЗ:', e.message); }
   /* Карточки, которые едут вместе с кодом. Каждая заводится ровно один раз;
      что владелец сделает с ней дальше — правки, снятие с продажи, удаление —
      отсюда уже не трогается. */

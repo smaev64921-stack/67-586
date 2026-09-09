@@ -3029,6 +3029,26 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 }
 
 /* ===================== ПУНКТЫ ВЫДАЧИ ===================== */
+/* Способ доставки — две вкладки, а не список радиокнопок: у каждого
+   способа своя цена и свой срок, и сравнить их надо одним взглядом,
+   не прокручивая. */
+.dlv__tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
+.dlv__tab{
+  border:1.5px solid var(--line2);background:var(--card);color:var(--ink);
+  border-radius:var(--r-md);padding:11px 12px;text-align:left;
+  display:flex;flex-direction:column;gap:3px;min-height:58px;justify-content:center;
+  transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+             color var(--dur) var(--ease)
+}
+.dlv__tab:hover{border-color:var(--muted)}
+.dlv__tab.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.dlv__tab-n{font-size:13.5px;font-weight:600;line-height:1.3}
+.dlv__tab-p{font-size:11.5px;color:var(--muted);line-height:1.35}
+.dlv__tab.on .dlv__tab-p{color:rgba(255,255,255,.75)}
+.dlv__pane{margin:0}
+/* Название зоны в строке под картой — подсказка, а не заголовок. */
+.dlv__zone{color:var(--muted2)}
+
 .pvz__manual{margin:0 0 4px}
 .pvz__ta{
   width:100%;min-height:88px;resize:vertical;margin-top:6px;margin-bottom:12px;
@@ -3078,6 +3098,12 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;line-height:1
 }
 .pvz__pin.on{background:var(--ok)}
+/* Дальние пункты — просто точки: показывают, что сеть плотная,
+   и не спорят с ближайшими за внимание. */
+.pvz__pin--dot{
+  width:12px;height:12px;min-width:0;padding:0;font-size:0;
+  background:var(--ink);opacity:.42;border:2px solid #fff
+}
 .pvz__ctrl{display:flex;gap:8px;overflow-x:auto;padding:14px 0 4px;scrollbar-width:none}
 .pvz__ctrl::-webkit-scrollbar{display:none}
 .pvz__ctrl .chip{flex:none;font-size:12.5px;padding:8px 13px}
@@ -4531,43 +4557,272 @@ function setPvzAddr(raw){
     manual: true
   };
 }
-function pvzCardHTML(){
-  const addr = esc(pvzAddrValue());
-  const def = S.defaultPvz && String(S.defaultPvz.addr || '').trim();
-  const findUrl = 'https://www.cdek.ru/ru/offices/';
-  const picked = S.checkout.pvz && !S.checkout.pvz.manual ? S.checkout.pvz : null;
-  /* карта живёт на API СДЭК: без ключей она бы открылась пустой,
-     поэтому тогда сразу показываем ручной ввод */
-  const map = window.__LC_CDEK !== false;
-  return `<div class="pvz__manual" id="pvzSel">
-    <label class="f__l"${map ? '' : ' for="pvzAddr"'}>${svg('pin','ic ic--sm')} Пункт выдачи СДЭК</label>
-    ${picked ? `<div class="pvz__picked">
-      <b>${esc(picked.addr)}</b>
-      ${picked.hours ? `<span>${esc(picked.hours)}</span>` : ''}
-    </div>` : ''}
-    ${map ? `
-    <button type="button" class="btn pvz__mapb" data-a="pvzopen">
-      ${svg('pin','ic ic--sm')} ${picked ? 'Выбрать другой пункт на карте' : 'Выбрать пункт на карте'}
-    </button>
-    <p class="pvz__hint">Карта покажет пункты рядом с вами — выберите точку, адрес подставится сам.</p>
-    <details class="pvz__by-hand"${!picked && addr ? ' open' : ''}>
-      <summary>Ввести адрес вручную</summary>
-      <textarea class="f__i pvz__ta" id="pvzAddr" rows="3" placeholder="Город, улица, дом — как на карте СДЭК">${addr}</textarea>
-      <div class="pvz__find">
-        <a class="ghb pvz__find-alt" href="${findUrl}" target="_blank" rel="noopener noreferrer">Открыть пункты СДЭК на сайте</a>
-      </div>
-    </details>` : `
-    <textarea class="f__i pvz__ta" id="pvzAddr" rows="3" placeholder="Город, улица, дом — как на карте СДЭК">${addr}</textarea>
-    <div class="pvz__find">
-      <a class="ghb pvz__find-alt" href="${findUrl}" target="_blank" rel="noopener noreferrer">Открыть пункты СДЭК на карте</a>
-    </div>
-    <p class="pvz__hint">Найдите ближайший пункт СДЭК → скопируйте адрес → вставьте сюда. Этот адрес уйдёт в заказ.</p>`}
-    ${def ? `<p class="pvz__default">Сохранённый ПВЗ подставится в следующий заказ. Можно изменить.</p>` : ''}
+/* ==========================================================
+   ШАГ ДОСТАВКИ
+
+   Два способа — до пункта выдачи и курьером до двери — и карта прямо
+   на странице, а не за кнопкой: человек должен увидеть ближайшие пункты
+   сразу, ткнуть в нужный и идти дальше.
+
+   Карта не переживает render(): он подменяет весь экран. Поэтому на этом
+   шаге доставка никогда не зовёт render() — только точечную перерисовку
+   подписей (deliveryPaint) или пересборку блока при смене способа
+   (deliveryRender).
+   ========================================================== */
+
+function deliveryTabsHTML(){
+  const tab = (k, name) => {
+    const on = S.checkout.delivery === k;
+    const q = localShipQuote(k);
+    return `<button type="button" class="dlv__tab${on ? ' on' : ''}" data-a="dmode:${k}"
+      aria-pressed="${on}">
+      <span class="dlv__tab-n">${name}</span>
+      <span class="dlv__tab-p">${q.cost ? money(q.cost) : 'бесплатно'}${q.days ? ' · ' + esc(q.days) : ''}</span>
+    </button>`;
+  };
+  return `<div class="dlv__tabs">${tab('pickup','Пункт выдачи')}${tab('courier','Курьером до двери')}</div>`;
+}
+
+/** Карточка выбранного пункта — чтобы выбор было видно, не прокручивая список. */
+function pvzPickedHTML(){
+  const p = S.checkout.pvz;
+  if(!p || !String(p.addr || '').trim()) return '';
+  return `<div class="pvz__picked">
+    <b>${esc(p.addr)}</b>
+    <span>${esc(p.city || '')}${p.hours ? ' · ' + esc(p.hours) : ''}</span>
   </div>`;
 }
 
+function pickupPaneHTML(){
+  const addr = esc(pvzAddrValue());
+  const manual = S.checkout.pvz && S.checkout.pvz.manual;
+  return `
+  <div class="pvz__search">
+    <input class="f__i" id="pvzSearch" value="${esc(pvzView.q || '')}"
+      placeholder="Город — например, Екатеринбург" autocomplete="address-level2">
+    <button type="button" class="ghb pvz__search-b" data-a="pvzsearch">Найти</button>
+  </div>
+  <div class="pvz__cities" id="pvzCities"></div>
+  <div class="pvz__map" id="pvzMap"><span class="pvz__map-s">Загружаем карту…</span></div>
+  <div class="pvz__ctrl" id="pvzCtrl"></div>
+  <div id="pvzPicked">${pvzPickedHTML()}</div>
+  <div id="pvzList"></div>
+  <details class="pvz__by-hand"${manual && addr ? ' open' : ''}>
+    <summary>Пункта нет на карте — вписать адрес руками</summary>
+    <textarea class="f__i pvz__ta" id="pvzAddr" rows="3"
+      placeholder="Город, улица, дом — как на карте СДЭК">${addr}</textarea>
+  </details>`;
+}
+
+function courierPaneHTML(){
+  const c = S.checkout.courier || {};
+  return `
+  <div class="f"><label class="f__l" for="coCity">${svg('pin','ic ic--sm')} Город</label>
+    <input class="f__i" id="coCity" list="coCityList" value="${esc(c.city)}"
+      placeholder="Екатеринбург" autocomplete="address-level2">
+    <datalist id="coCityList"></datalist></div>
+  <div class="f"><label class="f__l" for="coStreet">Улица и дом</label>
+    <input class="f__i" id="coStreet" value="${esc(c.street)}"
+      placeholder="ул. Ленина, 24" autocomplete="street-address"></div>
+  <div class="f"><label class="f__l" for="coFlat">Квартира или офис</label>
+    <input class="f__i" id="coFlat" value="${esc(c.flat)}" placeholder="12"></div>
+  <div class="f" style="margin-bottom:0"><label class="f__l" for="coComment">Подъезд, этаж, домофон</label>
+    <input class="f__i" id="coComment" value="${esc(c.comment)}"
+      placeholder="подъезд 2, этаж 5, код 45"></div>
+  <p class="pvz__hint">Курьер позвонит за час до доставки.</p>`;
+}
+
+function pvzCardHTML(){
+  return `<div id="dlvBox">${deliveryTabsHTML()}
+    <div class="dlv__pane">${S.checkout.delivery === 'courier' ? courierPaneHTML() : pickupPaneHTML()}</div>
+  </div>`;
+}
+
+/** Что уходит на сервер как способ доставки. */
+function deliveryPayload(){
+  const c = S.checkout.courier || {};
+  if(S.checkout.delivery !== 'courier') return {mode:'pickup'};
+  return {
+    mode:'courier',
+    city: String(c.city || '').trim(),
+    street: String(c.street || '').trim(),
+    flat: String(c.flat || '').trim(),
+    comment: String(c.comment || '').trim()
+  };
+}
+
+/** Куда доставить — заполнено ли. Контакты проверяет contactError. */
+function destError(){
+  if(S.checkout.delivery === 'courier'){
+    const c = S.checkout.courier || {};
+    if(String(c.city || '').trim().length < 2) return {id:'coCity', msg:'Укажите город доставки'};
+    if(String(c.street || '').trim().length < 5) return {id:'coStreet', msg:'Укажите улицу и дом'};
+    return null;
+  }
+  const p = S.checkout.pvz;
+  if(!p || !String(p.addr || '').trim()) return {id:'pvzSearch', msg:'Выберите пункт выдачи на карте'};
+  if(String(p.addr).trim().length < 8) return {id:'pvzAddr', msg:'Адрес слишком короткий — вставьте полный адрес пункта'};
+  return null;
+}
+
+/* Цену доставки считает сервер — она же уходит в оплату. Ответ
+   приходит с задержкой, поэтому до него показываем свою оценку
+   по тем же зонам: цифра не должна мигать при каждом тычке. */
+let quoteSeq = 0;
+async function refreshQuote(){
+  if(!window.LC || !S.cart.length) return;
+  const fp = quoteFingerprint();
+  if(S.checkout.quote && S.checkout.quote.fp === fp) return;
+  const my = ++quoteSeq;
+  try{
+    const q = await LC.deliveryQuote({
+      items: S.cart.filter(i => !i.gone).map(i => ({id:i.id, size:i.size, qty:i.qty})),
+      promoCode: S.promo ? S.promo.code : S.promoCode,
+      delivery: deliveryPayload(),
+      pvz: S.checkout.pvz
+    });
+    if(my !== quoteSeq) return;
+    S.checkout.quote = Object.assign({}, q, {fp});
+    paintDeliveryTotals();
+  }catch(e){ /* не ответил — остаёмся на своей оценке */ }
+}
+
+/** Сумма на кнопке и строка про срок. Только они, без карты. */
+function paintDeliveryTotals(){
+  const btn = document.getElementById('coGo');
+  if(btn) btn.innerHTML = `Продолжить · ${money(orderTotal())}`;
+  const note = document.getElementById('dlvNote');
+  if(note) note.innerHTML = deliveryNoteHTML();
+  const sum = document.getElementById('coSum');
+  if(sum) sum.innerHTML = cartSummaryHTML();
+}
+
+function deliveryNoteHTML(){
+  const q = shipQuoteNow();
+  const r = shipRates();
+  const free = S.checkout.delivery === 'courier' ? (+r.freeFromCourier || 0) : (+r.freeFrom || 0);
+  const parts = [shipModeName()];
+  if(q.days) parts.push(q.days);
+  parts.push(q.cost ? money(q.cost) : 'бесплатно');
+  const tail = free && q.cost ? ` · бесплатно от ${money(free)}` : '';
+  const zone = q.zone ? ` <span class="dlv__zone">· ${esc(q.zone)}</span>` : '';
+  return `${svg('box','ic ic--xs')}<span>${esc(parts.join(' · '))}${tail}${zone}</span>`;
+}
+
+/** Смена способа: блок пересобираем целиком, карту поднимаем заново. */
+function deliveryRender(){
+  const box = document.getElementById('dlvBox');
+  if(!box) return;
+  box.outerHTML = pvzCardHTML();
+  bindDelivery();
+  mountDeliveryMap();
+  paintDeliveryTotals();
+  refreshQuote();
+}
+
+/** Обновить подписи, не трогая карту. */
+function deliveryPaint(){
+  const tabs = document.querySelector('#dlvBox .dlv__tabs');
+  if(tabs) tabs.outerHTML = deliveryTabsHTML();
+  const picked = document.getElementById('pvzPicked');
+  if(picked) picked.innerHTML = pvzPickedHTML();
+  pvzPaint();
+  paintDeliveryTotals();
+  refreshQuote();
+}
+
+function bindDelivery(){
+  bindPvzSearch();
+  const ta = document.getElementById('pvzAddr');
+  if(ta) ta.oninput = () => {
+    setPvzAddr(ta.value);
+    ta.classList.remove('f__err');
+    saveUser();
+    paintDeliveryTotals();
+  };
+  [['coCity','city'],['coStreet','street'],['coFlat','flat'],['coComment','comment']]
+    .forEach(([id, key]) => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.oninput = () => {
+        S.checkout.courier[key] = el.value;
+        el.classList.remove('f__err');
+        saveUser();
+        if(key === 'city'){ suggestCities(el.value); paintDeliveryTotals(); }
+      };
+    });
+}
+
+/* Подсказка города — из того же справочника ПВЗ. Нужна не для красоты:
+   тариф ищется по названию города, и «Екатеринбур» в зону не попадёт. */
+let cityHintTimer = null;
+function suggestCities(q){
+  clearTimeout(cityHintTimer);
+  const box = document.getElementById('coCityList');
+  if(!box || !window.LC || String(q || '').trim().length < 2) return;
+  cityHintTimer = setTimeout(async () => {
+    try{
+      const list = await LC.cdekCities({q: String(q).trim()});
+      const el = document.getElementById('coCityList');
+      if(el) el.innerHTML = (list || []).slice(0, 8)
+        .map(c => `<option value="${esc(c.city)}">${esc(c.region || '')}</option>`).join('');
+    }catch(e){}
+  }, 300);
+}
+
+/** Поднять карту после перерисовки экрана и показать точки. */
+function mountDeliveryMap(){
+  if(!document.getElementById('pvzMap')) return;
+  pvzPaint();
+  if(pvzView.points.length){ pvzDrawMap(); return; }
+  if(!pvzView.loading) deliveryAutoLoad();
+}
+
+/* Пункты подтягиваем сами, без нажатий: город берём из уже выбранного
+   или сохранённого пункта, а геолокацию просим только если разрешение
+   уже дано. Спрашивать её без жеста браузеры не дают, и человек видит
+   отказ вместо карты. */
+async function deliveryAutoLoad(){
+  if(pvzView.loading || !window.LC) return;
+  const known = S.checkout.pvz || S.defaultPvz;
+  if(known && +known.cityCode){
+    pvzView.city = {code:+known.cityCode, city:known.city || ''};
+    pvzView.q = known.city || '';
+    const inp = document.getElementById('pvzSearch');
+    if(inp && !inp.value) inp.value = pvzView.q;
+    await pvzLoadPoints();
+    return;
+  }
+  try{
+    if(navigator.permissions){
+      const st = await navigator.permissions.query({name:'geolocation'});
+      if(st.state === 'granted'){ pvzLocate(false); return; }
+    }
+  }catch(e){}
+  pvzPaint();
+}
+
+/** Сбросить состояние выбора при входе на шаг. */
+function pvzResetView(){
+  const chosen = S.checkout.pvz || S.defaultPvz;
+  pvzView = {
+    city: chosen && chosen.cityCode ? {code:+chosen.cityCode, city:chosen.city || ''} : null,
+    cities: [],
+    points: [],
+    me: null,
+    q: (chosen && chosen.city) || '',
+    all: false,
+    geo: 'idle',
+    loading: false,
+    error: '',
+    req: pvzView.req + 1
+  };
+}
+
 /* ==========================================================
-   ПВЗ: ШТОРКА ВЫБОРА
+   ПВЗ: СОСТОЯНИЕ ВЫБОРА
+   Одно на весь шаг доставки: и карта, и список, и поиск города
+   читают отсюда.
    ========================================================== */
 let pvzView = {
   city:null, cities:[], points:[], me:null, q:'',
@@ -4582,6 +4837,9 @@ function pvzNormalizePoint(p){
     name: String(p.name || ''),
     type: String(p.type || 'PVZ'),
     city: String(p.city || ''),
+    /* Регион нужен для тарифных зон: «Приморский край» одной строкой
+       вместо перечисления всех его городов. */
+    region: String(p.region || ''),
     cityCode: +p.cityCode || +p.city_code || 0,
     addr: String(p.addr || ''),
     addressComment: String(p.addressComment || ''),
@@ -4609,42 +4867,6 @@ function pvzFiltered(){ return pvzView.points || []; }
 function pvzShown(){
   const all = pvzFiltered();
   return pvzView.all ? all : all.slice(0, 8);
-}
-
-function sheetPvz(){
-  const chosen = S.checkout.pvz;
-  pvzView = {
-    city: chosen && chosen.cityCode ? {code: chosen.cityCode, city: chosen.city || ''} : null,
-    cities: [],
-    points: [],
-    me: null,
-    q: (chosen && chosen.city) || '',
-    all: false,
-    geo: 'idle',
-    loading: false,
-    error: '',
-    req: pvzView.req + 1
-  };
-  openOv(`<div class="scrim"></div><div class="sheet sheet--tall" role="dialog" aria-label="Пункт выдачи">
-    <div class="sheet__g"></div>
-    <div class="sheet__h"><span class="sheet__t">Выберите ПВЗ СДЭК</span>
-      <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button></div>
-    <div class="sheet__b">
-      <p class="pvz__lead">Как на маркетплейсе: определим ваше местоположение или найдём город по поиску.</p>
-      <div class="pvz__search">
-        <input class="f__i" id="pvzSearch" value="${esc(pvzView.q)}"
-          placeholder="Город или адрес, например Москва Тверская" autocomplete="address-level2">
-        <button type="button" class="ghb pvz__search-b" data-a="pvzsearch">Найти</button>
-      </div>
-      <div class="pvz__cities" id="pvzCities"></div>
-      <div class="pvz__map" id="pvzMap"><span class="pvz__map-s">Загружаем карту…</span></div>
-      <div class="pvz__ctrl" id="pvzCtrl"></div>
-      <div id="pvzList"></div>
-    </div></div>`);
-  bindPvzSearch();
-  pvzPaint();
-  if(chosen && chosen.cityCode) pvzLoadPoints();
-  pvzLocate();
 }
 
 function pvzPaint(){
@@ -4757,6 +4979,10 @@ function pvzSetError(msg){
   pvzPaint();
 }
 
+/* Пока карта и список живут только на шаге доставки, обе функции
+   ниже вызываются и оттуда, и из обработчиков — deliveryPaint сам
+   переживает отсутствие своих узлов. */
+
 /* Геолокация: спрашиваем сразу после открытия — тап по кнопке
    и есть тот жест, которого требует браузер. */
 function pvzLocate(force){
@@ -4820,7 +5046,7 @@ async function pvzLoadPoints(q){
       })).sort((a,b) => a.km - b.km);
     }
     pvzView.loading = false;
-    pvzPaint();
+    deliveryPaint();
     pvzDrawMap();
   }catch(e){
     if(req !== pvzView.req) return;
@@ -4828,9 +5054,16 @@ async function pvzLoadPoints(q){
   }
 }
 
-function pvzDrawMap(){
+function pvzDrawMap(opts){
   const box = document.getElementById('pvzMap');
   if(!box) return;
+  /* render() заменяет весь экран целиком, и узел карты умирает вместе
+     с ним. Ссылку на мёртвую карту надо выбросить, иначе Leaflet будет
+     рисовать в оторванный от документа div. */
+  if(pvzMap && !document.body.contains(pvzMap.getContainer())){
+    try{ pvzMap.remove(); }catch(e){}
+    pvzMap = null; pvzLayer = null;
+  }
   /* на карте — все точки фильтра; в списке ниже может быть укороченный топ */
   const list = pvzFiltered();
   if(!list.length){ box.innerHTML = '<span class="pvz__map-s">Нет точек для показа</span>'; return; }
@@ -4847,21 +5080,34 @@ function pvzDrawMap(){
       pvzLayer = L.layerGroup().addTo(pvzMap);
     }
     pvzLayer.clearLayers();
+    /* В крупном городе пунктов больше сотни, и сотня пронумерованных
+       кружков сливается в чёрное пятно. Номера даём только тем, что
+       сейчас в списке под картой — по ним и ищут глазами; остальные
+       остаются точками: видно, что пункты есть и рядом, но они не
+       заслоняют ближайшие. */
+    const shown = pvzShown();
+    const numbered = new Set(shown.map(p => p.code));
     const pts = [];
-    list.forEach((p, i) => {
-      const n = i + 1;
+    const near = [];
+    list.forEach((p) => {
+      const idx = shown.findIndex(x => x.code === p.code);
       const on = S.checkout.pvz && S.checkout.pvz.code === p.code;
+      const big = on || numbered.has(p.code);
       const icon = L.divIcon({
         className: 'pvz__pin-w',
-        html: `<button type="button" class="pvz__pin${on ? ' on' : ''}" aria-label="${esc(p.addr)}">${n}</button>`,
-        iconSize: [26, 26], iconAnchor: [13, 13]
+        html: big
+          ? `<button type="button" class="pvz__pin${on ? ' on' : ''}" aria-label="${esc(p.addr)}">${idx >= 0 ? idx + 1 : '•'}</button>`
+          : `<button type="button" class="pvz__pin pvz__pin--dot" aria-label="${esc(p.addr)}"></button>`,
+        iconSize: big ? [26, 26] : [12, 12],
+        iconAnchor: big ? [13, 13] : [6, 6]
       });
       const km = p.km != null ? `<br>${pvzKm(p.km)} от вас` : '';
-      L.marker([p.lat, p.lng], {icon})
+      L.marker([p.lat, p.lng], {icon, zIndexOffset: big ? 400 : 0})
         .addTo(pvzLayer)
         .bindPopup(`<b>${esc(p.addr)}</b><br>${esc(p.city)}${km}${p.hours ? '<br>' + esc(p.hours) : ''}<br><small>Нажмите маркер ещё раз, чтобы выбрать</small>`)
         .on('click', () => pvzPick(p.code));
       pts.push([p.lat, p.lng]);
+      if(big) near.push([p.lat, p.lng]);
     });
     if(pvzView.me){
       L.circleMarker([pvzView.me.lat, pvzView.me.lng], {
@@ -4869,7 +5115,10 @@ function pvzDrawMap(){
       }).addTo(pvzLayer).bindPopup('Вы здесь');
       pts.push([pvzView.me.lat, pvzView.me.lng]);
     }
-    pvzMap.fitBounds(pts, {padding:[36,36], maxZoom: pvzView.me ? 13 : 14});
+    if(!(opts && opts.keepView)){
+      const frame = near.length ? near : pts;
+      pvzMap.fitBounds(frame, {padding:[36,36], maxZoom: pvzView.me ? 14 : 15});
+    }
     setTimeout(() => pvzMap && pvzMap.invalidateSize(), 80);
   }).catch(() => {
     /* офлайн или карта заблокирована — не мешаем выбрать пункт */
@@ -4890,6 +5139,7 @@ function pvzPick(code){
     type: p.type || 'PVZ',
     ownerCode: p.ownerCode || '',
     city: p.city,
+    region: p.region || '',
     cityCode: p.cityCode || (pvzView.city && pvzView.city.code) || 0,
     addr: p.addr,
     addressComment: p.addressComment || '',
@@ -4907,14 +5157,22 @@ function pvzPick(code){
     weightMax: +p.weightMax || 0
   };
   rememberDefaultPvz(S.checkout.pvz);
-  closeOv();
-  render(true);
+  if(S.screen === 'delivery'){
+    /* Только подписи и метки: карта остаётся там, где её оставил палец. */
+    deliveryPaint();
+    pvzDrawMap({keepView:true});
+  }else{
+    closeOv();
+    render(true);
+  }
   toast('Пункт выдачи выбран');
 }
 
 /* Короткая строка для заказа и админки */
 const pvzLine = p => {
   if(!p || !p.addr) return '';
+  /* Курьерский адрес уже собран с городом внутри — второй раз не клеим. */
+  if(p.mode === 'courier' || p.code === 'courier') return 'Курьером · ' + p.addr;
   if(p.manual || p.code === 'manual') return 'СДЭК · ' + p.addr;
   return `СДЭК · ${[p.city, p.addr].filter(Boolean).join(', ')}`;
 };
@@ -5293,7 +5551,17 @@ const S = {
   /* guest — контакты для заказа. Заполняются и гостем, и вошедшим
      (у вошедшего подставляются из профиля функцией syncGuest). */
   /* Доставка только в ПВЗ СДЭК: способ не выбирают, выбирают пункт. */
-  checkout:{delivery:'pickup', pvz:null, pay:'card', guest:{name:'', phone:'', email:''}},
+  checkout:{
+    delivery:'pickup',
+    pvz:null,
+    /* Адрес для курьера держим отдельно от ПВЗ: человек может
+       переключаться туда-обратно, и ни один из адресов не должен
+       затирать другой. */
+    courier:{city:'', street:'', flat:'', comment:''},
+    quote:null,
+    pay:'card',
+    guest:{name:'', phone:'', email:''}
+  },
   lastOrder:null, mini:null,
   orderSeen:{},
   orderSeenInit:false,
@@ -5372,6 +5640,10 @@ function saveUser(){
       user:S.user, pvz:S.checkout.pvz, defaultPvz:S.defaultPvz || S.checkout.pvz,
       favs:S.favs, cart:S.cart, orders:ORDERS,
       guest:S.checkout.guest,
+      /* Способ доставки и адрес курьера — чтобы человек, вернувшийся
+         через час, не вводил улицу заново. */
+      delivery:S.checkout.delivery,
+      courier:S.checkout.courier,
       orderSeen:S.orderSeen || {},
       orderSeenInit:!!S.orderSeenInit
     }));
@@ -5392,6 +5664,8 @@ function loadUser(){
     S.orderSeen = d.orderSeen && typeof d.orderSeen === 'object' ? d.orderSeen : {};
     S.orderSeenInit = !!d.orderSeenInit;
     if(d.guest) Object.assign(S.checkout.guest, d.guest);
+    if(d.courier) Object.assign(S.checkout.courier, d.courier);
+    if(d.delivery === 'courier' || d.delivery === 'pickup') S.checkout.delivery = d.delivery;
     (d.orders || []).forEach(o => ORDERS.push(o));
     if(S.user) S.user.admin = !!S.user.admin;
     pruneForeignOrders();
@@ -5405,6 +5679,9 @@ function rememberDefaultPvz(pvz){
     type: pvz.type || 'PVZ',
     ownerCode: pvz.ownerCode || '',
     city: pvz.city || '',
+    /* Регион переносим обязательно: по нему ищется тарифная зона,
+       а эта функция перетирает выбранный пункт своей копией. */
+    region: pvz.region || '',
     cityCode: +pvz.cityCode || 0,
     addr: String(pvz.addr || '').trim(),
     addressComment: pvz.addressComment || '',
@@ -5581,9 +5858,113 @@ function applyPromoCode(raw){
    Тарифы лежат в CMS.shipping и правятся в админке → Контент.
    ========================================================== */
 function shipRates(){
-  const d = {pickup:190, freeFrom:15000, pickupDays:'2–5 дней'};
+  const d = {
+    pickup:190, courier:390,
+    freeFrom:15000, freeFromCourier:0,
+    pickupDays:'2–5 дней', courierDays:'2–6 дней',
+    zones:[]
+  };
   if(typeof CMS === 'undefined' || !CMS.shipping) return d;
   return Object.assign(d, CMS.shipping);
+}
+
+/* ==========================================================
+   СКОЛЬКО СТОИТ ДОСТАВКА — ОЦЕНКА НА КЛИЕНТЕ
+
+   Настоящую цену считает сервер (это она уходит в оплату), но ждать
+   ответа на каждый тычок по карте нельзя — цифра будет мигать. Поэтому
+   здесь тот же расчёт по тем же зонам из CMS: показываем мгновенно,
+   а серверный ответ приходит следом и уточняет.
+   ========================================================== */
+
+const normRu = x => String(x || '').toLowerCase().replace(/ё/g, 'е').trim();
+
+/* Название города ищем как отдельное слово: иначе «Пермь» найдётся
+   внутри «Пермский», а «Москва» — внутри «Новомосковска». */
+function mentionsCity(hay, needle){
+  const n = normRu(needle);
+  if(n.length < 2) return false;
+  const h = normRu(hay);
+  const word = c => /[a-zа-я0-9]/.test(c || '');
+  let i = h.indexOf(n);
+  while(i !== -1){
+    if(!word(h[i-1]) && !word(h[i+n.length])) return true;
+    i = h.indexOf(n, i+1);
+  }
+  return false;
+}
+
+/** Куда едет заказ — по указанному способу, по умолчанию по текущему. */
+function deliveryPlace(mode){
+  const m = mode || S.checkout.delivery;
+  const p = S.checkout.pvz;
+  const c = S.checkout.courier || {};
+  if(m === 'courier'){
+    /* Город курьера ещё не введён — берём город выбранного пункта:
+       цена на второй вкладке должна быть про тот же город, а не
+       базовая по стране. */
+    const city = String(c.city || '').trim() || (p ? String(p.city || '') : '');
+    const region = String(c.city || '').trim() ? '' : (p ? String(p.region || '') : '');
+    return {city, region, addr:String(c.street||'')};
+  }
+  return p ? {city:String(p.city||''), region:String(p.region||''), addr:String(p.addr||'')}
+           : {city:String(c.city||''), region:'', addr:''};
+}
+
+function shipZone(place){
+  const zones = shipRates().zones || [];
+  if(!zones.length) return null;
+  const hay = [place.city, place.region, place.addr].filter(Boolean).join(' | ');
+  if(!hay.trim()) return null;
+  return zones.find(z => {
+    const list = Array.isArray(z.match) ? z.match
+      : String(z.match || '').split(',').map(v => v.trim()).filter(Boolean);
+    return list.some(m => mentionsCity(hay, m));
+  }) || null;
+}
+
+function localShipQuote(mode){
+  const r = shipRates();
+  const courier = (mode || S.checkout.delivery) === 'courier';
+  const zone = shipZone(deliveryPlace(mode));
+  const pick = (z, base, def) => {
+    const a = zone && z != null && z !== '' ? +z : NaN;
+    if(Number.isFinite(a) && a >= 0) return a;
+    const b = +base;
+    return Number.isFinite(b) && b >= 0 ? b : def;
+  };
+  const base = courier ? pick(zone && zone.courier, r.courier, 490)
+                       : pick(zone && zone.pickup,  r.pickup,  190);
+  const freeFrom = courier ? (+r.freeFromCourier || 0) : (+r.freeFrom || 0);
+  let cost = Math.max(0, Math.round(base));
+  let free = '';
+  if(isFreeShipPromo(S.promo)){ cost = 0; free = 'promo'; }
+  else if(freeFrom > 0 && cartTotal() >= freeFrom){ cost = 0; free = 'sum'; }
+  return {
+    cost,
+    zone: zone ? String(zone.name || '') : '',
+    days: String((zone && zone.days) || (courier ? r.courierDays : r.pickupDays) || ''),
+    freeFrom, free
+  };
+}
+
+/* Отпечаток «за что посчитали»: пока он не менялся, ответ сервера годен. */
+function quoteFingerprint(){
+  const p = deliveryPlace();
+  return [
+    S.checkout.delivery,
+    S.checkout.pvz ? S.checkout.pvz.code : '',
+    p.city, p.addr,
+    cartTotal(),
+    S.promo ? S.promo.code : ''
+  ].join('|');
+}
+
+/** Расчёт, который показываем: серверный, если он про эту же доставку. */
+function shipQuoteNow(){
+  const q = S.checkout.quote;
+  if(q && q.fp === quoteFingerprint()) return q;
+  return localShipQuote();
 }
 /* Порог бесплатной доставки считаем от суммы со скидкой —
    иначе промокод «дотягивал» заказ до бесплатной доставки бесплатно. */
@@ -5593,13 +5974,16 @@ function shipFreeLeft(){
   return Math.max(0, free - cartTotal());
 }
 function shipCost(){
-  const r = shipRates();
   if(!S.cart.length) return 0;
-  if(isFreeShipPromo(S.promo)) return 0;
-  if(!shipFreeLeft() && (+r.freeFrom || 0)) return 0;
-  return +r.pickup || 0;
+  return +shipQuoteNow().cost || 0;
 }
-function shipModeName(){ return 'Пункт выдачи СДЭК'; }
+/* Способов стало два, а подпись была одна на всех: заказ курьером
+   иначе показывался бы покупателю как «пункт выдачи». */
+function shipModeName(mode){
+  return String(mode || S.checkout.delivery) === 'courier'
+    ? 'Курьером до двери'
+    : 'Пункт выдачи СДЭК';
+}
 /* Итог к оплате: товары − скидка + доставка */
 function orderTotal(){ return cartTotal() + shipCost(); }
 
@@ -6327,10 +6711,6 @@ function stepBar(active){
 /* --- шаг 2: доставка --- */
 function scrDelivery(){
   if(!S.cart.length) return emptyCart();
-  const r = shipRates();
-  const free = +r.freeFrom || 0;
-  const freeOn = free && !shipFreeLeft();
-  const cost = freeOn ? 'бесплатно' : (+r.pickup ? money(+r.pickup) : 'бесплатно');
   const g = S.checkout.guest;
   const contacts = isAdmin()
     ? `<p class="gform__n" style="margin:0">Вы вошли как админ — данные покупателя для тестового оформления не требуются.</p>`
@@ -6347,8 +6727,7 @@ function scrDelivery(){
   <div class="cosec">
     <div class="cosec__t">Куда доставить</div>
     ${pvzCardHTML()}
-    <p class="pvz__note">${svg('box','ic ic--xs')}
-      <span>Доставка до пункта — ${r.pickupDays} · ${cost}${free ? `. Бесплатно от ${money(free)}${freeOn ? ' — уже применена' : ''}` : ''}</span></p>
+    <p class="pvz__note" id="dlvNote">${deliveryNoteHTML()}</p>
   </div>
 
   <div class="cosec">
@@ -6357,7 +6736,7 @@ function scrDelivery(){
   </div>
 
   <div style="padding:4px var(--pad) 0">
-    <button class="btn" data-a="topay">Продолжить · ${money(orderTotal())}</button>
+    <button class="btn" id="coGo" data-a="topay">Продолжить · ${money(orderTotal())}</button>
   </div>`;
 }
 
@@ -8904,19 +9283,22 @@ function render(keepScroll){
         el.classList.remove('f__err');
       };
     });
-    const ta = document.getElementById('pvzAddr');
-    if(ta){
-      ta.oninput = () => {
-        setPvzAddr(ta.value);
-        ta.classList.remove('f__err');
-        saveUser();
-      };
-    }
+    /* Заходим на шаг заново — состояние выбора сбрасываем, чтобы
+       не показывать пункты чужого города из прошлого захода. */
+    if(!dlvOpen){ dlvOpen = true; pvzResetView(); }
+    bindDelivery();
+    mountDeliveryMap();
+    refreshQuote();
+  }else{
+    dlvOpen = false;
   }
   bindFooterCols();
   keepScroll ? window.scrollTo(0, y) : window.scrollTo(0, 0);
   startPayTimers();
 }
+/* Пока шаг доставки на экране — состояние выбора живёт; ушли с него —
+   следующий заход начинается заново. */
+let dlvOpen = false;
 const HIST = [];
 /* Пока сердечко на фото в кадре — второе не нужно.
    Ушло из кадра — показываем то, что рядом с «В корзину». */
@@ -10902,7 +11284,17 @@ document.addEventListener('click', e => {
       })();
       break;
     /* --- пункты выдачи --- */
-    case 'pvzopen': sheetPvz(); break;
+    /* Способ доставки: пересобираем блок целиком — на карте и в форме
+       курьера общего почти нет. */
+    case 'dmode': {
+      const m = a === 'courier' ? 'courier' : 'pickup';
+      if(S.checkout.delivery === m) break;
+      S.checkout.delivery = m;
+      S.checkout.quote = null;
+      saveUser();
+      deliveryRender();
+      break;
+    }
     case 'pvzsearch':
       pvzSearchCity(true);
       break;
@@ -10959,6 +11351,24 @@ document.addEventListener('click', e => {
     case 'info': goInfo(a); break;
 
     case 'notifask': notifAsk(); break;
+
+    /* Зоны тарифов. Перед перерисовкой забираем то, что уже вписано,
+       иначе добавление второй зоны стёрло бы первую. */
+    case 'shzadd': {
+      const cur = shipZonesFromDom();
+      CMS.shipping.zones = (cur || CMS.shipping.zones || []).concat([{name:'', days:'', match:[], pickup:null, courier:null}]);
+      const box = document.getElementById('shZones');
+      if(box) box.innerHTML = shipZonesHTML();
+      break;
+    }
+    case 'shzdel': {
+      const cur = shipZonesFromDom() || CMS.shipping.zones || [];
+      cur.splice(+a, 1);
+      CMS.shipping.zones = cur;
+      const box = document.getElementById('shZones');
+      if(box) box.innerHTML = shipZonesHTML();
+      break;
+    }
 
     case 'soon': {
       /* Значок соцсети без ссылки. Не молчим и не делаем вид, что сломалось. */
@@ -11280,18 +11690,13 @@ document.addEventListener('click', e => {
         if(f){ f.classList.add('f__err'); f.focus(); f.scrollIntoView({block:'center', behavior:'smooth'}); }
         toast(err.msg); break;
       }
-      if(!S.checkout.pvz || !String(S.checkout.pvz.addr||'').trim()){
-        toast('Укажите адрес пункта выдачи СДЭК');
-        document.getElementById('pvzAddr')?.focus();
-        document.getElementById('pvzAddr')?.scrollIntoView({block:'center', behavior:'smooth'});
-        break;
+      const derr = destError();
+      if(derr){
+        const f = document.getElementById(derr.id);
+        if(f){ f.classList.add('f__err'); f.focus(); f.scrollIntoView({block:'center', behavior:'smooth'}); }
+        toast(derr.msg); break;
       }
-      if(String(S.checkout.pvz.addr).trim().length < 8){
-        toast('Адрес слишком короткий — вставьте полный адрес ПВЗ');
-        document.getElementById('pvzAddr')?.focus();
-        break;
-      }
-      rememberDefaultPvz(S.checkout.pvz);
+      if(S.checkout.delivery !== 'courier') rememberDefaultPvz(S.checkout.pvz);
       go('pay'); break;
     }
 
@@ -11305,7 +11710,8 @@ document.addEventListener('click', e => {
       if(S._payBusy){ toast('Уже создаём оплату…'); break; }
       const cerr = contactError();
       if(cerr){ toast(cerr.msg); go('delivery'); break; }
-      if(!S.checkout.pvz || !String(S.checkout.pvz.addr||'').trim()){ toast('Укажите адрес пункта выдачи СДЭК'); go('delivery'); break; }
+      const derr2 = destError();
+      if(derr2){ toast(derr2.msg); go('delivery'); break; }
       if(!window.LC){ toast('Запустите сервер магазина'); break; }
       S._payBusy = true;
       (async () => {
@@ -11317,6 +11723,7 @@ document.addEventListener('click', e => {
             items: S.cart.filter(i => !i.gone).map(i => ({id:i.id, size:i.size, qty:i.qty})),
             guest: { name: g.name.trim(), phone: g.phone.trim(), email: g.email.trim() },
             pvz: S.checkout.pvz,
+            delivery: deliveryPayload(),
             promoCode: S.promo ? S.promo.code : S.promoCode
           });
           const order = normalizeServerOrder(result.order);
@@ -11695,8 +12102,17 @@ function defaultCms(){
     /* Старый справочник ПВЗ оставлен для админки; чекаут берёт реальные ПВЗ из CDEK API. */
     pvz: [],
     /* Тарифы доставки. Правятся в админке → Контент.
-       freeFrom = 0 отключает бесплатную доставку. */
-    shipping:{pickup:190, freeFrom:15000, pickupDays:'2–5 дней'},
+       freeFrom = 0 отключает бесплатную доставку.
+
+       zones — цена по городам. Побеждает первая подошедшая зона, так что
+       порядок в списке и есть приоритет: узкие зоны выше широких. Пустая
+       цена в зоне означает «как в базовом тарифе», а не «бесплатно». */
+    shipping:{
+      pickup:190, courier:490,
+      freeFrom:15000, freeFromCourier:0,
+      pickupDays:'2–5 дней', courierDays:'1–3 дня',
+      zones:[]
+    },
     slides: [],
     /* Страница «О бренде» блоками: фото-ряд и текст в любом порядке.
        Правится в админке → Контент → «О бренде». Пустой список — страница
@@ -12812,17 +13228,36 @@ function viewContent(){
       </div>
     </div>
     <div class="ad__box" style="margin-top:12px">
-      <div class="ad__box-t">Доставка — тарифы</div>
+      <div class="ad__box-t">Доставка — базовые тарифы</div>
       <div class="ad__g2">
         <div><label class="ad__l">До пункта выдачи, ₽</label>
           <input class="ad__f" id="shP" type="number" min="0" step="10" value="${+sh.pickup || 0}"></div>
         <div><label class="ad__l">Срок до пункта</label>
           <input class="ad__f" id="shPD" value="${(sh.pickupDays||'').replace(/"/g,'&quot;')}" placeholder="2–5 дней"></div>
       </div>
-      <label class="ad__l">Бесплатно от суммы, ₽ (0 — выключить)</label>
-      <input class="ad__f" id="shF" type="number" min="0" step="100" value="${+sh.freeFrom || 0}">
-      <p class="ad__m" style="margin-top:10px">Эти цифры сразу идут в корзину, на шаг доставки и в сумму заказа.
+      <div class="ad__g2">
+        <div><label class="ad__l">Курьером до двери, ₽</label>
+          <input class="ad__f" id="shC" type="number" min="0" step="10" value="${+sh.courier || 0}"></div>
+        <div><label class="ad__l">Срок курьером</label>
+          <input class="ad__f" id="shCD" value="${(sh.courierDays||'').replace(/"/g,'&quot;')}" placeholder="2–6 дней"></div>
+      </div>
+      <div class="ad__g2">
+        <div><label class="ad__l">Пункт бесплатно от, ₽ (0 — выкл.)</label>
+          <input class="ad__f" id="shF" type="number" min="0" step="100" value="${+sh.freeFrom || 0}"></div>
+        <div><label class="ad__l">Курьер бесплатно от, ₽ (0 — выкл.)</label>
+          <input class="ad__f" id="shFC" type="number" min="0" step="100" value="${+sh.freeFromCourier || 0}"></div>
+      </div>
+      <p class="ad__m" style="margin-top:10px">Базовый тариф берётся, когда город не подошёл ни к одной зоне ниже.
         Порог бесплатной считается от суммы со скидкой.</p>
+    </div>
+
+    <div class="ad__box" style="margin-top:12px">
+      <div class="ad__box-t">Доставка — цена по городам</div>
+      <p class="ad__hint" style="margin-top:0">Города и области через запятую. Ищется целое слово:
+        «Москва» не поймает «Новомосковск». Можно писать область целиком — «Московская область».
+        Проверяются сверху вниз, побеждает первая подошедшая. Пустая цена = базовый тариф.</p>
+      <div id="shZones">${shipZonesHTML()}</div>
+      <button class="ghb" style="width:100%;margin-top:8px" data-a="shzadd">+ Добавить зону</button>
     </div>
     ${aboutEditorHTML()}
     <div class="ad__box" style="margin-top:12px">
@@ -13060,6 +13495,56 @@ function viewPvz(){
 
     <div class="ad__list">${rows}</div>
   </div>`;
+}
+
+/* Строки таблицы зон. Значения читаются из DOM при сохранении, поэтому
+   перерисовка списка не должна терять то, что уже вписали, — собираем
+   свежие данные из полей перед каждой перерисовкой. */
+function shipZonesHTML(){
+  const zones = (CMS.shipping && CMS.shipping.zones) || [];
+  if(!zones.length) return '<p class="ad__m">Зон нет — всё считается по базовому тарифу.</p>';
+  return zones.map((z, i) => `
+    <div class="ad__box" style="margin-top:8px" data-zone="${i}">
+      <div class="ad__g2">
+        <div><label class="ad__l">Название зоны</label>
+          <input class="ad__f" data-z="name" value="${esc(z.name || '')}" placeholder="Москва и область"></div>
+        <div><label class="ad__l">Срок</label>
+          <input class="ad__f" data-z="days" value="${esc(z.days || '')}" placeholder="2–3 дня"></div>
+      </div>
+      <label class="ad__l">Города и области</label>
+      <input class="ad__f" data-z="match" value="${esc(Array.isArray(z.match) ? z.match.join(', ') : (z.match || ''))}"
+        placeholder="Москва, Московская область">
+      <div class="ad__g2" style="margin-top:8px">
+        <div><label class="ad__l">Пункт, ₽</label>
+          <input class="ad__f" data-z="pickup" type="number" min="0" step="10" value="${z.pickup == null ? '' : +z.pickup}"></div>
+        <div><label class="ad__l">Курьер, ₽</label>
+          <input class="ad__f" data-z="courier" type="number" min="0" step="10" value="${z.courier == null ? '' : +z.courier}"></div>
+      </div>
+      <button class="ghb" style="width:100%;margin-top:8px" data-a="shzdel:${i}">Удалить зону</button>
+    </div>`).join('');
+}
+
+/** Собрать зоны из полей — вызывается и при сохранении, и перед перерисовкой. */
+function shipZonesFromDom(){
+  const rows = [...document.querySelectorAll('#shZones [data-zone]')];
+  if(!rows.length) return null;
+  return rows.map(row => {
+    const get = k => (row.querySelector(`[data-z="${k}"]`) || {}).value || '';
+    const money = k => {
+      const raw = String(get(k)).trim();
+      const v = Number(raw);
+      /* Пустое поле — это «как в базовом тарифе», а не ноль: иначе
+         недозаполненная зона молча сделала бы доставку бесплатной. */
+      return raw !== '' && isFinite(v) && v >= 0 ? Math.round(v) : null;
+    };
+    return {
+      name: String(get('name')).trim(),
+      days: String(get('days')).trim(),
+      match: String(get('match')).split(',').map(v => v.trim()).filter(Boolean),
+      pickup: money('pickup'),
+      courier: money('courier')
+    };
+  }).filter(z => z.match.length);
 }
 
 function pvzForm(p){
@@ -13406,8 +13891,13 @@ function bindAdminView(){
       return raw !== '' && isFinite(v) && v >= 0 ? Math.round(v) : def;
     };
     CMS.shipping.pickup   = num('shP', CMS.shipping.pickup);
+    CMS.shipping.courier  = num('shC', CMS.shipping.courier);
     CMS.shipping.freeFrom = num('shF', CMS.shipping.freeFrom);
+    CMS.shipping.freeFromCourier = num('shFC', CMS.shipping.freeFromCourier || 0);
     CMS.shipping.pickupDays  = document.getElementById('shPD').value.trim() || CMS.shipping.pickupDays;
+    CMS.shipping.courierDays = document.getElementById('shCD').value.trim() || CMS.shipping.courierDays;
+    const zones = shipZonesFromDom();
+    if(zones) CMS.shipping.zones = zones;
     CMS.texts.returnsNote = document.getElementById('txRet').value.trim();
     saveCms();
     toast('Контент сохранён');

@@ -106,6 +106,12 @@
       try { await api('/api/auth/logout', { method: 'POST', body: {} }); } catch (e) {}
       setToken('');
     },
+    /* Сколько будет стоить доставка — считает сервер. Клиент только
+       показывает: одна и та же цифра должна попасть и на кнопку,
+       и в счёт ЮKassa. */
+    async deliveryQuote(body) {
+      return api('/api/delivery/quote', { method: 'POST', body });
+    },
     async checkout(body) {
       return api('/api/checkout', { method: 'POST', body });
     },

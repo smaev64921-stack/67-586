@@ -207,13 +207,85 @@ function calcPromo(code, goodsSum) {
   return { discount, promo, error: null };
 }
 
-function shipCost(goodsAfterDiscount, promo) {
-  if (isFreeShipPromo(promo)) return 0;
+/* ==========================================================
+   СКОЛЬКО СТОИТ ДОСТАВКА
+
+   Считается только здесь и только на сервере: эта же цифра уходит
+   в ЮKassa, поэтому клиент её не присылает, а спрашивает.
+
+   Два способа — до пункта выдачи и курьером до двери — и таблица зон
+   в админке, где у каждой зоны свой список городов и своя цена. Первая
+   подошедшая зона побеждает: порядок в списке и есть приоритет.
+   ========================================================== */
+
+const normRu = (x) => String(x || '').toLowerCase().replace(/ё/g, 'е').trim();
+
+/* Ищем название города как отдельное слово, а не как кусок строки:
+   иначе «Орёл» найдётся внутри «Орёл-Изумруд», а «Пермь» — внутри
+   «Пермский», и человек уедет по чужому тарифу. */
+function mentions(hay, needle) {
+  const n = normRu(needle);
+  if (n.length < 2) return false;
+  const h = normRu(hay);
+  let i = h.indexOf(n);
+  while (i !== -1) {
+    const before = i === 0 ? '' : h[i - 1];
+    const after = h[i + n.length] || '';
+    const wordChar = (c) => /[a-zа-я0-9]/.test(c);
+    if (!wordChar(before) && !wordChar(after)) return true;
+    i = h.indexOf(n, i + 1);
+  }
+  return false;
+}
+
+function findZone(place) {
+  const zones = (getCms().shipping || {}).zones || [];
+  if (!Array.isArray(zones) || !zones.length) return null;
+  const hay = [place && place.city, place && place.region, place && place.addr]
+    .filter(Boolean).join(' | ');
+  if (!hay.trim()) return null;
+  return zones.find((z) => {
+    const list = Array.isArray(z.match) ? z.match
+      : String(z.match || '').split(',').map((v) => v.trim()).filter(Boolean);
+    return list.some((m) => mentions(hay, m));
+  }) || null;
+}
+
+const COURIER = 'courier';
+
+/** Единственный расчёт доставки в проекте. place = {city, region, addr}. */
+function shipQuote({ mode, place, goodsAfterDiscount, promo } = {}) {
   const s = getCms().shipping || {};
-  const pickup = +s.pickup || 190;
-  const freeFrom = +s.freeFrom || 0;
-  if (freeFrom > 0 && goodsAfterDiscount >= freeFrom) return 0;
-  return pickup;
+  const courier = String(mode) === COURIER;
+  const zone = findZone(place);
+
+  const pick = (fromZone, fromBase, def) => {
+    const z = zone && fromZone != null && fromZone !== '' ? +fromZone : NaN;
+    if (Number.isFinite(z) && z >= 0) return z;
+    const b = +fromBase;
+    return Number.isFinite(b) && b >= 0 ? b : def;
+  };
+  const base = courier
+    ? pick(zone && zone.courier, s.courier, 490)
+    : pick(zone && zone.pickup, s.pickup, 190);
+
+  /* У курьера свой порог бесплатной доставки. Ноль означает «бесплатным
+     не бывает»: возить до двери дороже, и общий порог тут не годится. */
+  const freeFrom = courier ? (+s.freeFromCourier || 0) : (+s.freeFrom || 0);
+
+  let cost = Math.max(0, Math.round(base));
+  let free = '';
+  if (isFreeShipPromo(promo)) { cost = 0; free = 'promo'; }
+  else if (freeFrom > 0 && +goodsAfterDiscount >= freeFrom) { cost = 0; free = 'sum'; }
+
+  return {
+    cost,
+    mode: courier ? COURIER : 'pickup',
+    zone: zone ? String(zone.name || '') : '',
+    days: String((zone && zone.days) || (courier ? s.courierDays : s.pickupDays) || ''),
+    freeFrom,
+    free
+  };
 }
 
 /* Push доходит и до закрытого приложения, и не требует Телеграма. Каналы
@@ -356,7 +428,50 @@ function claimOrdersForUser(user) {
   return info.changes || 0;
 }
 
-async function createCheckout({ items, guest, pvz, promoCode, user, publicUrl }) {
+/* Тот же расчёт, что при оформлении, но ничего не сохраняет: витрина
+   спрашивает цену на шаге доставки, чтобы показанная сумма совпала
+   с той, что уйдёт в оплату. Товары пересчитываем по своей базе —
+   присланной сумме верить нельзя. */
+function quoteForCart({ items, promoCode, delivery, pvz } = {}) {
+  const list = Array.isArray(items) ? items : [];
+  let goods = 0;
+  for (const i of list) {
+    const p = getProduct(i && i.id);
+    if (!p) continue;
+    goods += p.price * Math.max(1, Math.round(+(i && i.qty) || 1));
+  }
+  const { discount, promo } = calcPromo(promoCode, goods);
+  const after = Math.max(0, goods - discount);
+
+  const mode = String((delivery && delivery.mode) || 'pickup') === COURIER ? COURIER : 'pickup';
+  let place = { city: '', region: '', addr: '' };
+  if (mode === COURIER) {
+    place = {
+      city: String((delivery && delivery.city) || '').trim(),
+      region: '',
+      addr: String((delivery && delivery.street) || '').trim()
+    };
+  } else if (pvz) {
+    place = {
+      city: String(pvz.city || '').trim(),
+      region: String(pvz.region || '').trim(),
+      addr: String(pvz.addr || '').trim()
+    };
+    const code = String(pvz.code || '').trim();
+    if (code && code !== 'manual') {
+      try {
+        const dir = require('./cdek-open');
+        const found = dir.deliveryPoints({ q: code, limit: 40 }).find((p) => p.code === code);
+        if (found) place = { city: found.city, region: found.region, addr: found.addr };
+      } catch (_) {}
+    }
+  }
+
+  const q = shipQuote({ mode, place, goodsAfterDiscount: after, promo });
+  return Object.assign({}, q, { goods, discount, total: after + q.cost });
+}
+
+async function createCheckout({ items, guest, pvz, delivery, promoCode, user, publicUrl }) {
   if (!user || !user.id) {
     throw Object.assign(new Error('Войдите в аккаунт, чтобы оформить заказ'), { status: 401 });
   }
@@ -396,15 +511,50 @@ async function createCheckout({ items, guest, pvz, promoCode, user, publicUrl })
   if (!adminOrder && !name) throw Object.assign(new Error('Укажите имя'), { status: 400 });
   if (!adminOrder && !phone) throw Object.assign(new Error('Укажите телефон'), { status: 400 });
   if (!email.includes('@')) throw Object.assign(new Error('Укажите email'), { status: 400 });
-  if (!pvz || !String(pvz.addr || '').trim() || String(pvz.addr).trim().length < 8) {
+  const shipMode = String((delivery && delivery.mode) || 'pickup') === COURIER ? COURIER : 'pickup';
+
+  /* Курьером — собираем адрес из полей формы сами. Строку целиком клиенту
+     не доверяем: по ней считается тариф, а значит и сумма к оплате. */
+  let courierAddr = null;
+  if (shipMode === COURIER) {
+    const c = delivery || {};
+    const city = String(c.city || '').trim();
+    const street = String(c.street || '').trim();
+    const flat = String(c.flat || '').trim();
+    const comment = String(c.comment || '').trim().slice(0, 300);
+    if (city.length < 2) throw Object.assign(new Error('Укажите город доставки'), { status: 400 });
+    if (street.length < 5) throw Object.assign(new Error('Укажите улицу и дом'), { status: 400 });
+    courierAddr = {
+      city, street, flat, comment,
+      text: [city, street, flat && ('кв./офис ' + flat)].filter(Boolean).join(', ')
+    };
+  } else if (!pvz || !String(pvz.addr || '').trim() || String(pvz.addr).trim().length < 8) {
     throw Object.assign(new Error('Укажите адрес пункта выдачи СДЭК'), { status: 400 });
   }
-  const cleanPvz = {
+
+  const cleanPvz = shipMode === COURIER ? {
+    code: 'courier',
+    id: 'courier',
+    type: 'COURIER',
+    mode: COURIER,
+    city: courierAddr.city,
+    cityCode: 0,
+    addr: courierAddr.text,
+    street: courierAddr.street,
+    flat: courierAddr.flat,
+    addressComment: courierAddr.comment,
+    hours: '',
+    lat: 0,
+    lng: 0,
+    phone: '',
+    manual: false
+  } : {
     code: String(pvz.code || 'manual').trim() || 'manual',
     id: String(pvz.id || pvz.code || 'manual').trim() || 'manual',
     type: String(pvz.type || 'PVZ').trim(),
     ownerCode: String(pvz.ownerCode || '').trim(),
     city: String(pvz.city || '').trim(),
+    region: String(pvz.region || '').trim(),
     cityCode: +pvz.cityCode || 0,
     addr: String(pvz.addr || '').trim(),
     addressComment: String(pvz.addressComment || '').trim(),
@@ -427,11 +577,41 @@ async function createCheckout({ items, guest, pvz, promoCode, user, publicUrl })
   let userId = user && user.id ? +user.id : null;
   let asGuest = userId ? 0 : 1;
 
+  /* Пункт выдачи сверяем со справочником по коду и переписываем город,
+     регион и адрес его данными. Клиент мог прислать настоящий код
+     владивостокского пункта и приписать ему «Екатеринбург», чтобы
+     доставка посчиталась по дешёвой зоне. */
+  if (shipMode !== COURIER && cleanPvz.code && !cleanPvz.manual) {
+    try {
+      const dir = require('./cdek-open');
+      const found = dir.deliveryPoints({ q: cleanPvz.code, limit: 40 })
+        .find((p) => p.code === cleanPvz.code);
+      if (found) {
+        cleanPvz.city = found.city;
+        cleanPvz.region = found.region;
+        cleanPvz.cityCode = found.cityCode;
+        cleanPvz.addr = found.addr;
+        cleanPvz.hours = found.hours;
+        cleanPvz.lat = found.lat;
+        cleanPvz.lng = found.lng;
+      }
+    } catch (_) { /* справочник не поднялся — считаем по присланному */ }
+  }
+
   const goods = normalized.reduce((s, i) => s + i.price * i.qty, 0);
   const { discount, promo, error: promoErr } = calcPromo(promoCode, goods);
   if (promoErr && promoCode) throw Object.assign(new Error(promoErr), { status: 400 });
   const after = Math.max(0, goods - discount);
-  const ship = shipCost(after, promo);
+  /* Место доставки берём из уже проверенных данных, а не из того, что
+     прислал клиент отдельным полем: иначе к владивостокскому пункту
+     подставят «Екатеринбург» и уедут по дешёвому тарифу. */
+  const quote = shipQuote({
+    mode: shipMode,
+    place: { city: cleanPvz.city, region: cleanPvz.region || '', addr: cleanPvz.addr },
+    goodsAfterDiscount: after,
+    promo
+  });
+  const ship = quote.cost;
   const price = after + ship;
   const num = nextOrderNum();
   const dd = new Date().toISOString().slice(0, 16).replace('T', ' ');
@@ -457,7 +637,7 @@ async function createCheckout({ items, guest, pvz, promoCode, user, publicUrl })
     INSERT INTO orders (
       num, user_id, status, pay_status, price, goods, discount, ship, ship_mode,
       promo_code, customer_name, email, phone, addr, pvz_json, items_json, steps_json, step_now, guest, access_token, pay_name
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pickup', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     num,
     userId,
@@ -467,11 +647,16 @@ async function createCheckout({ items, guest, pvz, promoCode, user, publicUrl })
     goods,
     discount,
     ship,
+    quote.mode,
     promo ? promo.code : '',
     name,
     email,
     phone,
-    [cleanPvz.city, cleanPvz.addr].filter(Boolean).join(', ') || cleanPvz.addr,
+    /* Курьерский адрес уже собран с городом внутри — второй раз город
+       не приклеиваем. */
+    shipMode === COURIER
+      ? cleanPvz.addr
+      : ([cleanPvz.city, cleanPvz.addr].filter(Boolean).join(', ') || cleanPvz.addr),
     JSON.stringify(cleanPvz),
     JSON.stringify(normalized),
     JSON.stringify(steps),
@@ -1039,6 +1224,8 @@ function requestReturnBuyer(num, user, accessToken) {
 }
 
 module.exports = {
+  shipQuote,
+  quoteForCart,
   createCheckout,
   handleWebhook,
   syncPaymentStatus,
