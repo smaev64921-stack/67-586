@@ -3098,6 +3098,13 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;line-height:1
 }
 .pvz__pin.on{background:var(--ok)}
+/* Своё положение на карте 2ГИС: у Leaflet для этого есть свой кружок,
+   у 2ГИС метки только из нашей разметки. */
+.pvz__me{
+  display:block;width:16px;height:16px;border-radius:50%;
+  background:var(--ok);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.18)
+}
+
 /* Дальние пункты — просто точки: показывают, что сеть плотная,
    и не спорят с ближайшими за внимание. */
 .pvz__pin--dot{
@@ -4512,6 +4519,31 @@ const pvzKm = k => k < 1 ? Math.round(k * 1000) + ' м' : k.toFixed(1).replace('
    Не загрузилась (нет сети) — показываем список и ссылки
    на Яндекс.Карты, выбрать пункт всё равно можно.
    ========================================================== */
+/* Карта рисуется одним из двух движков. 2ГИС — основной: свои данные по
+   России, дома и организации подписаны, людям он привычен. Но он требует
+   ключ, а ключ бывает не введён, просрочен или исчерпан по лимиту —
+   тогда молча падаем на OpenStreetMap. Пустая карта в оформлении дороже
+   любой красоты. */
+const GIS_JS = 'https://mapgl.2gis.com/api/js/v1';
+let gisLib = null;
+function dgisKey(){
+  try{ return String((CMS.maps && CMS.maps.dgis) || '').trim(); }catch(e){ return ''; }
+}
+function ensureGis(){
+  if(gisLib) return gisLib;
+  gisLib = new Promise((res, rej) => {
+    if(window.mapgl) return res(window.mapgl);
+    const js = document.createElement('script');
+    js.src = GIS_JS;
+    js.onload  = () => window.mapgl ? res(window.mapgl) : rej(new Error('no-lib'));
+    js.onerror = () => rej(new Error('offline'));
+    document.head.appendChild(js);
+    setTimeout(() => rej(new Error('timeout')), 9000);
+  });
+  gisLib.catch(() => { gisLib = null; });
+  return gisLib;
+}
+
 const MAP_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const MAP_JS  = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 let mapLib = null;
@@ -4773,6 +4805,13 @@ function suggestCities(q){
 /** Поднять карту после перерисовки экрана и показать точки. */
 function mountDeliveryMap(){
   if(!document.getElementById('pvzMap')) return;
+  /* Владелец мог только что вписать или стереть ключ — тогда карту
+     надо строить другим движком, а не подновлять старую. */
+  const key = dgisKey();
+  if(mountedWithKey !== key){
+    mountedWithKey = key;
+    dropGisMap(); dropOsmMap();
+  }
   pvzPaint();
   if(pvzView.points.length){ pvzDrawMap(); return; }
   if(!pvzView.loading) deliveryAutoLoad();
@@ -4828,7 +4867,9 @@ let pvzView = {
   city:null, cities:[], points:[], me:null, q:'',
   all:false, geo:'idle', loading:false, error:'', req:0
 };
-let pvzMap = null, pvzLayer = null;
+let pvzMap = null, pvzLayer = null;          // Leaflet
+let gisMap = null, gisMarks = [], gisBox = null;   // 2ГИС
+let mountedWithKey = null;
 let pvzSearchTimer = null;
 
 function pvzNormalizePoint(p){
@@ -4863,10 +4904,13 @@ function pvzNormalizePoint(p){
 
 function pvzFiltered(){ return pvzView.points || []; }
 
-/** Список под картой: сначала ближайшие, «Показать все» раскрывает. */
+/** Список под картой: сначала ближайшие, «Показать все» раскрывает.
+    Пять — столько, сколько человек сравнивает не прокручивая; всё
+    остальное открывается кнопкой. Столько же меток получают номера. */
+const PVZ_NEAR = 5;
 function pvzShown(){
   const all = pvzFiltered();
-  return pvzView.all ? all : all.slice(0, 8);
+  return pvzView.all ? all : all.slice(0, PVZ_NEAR);
 }
 
 function pvzPaint(){
@@ -5054,24 +5098,189 @@ async function pvzLoadPoints(q){
   }
 }
 
+/* Что рисовать на карте. Считается один раз и годится обоим движкам:
+   в крупном городе пунктов больше сотни, и сотня пронумерованных кружков
+   сливается в пятно. Номера — только у тех, что в списке под картой,
+   по ним и ищут глазами; остальные остаются точками. */
+function pvzPinPlan(list){
+  const shown = pvzShown();
+  const order = new Map(shown.map((p, k) => [p.code, k + 1]));
+  const items = list.map(p => {
+    const on = !!(S.checkout.pvz && S.checkout.pvz.code === p.code);
+    const n = order.get(p.code) || 0;
+    return {p, on, n, big: on || n > 0};
+  });
+  const frame = items.filter(x => x.big).map(x => x.p);
+  return {items, frame: frame.length ? frame : list};
+}
+
+/** Разметка метки — одна на оба движка, чтобы карта не менялась в лице. */
+function pvzPinHTML(it){
+  return it.big
+    ? `<button type="button" class="pvz__pin${it.on ? ' on' : ''}" aria-label="${esc(it.p.addr)}">${it.n || '•'}</button>`
+    : `<button type="button" class="pvz__pin pvz__pin--dot" aria-label="${esc(it.p.addr)}"></button>`;
+}
+
+function pvzMapFail(text){
+  const b = document.getElementById('pvzMap');
+  if(b) b.innerHTML = `<span class="pvz__map-s">${esc(text)}</span>`;
+}
+
+/** Снести карту другого движка, если она осталась с прошлого раза. */
+function dropOsmMap(){
+  if(pvzMap){ try{ pvzMap.remove(); }catch(e){} }
+  pvzMap = null; pvzLayer = null;
+}
+function dropGisMap(){
+  gisMarks.forEach(m => { try{ m.destroy(); }catch(e){} });
+  gisMarks = [];
+  if(gisMap){ try{ gisMap.destroy(); }catch(e){} }
+  gisMap = null; gisBox = null;
+}
+
+/* Годен ли ключ. У 2ГИС для этого есть свой адрес — тот самый, куда
+   ходит их библиотека: 200 — ключ живой, 404 — такого нет, 400 —
+   вписали не ключ. Спрашиваем один раз на ключ и запоминаем: без этой
+   проверки покупатель увидит наши метки на пустом поле вместо карты. */
+const GIS_KEY_CHECK = 'https://keys.api.2gis.com/public/v1/keys/';
+let gisKeySeen = {key:null, ok:null, wait:null};
+function gisKeyReady(key){
+  if(gisKeySeen.key === key){
+    if(gisKeySeen.ok !== null) return Promise.resolve(gisKeySeen.ok);
+    if(gisKeySeen.wait) return gisKeySeen.wait;
+  }
+  gisKeySeen = {key, ok:null, wait:null};
+  gisKeySeen.wait = fetch(GIS_KEY_CHECK + encodeURIComponent(key) + '/services/mapgl-js-api')
+    .then(r => r.ok)
+    .catch(() => false)
+    .then(ok => {
+      if(gisKeySeen.key !== key) return ok;
+      gisKeySeen.ok = ok;
+      gisKeySeen.wait = null;
+      if(!ok) console.warn('Ключ 2ГИС не принят — карта рисуется на OpenStreetMap');
+      return ok;
+    });
+  return gisKeySeen.wait;
+}
+
 function pvzDrawMap(opts){
   const box = document.getElementById('pvzMap');
   if(!box) return;
-  /* render() заменяет весь экран целиком, и узел карты умирает вместе
-     с ним. Ссылку на мёртвую карту надо выбросить, иначе Leaflet будет
-     рисовать в оторванный от документа div. */
-  if(pvzMap && !document.body.contains(pvzMap.getContainer())){
-    try{ pvzMap.remove(); }catch(e){}
-    pvzMap = null; pvzLayer = null;
-  }
-  /* на карте — все точки фильтра; в списке ниже может быть укороченный топ */
   const list = pvzFiltered();
   if(!list.length){ box.innerHTML = '<span class="pvz__map-s">Нет точек для показа</span>'; return; }
+  const plan = pvzPinPlan(list);
+  const key = dgisKey();
+  if(!key) return drawOsmMap(box, plan, opts);
+  gisKeyReady(key).then(ok => {
+    if(document.getElementById('pvzMap') !== box) return;
+    if(ok) drawGisMap(box, plan, opts);
+    else drawOsmMap(box, plan, opts);
+  });
+}
 
+/* ---------- 2ГИС ---------- */
+function drawGisMap(box, plan, opts){
+  dropOsmMap();
+  ensureGis().then(gl => {
+    if(document.getElementById('pvzMap') !== box) return;
+    /* render() подменяет весь экран, и прежний контейнер уходит из
+       документа вместе с картой. Сравниваем узлы, а не флаги. */
+    if(gisMap && (gisBox !== box || !document.body.contains(box))) dropGisMap();
+    if(!gisMap){
+      box.innerHTML = '';
+      const c = plan.frame[0] || plan.items[0].p;
+      gisMap = new gl.Map(box, {
+        key: dgisKey(),
+        center: [c.lng, c.lat],
+        zoom: 12,
+        zoomControl: 'topRight',
+        /* Наклон и вращение на шаге оформления только мешают: человек
+           выбирает пункт, а не разглядывает город. */
+        maxPitch: 0,
+        disablePitchByUserInteraction: true,
+        disableRotationByUserInteraction: true
+      });
+      gisBox = box;
+    }
+    gisMarks.forEach(m => { try{ m.destroy(); }catch(e){} });
+    gisMarks = [];
+
+    plan.items.forEach(it => {
+      const holder = document.createElement('div');
+      holder.innerHTML = pvzPinHTML(it);
+      const btn = holder.firstChild;
+      btn.onclick = () => pvzPick(it.p.code);
+      const half = it.big ? 13 : 6;
+      gisMarks.push(new gl.HtmlMarker(gisMap, {
+        coordinates: [it.p.lng, it.p.lat],
+        html: holder,
+        anchor: [half, half],
+        interactive: true,
+        zIndex: it.big ? 400 : 0
+      }));
+    });
+
+    if(pvzView.me){
+      const me = document.createElement('div');
+      me.innerHTML = `<span class="pvz__me" aria-label="Вы здесь"></span>`;
+      gisMarks.push(new gl.HtmlMarker(gisMap, {
+        coordinates: [pvzView.me.lng, pvzView.me.lat],
+        html: me, anchor: [8, 8], interactive: false, zIndex: 500
+      }));
+    }
+
+    if(!(opts && opts.keepView)) gisFit(plan);
+
+    /* Плашка появляется не сразу — даём карте отрисоваться и проверяем. */
+    setTimeout(() => {
+      if(!gisMap || gisBox !== box || !gisBroken(box)) return;
+      console.warn('Ключ 2ГИС не принят — карта рисуется на OpenStreetMap');
+      dropGisMap();
+      box.innerHTML = '';
+      drawOsmMap(box, plan, opts);
+    }, 1500);
+  }).catch(() => {
+    /* Ключ не подошёл, лимит выбран или библиотека не догрузилась —
+       рисуем на OpenStreetMap, чтобы человек всё равно выбрал пункт. */
+    console.warn('2ГИС не поднялся — рисуем на OpenStreetMap');
+    dropGisMap();
+    const b = document.getElementById('pvzMap');
+    if(b) drawOsmMap(b, plan, opts);
+  });
+}
+
+/* Ключ не подошёл — библиотека не падает и не сообщает об ошибке
+   событием: она рисует прямо в контейнере чёрную плашку «Your MapGL key
+   is invalid». Классы у неё хешированные, поэтому ловим по тексту —
+   покупателю такое показывать нельзя. */
+function gisBroken(box){
+  const t = String((box && box.innerText) || '');
+  return /mapgl key|key is invalid|api@2gis/i.test(t);
+}
+
+function gisFit(plan){
+  const pts = plan.frame;
+  if(!pts.length || !gisMap) return;
+  if(pts.length === 1){
+    gisMap.setCenter([pts[0].lng, pts[0].lat]);
+    gisMap.setZoom(15);
+    return;
+  }
+  const lats = pts.map(p => p.lat), lngs = pts.map(p => p.lng);
+  gisMap.fitBounds({
+    southWest: [Math.min(...lngs), Math.min(...lats)],
+    northEast: [Math.max(...lngs), Math.max(...lats)]
+  }, {padding: {top:36, right:36, bottom:36, left:36}, maxZoom: pvzView.me ? 15 : 16});
+}
+
+/* ---------- OpenStreetMap, запасной ---------- */
+function drawOsmMap(box, plan, opts){
+  dropGisMap();
   ensureMap().then(L => {
-    if(!document.getElementById('pvzMap')) return;
+    if(document.getElementById('pvzMap') !== box) return;
+    if(pvzMap && !document.body.contains(pvzMap.getContainer())) dropOsmMap();
     if(!pvzMap || !box.querySelector('.leaflet-pane')){
-      if(pvzMap){ try{ pvzMap.remove(); }catch(e){} }   // шторку закрыли — узел старой карты мёртв
+      dropOsmMap();
       box.innerHTML = '';
       pvzMap = L.map(box, {zoomControl:true, attributionControl:true});
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -5080,51 +5289,33 @@ function pvzDrawMap(opts){
       pvzLayer = L.layerGroup().addTo(pvzMap);
     }
     pvzLayer.clearLayers();
-    /* В крупном городе пунктов больше сотни, и сотня пронумерованных
-       кружков сливается в чёрное пятно. Номера даём только тем, что
-       сейчас в списке под картой — по ним и ищут глазами; остальные
-       остаются точками: видно, что пункты есть и рядом, но они не
-       заслоняют ближайшие. */
-    const shown = pvzShown();
-    const numbered = new Set(shown.map(p => p.code));
     const pts = [];
-    const near = [];
-    list.forEach((p) => {
-      const idx = shown.findIndex(x => x.code === p.code);
-      const on = S.checkout.pvz && S.checkout.pvz.code === p.code;
-      const big = on || numbered.has(p.code);
+    plan.items.forEach(it => {
+      const half = it.big ? 13 : 6;
       const icon = L.divIcon({
         className: 'pvz__pin-w',
-        html: big
-          ? `<button type="button" class="pvz__pin${on ? ' on' : ''}" aria-label="${esc(p.addr)}">${idx >= 0 ? idx + 1 : '•'}</button>`
-          : `<button type="button" class="pvz__pin pvz__pin--dot" aria-label="${esc(p.addr)}"></button>`,
-        iconSize: big ? [26, 26] : [12, 12],
-        iconAnchor: big ? [13, 13] : [6, 6]
+        html: pvzPinHTML(it),
+        iconSize: [half*2, half*2], iconAnchor: [half, half]
       });
-      const km = p.km != null ? `<br>${pvzKm(p.km)} от вас` : '';
-      L.marker([p.lat, p.lng], {icon, zIndexOffset: big ? 400 : 0})
+      const km = it.p.km != null ? `<br>${pvzKm(it.p.km)} от вас` : '';
+      L.marker([it.p.lat, it.p.lng], {icon, zIndexOffset: it.big ? 400 : 0})
         .addTo(pvzLayer)
-        .bindPopup(`<b>${esc(p.addr)}</b><br>${esc(p.city)}${km}${p.hours ? '<br>' + esc(p.hours) : ''}<br><small>Нажмите маркер ещё раз, чтобы выбрать</small>`)
-        .on('click', () => pvzPick(p.code));
-      pts.push([p.lat, p.lng]);
-      if(big) near.push([p.lat, p.lng]);
+        .bindPopup(`<b>${esc(it.p.addr)}</b><br>${esc(it.p.city)}${km}${it.p.hours ? '<br>' + esc(it.p.hours) : ''}`)
+        .on('click', () => pvzPick(it.p.code));
+      pts.push([it.p.lat, it.p.lng]);
     });
     if(pvzView.me){
       L.circleMarker([pvzView.me.lat, pvzView.me.lng], {
         radius:7, color:'#1f9d55', fillColor:'#1f9d55', fillOpacity:.95, weight:2
       }).addTo(pvzLayer).bindPopup('Вы здесь');
-      pts.push([pvzView.me.lat, pvzView.me.lng]);
     }
     if(!(opts && opts.keepView)){
-      const frame = near.length ? near : pts;
-      pvzMap.fitBounds(frame, {padding:[36,36], maxZoom: pvzView.me ? 14 : 15});
+      const frame = plan.frame.map(p => [p.lat, p.lng]);
+      pvzMap.fitBounds(frame.length ? frame : pts, {padding:[36,36], maxZoom: pvzView.me ? 14 : 15});
     }
     setTimeout(() => pvzMap && pvzMap.invalidateSize(), 80);
   }).catch(() => {
-    /* офлайн или карта заблокирована — не мешаем выбрать пункт */
-    const b = document.getElementById('pvzMap');
-    if(b) b.innerHTML = `<span class="pvz__map-s">Карта не загрузилась — нет связи.<br>
-      Пункты можно выбрать списком ниже.</span>`;
+    pvzMapFail('Карта не загрузилась — нет связи. Пункты можно выбрать списком ниже.');
   });
 }
 
@@ -6766,7 +6957,7 @@ function scrDone(){
       ${o.addr ? `<div class="row"><span class="row__l">Куда</span>
         <span class="row__v row__v--addr">${esc(o.addr)}</span></div>` : ''}
     </div>` : ''}
-    ${awaitingPay && o ? `<p class="done__s" style="margin-top:12px">Оплатите в течение часа ${payTimerHTML(o)}</p>
+    ${awaitingPay && o ? `<p class="done__s" style="margin-top:12px">Оплатите в течение 10 минут ${payTimerHTML(o)}</p>
     <button class="btn" style="margin-top:18px" data-a="ordpay:${o.num}">${svg('lock','ic ic--sm')} Перейти к оплате</button>` : ''}
     ${o && o.guest && !awaitingPay ? `<p class="done__s" style="margin-top:16px">Заказ сохранён на этом устройстве.
       <button data-a="go:auth" style="text-decoration:underline;font-weight:600;color:var(--ink)">Создайте аккаунт</button>,
@@ -6927,7 +7118,9 @@ function payUntilMs(o){
   const n = +((o && o.payUntil) || 0);
   if(Number.isFinite(n) && n > 0) return n;
   const created = o && o.createdAt ? Date.parse(o.createdAt) : NaN;
-  if(Number.isFinite(created) && created > 0) return created + 3600000;
+  /* Столько же, сколько ждёт сервер (PAY_WAIT_MS в server/orders.js).
+     Разойдутся — таймер соврёт покупателю. */
+  if(Number.isFinite(created) && created > 0) return created + 600000;
   return 0;
 }
 function payLeftMs(o){
@@ -12101,6 +12294,10 @@ function defaultCms(){
     reviews: {moderate:false, buyersOnly:true},
     /* Старый справочник ПВЗ оставлен для админки; чекаут берёт реальные ПВЗ из CDEK API. */
     pvz: [],
+    /* Ключ карты 2ГИС. Пустой — карта рисуется на OpenStreetMap.
+       Ключ публичный: он и так уезжает в браузер покупателя, секрета
+       в нём нет. Берётся на platform.2gis.ru. */
+    maps:{dgis:''},
     /* Тарифы доставки. Правятся в админке → Контент.
        freeFrom = 0 отключает бесплатную доставку.
 
@@ -13228,6 +13425,16 @@ function viewContent(){
       </div>
     </div>
     <div class="ad__box" style="margin-top:12px">
+      <div class="ad__box-t">Карта пунктов выдачи</div>
+      <label class="ad__l">Ключ 2ГИС</label>
+      <input class="ad__f" id="mapKey" value="${esc((CMS.maps && CMS.maps.dgis) || '')}"
+        placeholder="вставьте ключ с platform.2gis.ru" autocomplete="off">
+      <p class="ad__m" style="margin-top:10px">С ключом карта в оформлении рисуется на 2ГИС.
+        Без ключа — на OpenStreetMap: пункты и выбор работают одинаково, отличается только сама карта.
+        Ключ берётся бесплатно на platform.2gis.ru → «Создать демо-ключ», нужен доступ к Map Tiles API.</p>
+    </div>
+
+    <div class="ad__box" style="margin-top:12px">
       <div class="ad__box-t">Доставка — базовые тарифы</div>
       <div class="ad__g2">
         <div><label class="ad__l">До пункта выдачи, ₽</label>
@@ -13890,6 +14097,10 @@ function bindAdminView(){
       const v = Number(raw);
       return raw !== '' && isFinite(v) && v >= 0 ? Math.round(v) : def;
     };
+    /* Ключ карты. Пустое поле — осознанный выбор «вернуться на OSM»,
+       поэтому здесь пустая строка перезаписывает, а не сохраняет старое. */
+    if(!CMS.maps) CMS.maps = {};
+    CMS.maps.dgis = document.getElementById('mapKey').value.trim();
     CMS.shipping.pickup   = num('shP', CMS.shipping.pickup);
     CMS.shipping.courier  = num('shC', CMS.shipping.courier);
     CMS.shipping.freeFrom = num('shF', CMS.shipping.freeFrom);

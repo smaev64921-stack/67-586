@@ -3,7 +3,10 @@ const { db } = require('./db');
 const { getProduct, checkStock, deductStock, restoreStock } = require('./products');
 const { createPayment, configured, getPayment, cancelPayment } = require('./yookassa');
 
-const PAY_WAIT_MS = 60 * 60 * 1000;
+/* Сколько ждём оплату. Меньше — быстрее возвращается остаток на склад
+   и меньше висит «мёртвых» заказов. Столько же показывает таймер на
+   витрине (payUntilMs), их нельзя разводить. */
+const PAY_WAIT_MS = 10 * 60 * 1000;
 
 function orderCreatedMs(row) {
   const s = String((row && row.created_at) || '').trim();
@@ -17,7 +20,7 @@ function awaitingPayRow(row) {
   return !!(row && row.status === 'Ожидает оплаты' && row.pay_status !== 'paid' && row.pay_status !== 'manual');
 }
 
-/* Час прошёл, а оплаты нет. Раньше строка отсюда УДАЛЯЛАСЬ, и это стоило
+/* Время вышло, а оплаты нет. Раньше строка отсюда УДАЛЯЛАСЬ, и это стоило
    слишком дорого:
      — уведомление от ЮKassa могло опоздать (её вебхук повторяется, а сервер
        перезапускается при каждом выкате) — деньги списаны, а заказа нет;
