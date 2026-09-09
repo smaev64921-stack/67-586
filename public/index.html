@@ -3728,6 +3728,11 @@ function wipeStaleBrowserJunk(){
   return true;
 }
 function pruneStaleClientData(){
+  /* Пустой каталог — это почти всегда неответивший сервер, а не магазин,
+     из которого убрали всё. Чистка по такому каталогу вынесла бы корзину
+     и избранное, а saveUser() тут же отправил бы пустоту в аккаунт —
+     и человек потерял бы их разом на всех устройствах. */
+  if(!Array.isArray(PRODUCTS) || !PRODUCTS.length) return false;
   let dirty = false;
   const keepRv = REVIEWS.filter(r => reviewBelongsToProduct(r, PRODUCTS.find(p => +p.id === +r.pid)));
   if(keepRv.length !== REVIEWS.length){
@@ -4591,6 +4596,7 @@ function setPvzAddr(raw){
   const addr = String(raw || '').trim();
   if(!addr){ S.checkout.pvz = null; return; }
   S.checkout.pvz = {
+    pickedBy: pvzOwner(),
     code: 'manual',
     id: 'manual',
     type: 'PVZ',
@@ -4630,9 +4636,19 @@ function deliveryTabsHTML(){
 }
 
 /** Карточка выбранного пункта — чтобы выбор было видно, не прокручивая список. */
+/* Второй рубеж после разделения ячеек: у пункта записано, кто его выбрал.
+   Даже если состояние однажды снова протечёт между аккаунтами, чужой
+   пункт не покажется выбранным и не пройдёт проверку на шаге оплаты —
+   человек не отправит посылку в город, которого не выбирал. */
+const pvzOwner = () => (S.user && S.user.id) ? String(S.user.id) : 'guest';
+/* Пункты, сохранённые до этой правки, метки не имеют — считаем их своими:
+   они и так лежат в ячейке своего аккаунта. */
+const pvzIsMine = p => !!p && (!p.pickedBy || String(p.pickedBy) === pvzOwner());
+
 function pvzPickedHTML(){
   const p = S.checkout.pvz;
   if(!p || !String(p.addr || '').trim()) return '';
+  if(!pvzIsMine(p)) return '';
   return `<div class="pvz__picked">
     <b>${esc(p.addr)}</b>
     <span>${esc(p.city || '')}${p.hours ? ' · ' + esc(p.hours) : ''}</span>
@@ -4706,6 +4722,7 @@ function destError(){
     return null;
   }
   const p = S.checkout.pvz;
+  if(!pvzIsMine(p)) return {id:'pvzSearch', msg:'Выберите пункт выдачи на карте'};
   if(!p || !String(p.addr || '').trim()) return {id:'pvzSearch', msg:'Выберите пункт выдачи на карте'};
   if(String(p.addr).trim().length < 8) return {id:'pvzAddr', msg:'Адрес слишком короткий — вставьте полный адрес пункта'};
   return null;
@@ -4869,7 +4886,7 @@ async function deliveryAutoLoad(){
 
 /** Город из выбранного или сохранённого пункта. true — есть что грузить. */
 async function deliveryCityFallback(){
-  const known = S.checkout.pvz || S.defaultPvz;
+  const known = [S.checkout.pvz, S.defaultPvz].find(pvzIsMine);
   if(!known || !+known.cityCode) return false;
   pvzView.city = {code:+known.cityCode, city:known.city || ''};
   pvzView.q = known.city || '';
@@ -4881,7 +4898,7 @@ async function deliveryCityFallback(){
 
 /** Сбросить состояние выбора при входе на шаг. */
 function pvzResetView(){
-  const chosen = S.checkout.pvz || S.defaultPvz;
+  const chosen = [S.checkout.pvz, S.defaultPvz].find(pvzIsMine) || null;
   pvzView = {
     city: chosen && chosen.cityCode ? {code:+chosen.cityCode, city:chosen.city || ''} : null,
     cities: [],
@@ -5386,6 +5403,7 @@ function pvzPick(code){
   /* сохраняем копию: адрес точки в заказе не должен меняться,
      если магазин потом поправит справочник */
   S.checkout.pvz = {
+    pickedBy: pvzOwner(),
     code: p.code,
     id: p.code,
     type: p.type || 'PVZ',
@@ -5927,14 +5945,29 @@ const S = {
 
 /* Данные покупателя храним отдельно от каталога:
    каталог правит владелец через админку, это — личное. */
-const UKEY = 'shop_user_v1';
 /* ==========================================================
-   КОРЗИНА И ИЗБРАННОЕ МЕЖДУ УСТРОЙСТВАМИ
-   Товары, заказы и отзывы и так приходят с сервера. А корзина,
-   избранное, выбранный ПВЗ и отметки «отзыв полезен» жили только
-   в браузере: сложил корзину на телефоне — на компьютере пусто.
-   Теперь они лежат в аккаунте.
+   ЛИЧНЫЕ ДАННЫЕ ПРИНАДЛЕЖАТ АККАУНТУ, А НЕ УСТРОЙСТВУ
+
+   Раньше корзина, избранное, пункт выдачи, адрес курьера и контакты
+   лежали в одном ключе localStorage на всё устройство. Если на телефоне
+   входили двумя аккаунтами, второй видел корзину первого — и это было
+   не только на экране: при входе она сливалась с его собственной и
+   уезжала на сервер уже в его аккаунт. Оттуда же брался и «уже
+   выбранный» пункт выдачи в чужом городе.
+
+   Теперь у каждого аккаунта своя ячейка, у гостя — своя, и есть ровно
+   одна дверь смены хозяина: becomeUser(). Любой путь входа — почта,
+   Google, Telegram, восстановление сессии, выход — идёт через неё.
    ========================================================== */
+const UKEY = 'shop_user_v1';               // ячейка гостя
+const ULAST = 'shop_user_last';            // кто заходил последним
+const ORD_TOK_PREFIX = 'lc_ord_t_';        // токены доступа к заказам
+const ukeyFor = id => id ? UKEY + ':u' + id : UKEY;
+
+/** Чья ячейка сейчас в памяти. null — гость. */
+let activeUserId = null;
+const sameOwner = (a, b) => String(a == null ? "" : a) === String(b == null ? "" : b);
+
 let _prefsSaveTimer = 0;
 let _prefsReady = false;   // пока не загрузили — не затираем серверное
 
@@ -5952,43 +5985,168 @@ function prefsPayload(){
 function pushPrefs(){
   if(!_prefsReady || !S.user || !window.LC || !LC.savePrefs) return;
   clearTimeout(_prefsSaveTimer);
-  _prefsSaveTimer = setTimeout(() => {
-    LC.savePrefs(prefsPayload()).catch(() => {});
-  }, 700);
+  _prefsSaveTimer = setTimeout(flushPrefs, 700);
 }
 
+/* Отложенная отправка — источник двух бед. Первая: человек уходит со
+   страницы, и последняя правка корзины не доезжает. Вторая, хуже:
+   он успевает сменить аккаунт, и отложенный вызов записывает корзину
+   прошлого хозяина в нового. Поэтому отправку можно принудительно
+   выполнить и принудительно отменить. */
+function flushPrefs(){
+  clearTimeout(_prefsSaveTimer);
+  _prefsSaveTimer = 0;
+  if(!_prefsReady || !S.user || !window.LC || !LC.savePrefs) return;
+  const owner = S.user.id;
+  LC.savePrefs(prefsPayload()).catch(() => {});
+  return owner;
+}
+function cancelPrefsPush(){
+  clearTimeout(_prefsSaveTimer);
+  _prefsSaveTimer = 0;
+}
+
+/* Вкладку закрывают или сворачивают — досылаем накопленное. pagehide
+   срабатывает и там, где unload уже не срабатывает (мобильный Safari). */
+['pagehide', 'visibilitychange'].forEach(ev => {
+  window.addEventListener(ev, () => {
+    if(ev === 'visibilitychange' && !document.hidden) return;
+    if(_prefsSaveTimer) flushPrefs();
+  });
+});
+
 /**
- * Тянем сохранённое при входе. Корзину и избранное объединяем, а не
- * заменяем: человек мог положить что-то в корзину до входа, и терять
- * это нельзя.
+ * Тянем сохранённое в аккаунте.
+ *
+ * merge = true только в одном случае: человек набрал корзину гостем и
+ * вошёл — терять её нельзя. При переходе между двумя аккаунтами берём
+ * серверное как есть: слияние там означало бы, что вещи одного человека
+ * попадают в корзину другого.
  */
-async function pullPrefs(){
-  if(!S.user || !window.LC || !LC.getPrefs) return;
+async function pullPrefs(opts){
+  const merge = !!(opts && opts.merge);
+  if(!S.user || !window.LC || !LC.getPrefs){ _prefsReady = false; return; }
+  const owner = S.user.id;
+  let p = null, ok = false;
   try{
-    const p = await LC.getPrefs();
-    if(!p) return;
-    const byKey = i => [i.id, i.size || '', i.color || ''].join('|');
-    const seen = new Set((S.cart || []).map(byKey));
-    (p.cart || []).forEach(i => { if(i && !seen.has(byKey(i))){ S.cart.push(i); seen.add(byKey(i)); } });
-    const favs = new Set([...(S.favs || []), ...(p.favs || [])].map(Number).filter(Boolean));
-    S.favs = [...favs];
+    p = await LC.getPrefs();
+    ok = !!p;
+  }catch(e){ ok = false; }
+
+  /* Пока ходили на сервер, могли успеть выйти или войти другим. */
+  if(!S.user || !sameOwner(S.user.id, owner)) return;
+
+  if(!ok){
+    /* Сервер не ответил — НЕ включаем отправку. Иначе первое же движение
+       запишет в аккаунт то, что лежало на устройстве, затерев настоящее. */
+    _prefsReady = false;
+    return;
+  }
+
+  if(merge){
+    /* Ключ строки — тот же, что у корзины (lineKey), иначе одна и та же
+       вещь приезжает второй строкой и количество молча удваивается. */
+    const key = i => lineKey(byId(i.id) || {id: i.id}, i.size, i.color);
+    const seen = new Set((S.cart || []).map(key));
+    (p.cart || []).forEach(i => {
+      if(!i || seen.has(key(i))) return;
+      S.cart.push(i); seen.add(key(i));
+    });
+    S.favs = [...new Set([...(S.favs || []), ...(p.favs || [])].map(Number).filter(Boolean))];
     if(typeof rvVotes !== 'undefined' && Array.isArray(p.rvVotes)){
       rvVotes = [...new Set([...(rvVotes || []), ...p.rvVotes])];
       try{ rvSave(); }catch(e){}
     }
     if(!S.defaultPvz && p.defaultPvz) S.defaultPvz = p.defaultPvz;
     if(S.checkout && !S.checkout.pvz && p.pvz) S.checkout.pvz = p.pvz;
-    saveUser();
-  }catch(e){}
-  finally{
-    _prefsReady = true;
-    pushPrefs();   // отдаём объединённое обратно
+  }else{
+    /* Замена: у аккаунта своё состояние, и оно главнее того, что осталось
+       на этом устройстве от кого-то другого. */
+    S.cart = Array.isArray(p.cart) ? p.cart : [];
+    S.favs = Array.isArray(p.favs) ? p.favs.map(Number).filter(Boolean) : [];
+    if(typeof rvVotes !== 'undefined'){
+      rvVotes = Array.isArray(p.rvVotes) ? [...p.rvVotes] : [];
+      try{ rvSave(); }catch(e){}
+    }
+    S.defaultPvz = p.defaultPvz || null;
+    if(S.checkout) S.checkout.pvz = p.pvz || null;
   }
+
+  _prefsReady = true;
+  saveUser();
+  /* Корзина могла пролежать в аккаунте неделю: сверяем с остатками
+     и перерисовываем — иначе цифры на значках останутся старыми. */
+  try{ revalidateCart(); }catch(e){}
+  try{ render(true); }catch(e){}
+  pushPrefs();
+}
+
+/* Всё, что принадлежит человеку, а не устройству. Список тут один на весь
+   код: забыть поле — значит оставить его следующему человеку. */
+function resetPersonalState(){
+  S.cart = [];
+  S.favs = [];
+  S.defaultPvz = null;
+  S.lastOrder = null;
+  S.promo = null; S.promoCode = ''; S.promoMsg = '';
+  if(S.checkout){
+    S.checkout.pvz = null;
+    S.checkout.quote = null;
+    S.checkout.delivery = 'pickup';
+    S.checkout.courier = {city:'', street:'', flat:'', comment:''};
+    S.checkout.guest = {name:'', phone:'', email:''};
+  }
+  S.orderSeen = {};
+  S.orderSeenInit = false;
+  ORDERS.length = 0;
+  ADMIN_ORDERS.length = 0;
+  if(typeof rvVotes !== 'undefined') rvVotes = [];
+  _prefsReady = false;
+  cancelPrefsPush();
+}
+
+/* Токены заказов дают доступ к чужому заказу по номеру. Гостевые заказы
+   ими и открываются, но после выхода они на устройстве уже не нужны. */
+function dropOrderTokens(){
+  try{
+    const kill = [];
+    for(let k = 0; k < localStorage.length; k++){
+      const key = localStorage.key(k);
+      if(key && key.indexOf(ORD_TOK_PREFIX) === 0) kill.push(key);
+    }
+    kill.forEach(k => localStorage.removeItem(k));
+  }catch(e){}
+}
+
+function readBucket(id){
+  try{ return JSON.parse(localStorage.getItem(ukeyFor(id)) || 'null'); }
+  catch(e){ return null; }
+}
+
+/** Разложить сохранённое этим же аккаунтом на этом устройстве. */
+function applyBucket(d){
+  if(!d) return;
+  S.defaultPvz = d.defaultPvz || d.pvz || null;
+  S.checkout.pvz = d.pvz || d.defaultPvz || null;
+  S.favs = d.favs || [];
+  S.cart = d.cart || [];
+  S.orderSeen = d.orderSeen && typeof d.orderSeen === 'object' ? d.orderSeen : {};
+  S.orderSeenInit = !!d.orderSeenInit;
+  if(d.guest) Object.assign(S.checkout.guest, d.guest);
+  if(d.courier) Object.assign(S.checkout.courier, d.courier);
+  if(d.delivery === 'courier' || d.delivery === 'pickup') S.checkout.delivery = d.delivery;
+  (d.orders || []).forEach(o => ORDERS.push(o));
 }
 
 function saveUser(){
   try{
-    localStorage.setItem(UKEY, JSON.stringify({
+    const id = S.user && S.user.id ? S.user.id : null;
+    activeUserId = id;
+    try{ localStorage.setItem(ULAST, id ? String(id) : ''); }catch(e){}
+    localStorage.setItem(ukeyFor(id), JSON.stringify({
+      /* Хозяин записан внутри: если ключи когда-нибудь съедут, запись всё
+         равно можно опознать и не показать чужому. */
+      ownerId: id,
       user:S.user, pvz:S.checkout.pvz, defaultPvz:S.defaultPvz || S.checkout.pvz,
       favs:S.favs, cart:S.cart, orders:ORDERS,
       guest:S.checkout.guest,
@@ -6003,29 +6161,99 @@ function saveUser(){
     return true;
   }catch(e){ return false; }
 }
+
 function loadUser(){
   try{
-    const raw = localStorage.getItem(UKEY);
-    if(!raw) return;
-    const d = JSON.parse(raw);
+    let last = null;
+    try{ last = localStorage.getItem(ULAST) || ''; }catch(e){}
+    /* Открываем ячейку того, кто заходил последним. Вышел — значит
+       последним стал гость, и аккаунтная ячейка не тронется. */
+    const d = readBucket(last || null);
+    if(!d) { activeUserId = null; return; }
+    /* Записи, сделанные до разделения по аккаунтам, лежат в гостевой
+       ячейке, но принадлежат тому, кто тогда был в аккаунте. Хозяина
+       берём из самой записи, иначе первый же вход после обновления
+       посчитал бы его корзину «гостевой» и унёс новому человеку. */
+    if(d.ownerId != null && !sameOwner(d.ownerId, last || null)){
+      activeUserId = null; return;
+    }
     S.user = d.user || null;
-    S.defaultPvz = d.defaultPvz || d.pvz || null;
-    S.checkout.pvz = d.pvz || d.defaultPvz || null;
-    S.favs = d.favs || [];
-    S.cart = d.cart || [];
-    S.orderSeen = d.orderSeen && typeof d.orderSeen === 'object' ? d.orderSeen : {};
-    S.orderSeenInit = !!d.orderSeenInit;
-    if(d.guest) Object.assign(S.checkout.guest, d.guest);
-    if(d.courier) Object.assign(S.checkout.courier, d.courier);
-    if(d.delivery === 'courier' || d.delivery === 'pickup') S.checkout.delivery = d.delivery;
-    (d.orders || []).forEach(o => ORDERS.push(o));
+    activeUserId = (S.user && S.user.id) ? String(S.user.id) : (last || null);
+    applyBucket(d);
     if(S.user) S.user.admin = !!S.user.admin;
     pruneForeignOrders();
   }catch(e){}
 }
+
+/**
+ * ЕДИНСТВЕННАЯ ДВЕРЬ СМЕНЫ АККАУНТА.
+ *
+ * Все пути входа ведут сюда. Пока их было несколько и каждый сам делал
+ * S.user = ...; saveUser(), любой новый путь заново уносил чужую корзину
+ * в новый аккаунт — так и случилось с Google и Telegram.
+ *
+ * user = null означает выход.
+ */
+async function becomeUser(user){
+  const nextId = user && user.id ? user.id : null;
+  const prevId = activeUserId;
+
+  if(sameOwner(prevId, nextId)){
+    /* Тот же человек — просто освежаем карточку и, если синхронизация
+       ещё не поднята, поднимаем её. */
+    S.user = user || null;
+    if(user && user.admin) grantAdmin(user.email);
+    saveUser();
+    if(user && !_prefsReady) await pullPrefs({merge:false});
+    return S.user;
+  }
+
+  /* Хозяин меняется. Отложенную отправку отменяем ДО сброса: иначе она
+     сработает и запишет корзину прошлого хозяина в нового. */
+  cancelPrefsPush();
+
+  /* Гость входит в аккаунт — его корзину и избранное переносим: он их
+     набрал сам, только что. Из чужого аккаунта не переносим ничего. */
+  const carry = (prevId == null && user) ? {
+    cart: (S.cart || []).slice(),
+    favs: (S.favs || []).slice()
+  } : null;
+
+  /* Уходим из аккаунта — токены чужих заказов на устройстве не нужны. */
+  if(!user) dropOrderTokens();
+
+  resetPersonalState();
+  activeUserId = nextId;
+  S.user = user || null;
+  if(user && user.admin) grantAdmin(user.email);
+
+  /* Своё сохранённое с этого устройства — если этот аккаунт тут уже был. */
+  const own = readBucket(nextId);
+  if(own && sameOwner(own.ownerId, nextId)) applyBucket(own);
+
+  if(carry){
+    const key = i => lineKey(byId(i.id) || {id: i.id}, i.size, i.color);
+    const seen = new Set((S.cart || []).map(key));
+    carry.cart.forEach(i => { if(i && !seen.has(key(i))){ S.cart.push(i); seen.add(key(i)); } });
+    S.favs = [...new Set([...(S.favs || []), ...carry.favs].map(Number).filter(Boolean))];
+  }
+
+  saveUser();
+  /* Гостевую корзину мы ПЕРЕНЕСЛИ, а не скопировали: гостевую ячейку
+     надо очистить. Иначе после выхода она всплывёт снова и уедет
+     во второй аккаунт — те же вещи окажутся у двух людей. */
+  if(carry){
+    try{ localStorage.removeItem(ukeyFor(null)); }catch(e){}
+  }
+  if(user) await pullPrefs({merge: !!carry});
+  try{ render(true); }catch(e){}
+  return S.user;
+}
+
 function rememberDefaultPvz(pvz){
   if(!pvz || !String(pvz.addr || '').trim()) return;
   S.defaultPvz = {
+    pickedBy: pvz.pickedBy || pvzOwner(),
     code: pvz.code || 'manual',
     id: pvz.id || pvz.code || '',
     type: pvz.type || 'PVZ',
@@ -6067,24 +6295,17 @@ function emailIsAdmin(email){
 function isAdmin(){ return !!(S.user && S.user.admin); }
 function hasLiveSession(){ return !!(S.user && S.user.id); }
 function clearLocalSession(){
-  S.user = null;
   S.tgLinked = false;
   try{ if(window.LC && LC.setToken) LC.setToken(''); }catch(_){}
-  saveUser();
+  /* becomeUser сам обнулит S.user и всё личное: раньше здесь стоял
+     saveUser(), и корзина вышедшего оставалась следующему человеку. */
+  becomeUser(null);
 }
 async function applyServerSession(){
   if(!window.LC || !LC.me) return S.user;
   try{
     const me = await LC.me();
-    if(me){
-      const wasOther = !S.user || S.user.id !== me.id;
-      S.user = me;
-      if(me.admin) grantAdmin(me.email);
-      saveUser();
-      /* новый вход — подтянуть корзину и избранное из аккаунта */
-      if(wasOther){ _prefsReady = false; pullPrefs(); }
-      return me;
-    }
+    if(me) return await becomeUser(me);
     if(S.user) clearLocalSession();
   }catch(_){
     if(!(window.LC && LC.getToken && LC.getToken())) clearLocalSession();
@@ -7814,9 +8035,9 @@ async function authSubmit(){
 
 function authDone(user, isNew){
   if(!user) return;
-  S.user = user;
-  if(user.admin) grantAdmin(user.email);
-  saveUser();
+  /* Раньше здесь было S.user = user; saveUser() — и вход почтой уносил
+     корзину прошлого хозяина в новый аккаунт мимо всех проверок. */
+  becomeUser(user);
   authMod.view = 'log';
   authMod.email = '';
   authMod.ticket = '';
@@ -11289,9 +11510,7 @@ async function finishDeviceCodeAuth(){
     S.authOtpState = 'ok';
     paintOtpFill();
     if(d.token) LC.setToken(d.token);
-    S.user = d.user;
-    if(d.user && d.user.admin) grantAdmin(d.user.email);
-    saveUser();
+    await becomeUser(d.user);
     await refreshMyOrders(false);
     S.authCodeRequested = false;
     S.authCodeExpired = false;
@@ -11482,9 +11701,7 @@ async function finishPhoneAuth(){
     paintOtpFill();
     stopAuthLinkPoll();
     if(d.token) LC.setToken(d.token);
-    S.user = d.user;
-    if(d.user && d.user.admin) grantAdmin(d.user.email);
-    saveUser();
+    await becomeUser(d.user);
     await refreshMyOrders(false);
     S.authStep = 1;
     continueAfterAuth({
@@ -11554,9 +11771,7 @@ function bindAuth(){
         const user = wasReg
           ? await LC.register({ email: email.trim(), password, name: '' })
           : await LC.login({ email: email.trim(), password });
-        S.user = user;
-        if(user && user.admin) grantAdmin(user.email);
-        saveUser();
+        await becomeUser(user);
         await refreshMyOrders(false);
         continueAfterAuth({ isNew: wasReg || profileNeedsFill(user), next: 'profile', askTg: true });
       }catch(err){
@@ -12172,12 +12387,11 @@ document.addEventListener('click', e => {
         if(window.LC){
           try{ await LC.logout(); }catch(_){}
         }
-        S.user = null;
         S.tgLinked = false;
-        ORDERS.length = 0;
-        ADMIN_ORDERS.length = 0;
-        S.lastOrder = null;
-        saveUser();
+        /* Одна дверь: becomeUser уносит корзину, избранное, пункт выдачи,
+           адрес курьера, контакты, заказы и токены заказов. Перечислять
+           их здесь второй раз — значит однажды забыть одно поле. */
+        await becomeUser(null);
         toast('Вы вышли из аккаунта');
         go('profile');
       })();
@@ -15109,10 +15323,9 @@ async function bootFromServer(){
          человека выкидывало и из его обычного аккаунта. */
       const user = await LC.loginTgAdmin(tgAdminTokEarly);
       if(!user || !user.admin) throw new Error('У этого аккаунта нет прав администратора');
-      S.user = user;
       S.tgLinked = false;
+      await becomeUser(user);
       grantAdmin(user.email);
-      saveUser();
       toast('Вы вошли как админ');
       bootLockPlace = true;
       tgAdminOpened = true;
@@ -15197,9 +15410,7 @@ async function bootFromServer(){
       /* вторая попытка: серверная кука уже стоит, ей токен не нужен */
       if(!me) me = await applyServerSession().catch(() => null);
       if(me){
-        S.user = me;
-        if(me.admin) grantAdmin(me.email);
-        saveUser();
+        await becomeUser(me);
         await refreshMyOrders(false).catch(() => {});
         bootLockPlace = true;
         continueAfterAuth({
@@ -15224,9 +15435,7 @@ async function bootFromServer(){
       const d = await LC.api('/api/auth/telegram-phone', { method:'POST', body:{ token: tgPhoneTok } });
       if(d && d.user){
         if(d.token) LC.setToken(d.token);
-        S.user = d.user;
-        if(d.user.admin) grantAdmin(d.user.email);
-        saveUser();
+        await becomeUser(d.user);
         await refreshMyOrders(false);
         history.replaceState(null, '', location.pathname + (location.hash || ''));
         bootLockPlace = true;
