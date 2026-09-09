@@ -3101,11 +3101,13 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;line-height:1
 }
 .pvz__pin.on{background:var(--ok)}
-/* Своё положение на карте 2ГИС: у Leaflet для этого есть свой кружок,
-   у 2ГИС метки только из нашей разметки. */
+/* Своё положение на карте. Синее, а не зелёное: зелёным отмечен
+   выбранный пункт, и две одинаковые точки на карте путали — где я,
+   а где то, что я выбрал. Синий за своё положение отвечает во всех
+   картах, объяснять его не нужно. */
 .pvz__me{
   display:block;width:16px;height:16px;border-radius:50%;
-  background:var(--ok);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.18)
+  background:#2f7fff;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.18)
 }
 
 /* Дальние пункты — просто точки: показывают, что сеть плотная,
@@ -5162,8 +5164,11 @@ function pvzPinPlan(list){
 
 /** Разметка метки — одна на оба движка, чтобы карта не менялась в лице. */
 function pvzPinHTML(it){
+  /* У выбранного пункта галочка, а не номер: он может выпасть из первой
+     пятёрки, и тогда без пометки на карте он ничем не отличался бы от
+     дальней точки. */
   return it.big
-    ? `<button type="button" class="pvz__pin${it.on ? ' on' : ''}" aria-label="${esc(it.p.addr)}">${it.n || '•'}</button>`
+    ? `<button type="button" class="pvz__pin${it.on ? ' on' : ''}" aria-label="${esc(it.p.addr)}">${it.on ? '✓' : (it.n || '•')}</button>`
     : `<button type="button" class="pvz__pin pvz__pin--dot" aria-label="${esc(it.p.addr)}"></button>`;
 }
 
@@ -5362,7 +5367,7 @@ function drawOsmMap(box, plan, opts){
     });
     if(pvzView.me){
       L.circleMarker([pvzView.me.lat, pvzView.me.lng], {
-        radius:7, color:'#1f9d55', fillColor:'#1f9d55', fillOpacity:.95, weight:2
+        radius:7, color:'#2f7fff', fillColor:'#2f7fff', fillOpacity:.95, weight:2
       }).addTo(pvzLayer).bindPopup('Вы здесь');
     }
     if(!(opts && opts.keepView)){
