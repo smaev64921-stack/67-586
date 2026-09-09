@@ -5599,14 +5599,21 @@ const GOOGLE_MARK = `<svg viewBox="0 0 48 48" aria-hidden="true">
 </svg>`;
 
 /**
- * Место под кнопку Google. Саму кнопку рисует их скрипт — он открывает
- * окно выбора аккаунта. Своя кнопка остаётся запасной: показываем её,
- * только если скрипт Google не загрузился.
+ * Кнопка Google. Своя показывается СРАЗУ, а настоящая от Google встаёт
+ * на её место, когда их скрипт доедет.
+ *
+ * Раньше было наоборот: пустое место, а запасная кнопка — только после
+ * неудачи. У части провайдеров запрос к accounts.google.com висит по
+ * семь секунд, и всё это время войти через Google было нечем — отсюда
+ * и «кнопка появляется не всегда».
  */
 function googleBtnHTML(){
-  if(!window.__LC_GOOGLE) return '';
+  /* Решает наличие ключа, а не флаг из /api/health: флаг приходит тем же
+     запросом и на медленной сети опаздывает, а ключ мы помним с прошлого
+     захода — блок должен появиться сразу. */
+  if(!window.__LC_GOOGLE && !window.__LC_GOOGLE_ID) return '';
   return `<div class="amod__gwrap" id="gsiBtn"></div>
-  <button type="button" class="amod__google hide" id="gsiFallback" data-a="auth_google">
+  <button type="button" class="amod__google" id="gsiFallback" data-a="auth_google">
     ${GOOGLE_MARK}<span>Войти через Google</span>
   </button>`;
 }
@@ -5626,19 +5633,28 @@ function loadGoogleScript(){
   if(window.google && google.accounts && google.accounts.id) return Promise.resolve(true);
   if(gsiLoading) return gsiLoading;
   gsiLoading = new Promise(resolve => {
+    let done = false;
+    const finish = ok => { if(done) return; done = true; resolve(ok); };
     const sc = document.createElement('script');
     sc.src = 'https://accounts.google.com/gsi/client';
     sc.async = true;
-    sc.onload = () => resolve(true);
-    sc.onerror = () => resolve(false);   // без интернета до Google — не падаем
+    sc.onload = () => finish(!!(window.google && google.accounts && google.accounts.id));
+    sc.onerror = () => finish(false);   // без интернета до Google — не падаем
+    /* Ни onload, ни onerror могут не сработать вовсе: у части провайдеров
+       запрос к accounts.google.com просто висит. Без срока ожидания место
+       под кнопку оставалось пустым навсегда — отсюда и «кнопка Google
+       появляется не всегда». */
+    setTimeout(() => finish(false), 7000);
     document.head.appendChild(sc);
   });
+  gsiLoading.then(ok => { if(!ok) gsiLoading = null; });   // сеть оживёт — попробуем снова
   return gsiLoading;
 }
 
 /** Общий обработчик ответа Google: токен -> сервер -> вход. */
 async function onGoogleCredential(resp){
   if(!resp || !resp.credential){ toast('Google не вернул данные'); return; }
+  stopGoogleOneTap();
   try{
     const d = await LC.api('/api/auth/google/token', {
       method:'POST', body:{ credential: resp.credential }
@@ -5660,26 +5676,110 @@ async function onGoogleCredential(resp){
  * ключом — которого у нас нет. Отсюда и была ошибка про ключи Google
  * при второй попытке входа. Настоящая кнопка таких ограничений не имеет.
  */
+
 async function mountGoogleButton(){
   const box = document.getElementById('gsiBtn');
+  if(!box) return;
+  /* Client ID приезжает вместе с /api/health и может опоздать или не
+     прийти вовсе. Раньше в этом случае молча не появлялось ничего —
+     ни кнопки Google, ни запасной. */
   const cid = window.__LC_GOOGLE_ID;
-  if(!box || !cid) return;
+  if(!cid) return;                      // своя кнопка уже на месте
 
   const ok = await loadGoogleScript();
   const api = window.google && google.accounts && google.accounts.id;
-  if(!ok || !api){
-    /* скрипт Google не доехал — показываем свою кнопку */
-    const fb = document.getElementById('gsiFallback');
-    if(fb) fb.classList.remove('hide');
-    return;
-  }
+  if(!ok || !api) return;               // остаётся своя кнопка
   if(!document.getElementById('gsiBtn')) return;   // окно успели закрыть
-  google.accounts.id.initialize({ client_id: cid, callback: onGoogleCredential });
+  googleInit(cid);
   google.accounts.id.renderButton(box, {
     type: 'standard', theme: 'outline', size: 'large',
     text: 'signin_with', shape: 'rectangular', logo_alignment: 'center',
     locale: 'ru', width: Math.round(Math.min(400, box.clientWidth || 320))
   });
+  /* Свою кнопку убираем ровно тогда, когда появилась настоящая, а не
+     по таймеру: Google рисует её когда угодно — через 200 мс или через
+     пять секунд, и по таймеру на экране оказывались две кнопки сразу.
+     Не нарисует вовсе (домен не прописан в ключе) — своя и останется. */
+  const hideOwn = () => {
+    const fb = document.getElementById('gsiFallback');
+    if(fb) fb.classList.add('hide');
+  };
+  if(box.childElementCount) return hideOwn();
+  const watch = new MutationObserver(() => {
+    if(!box.childElementCount) return;
+    watch.disconnect();
+    hideOwn();
+  });
+  watch.observe(box, {childList:true});
+  /* Панель могли закрыть — наблюдатель не должен жить вечно. */
+  setTimeout(() => watch.disconnect(), 15000);
+}
+
+/* initialize() зовём один раз на ключ: повторные вызовы сбрасывают
+   состояние карточки выбора аккаунта. */
+let gsiReadyFor = '';
+function googleInit(cid){
+  if(gsiReadyFor === cid) return;
+  google.accounts.id.initialize({
+    client_id: cid,
+    callback: onGoogleCredential,
+    auto_select: false,
+    cancel_on_tap_outside: true,
+    /* Chrome с 2024 года показывает карточку только через FedCM;
+       без этого prompt() молча ничего не делает. */
+    use_fedcm_for_prompt: true,
+    itp_support: true
+  });
+  gsiReadyFor = cid;
+}
+
+/* ==========================================================
+   БЫСТРЫЙ ВХОД: КАРТОЧКА АККАУНТА GOOGLE
+
+   Пока человек смотрит каталог, Google показывает снизу карточку
+   с его аккаунтами — вход одним касанием, без формы и пароля.
+
+   Просим один раз за сеанс и только на спокойном экране: всплывающая
+   карточка поверх корзины или оплаты сбивает с шага. Google к тому же
+   сам замолкает, если её закрыли, — второй раз лезть бессмысленно.
+   ========================================================== */
+let oneTapTried = false;
+/* Те же спокойные экраны, что и у предложения уведомлений: каталог,
+   товар, избранное — там человек смотрит, а не заполняет. */
+function offerGoogleOneTap(){
+  if(oneTapTried) return;
+  setTimeout(function tick(){
+    if(oneTapTried || hasLiveSession()) return;
+    const cid = window.__LC_GOOGLE_ID;
+    /* Client ID приходит вместе с /api/health — он мог ещё не доехать. */
+    if(!cid) return setTimeout(tick, 4000);
+    /* Момент неудачный — не бросаем затею, а ждём следующего. */
+    if(document.hidden || !NOTIF_CALM.test(S.screen)
+       || (ov && ov.innerHTML.trim()) || document.querySelector('.pwa')){
+      return setTimeout(tick, 8000);
+    }
+    oneTapTried = true;
+    loadGoogleScript().then(ok => {
+      const api = window.google && google.accounts && google.accounts.id;
+      if(!ok || !api) return;
+      try{
+        googleInit(cid);
+        /* Показывать или молчать — решает Google: он сам помнит, что
+           карточку уже закрывали, и не навязывается. */
+        google.accounts.id.prompt();
+      }catch(e){}
+    });
+  }, 3500);
+}
+
+/* Вошли — карточку больше не предлагаем и гасим, если висит. */
+function stopGoogleOneTap(){
+  oneTapTried = true;
+  try{
+    if(window.google && google.accounts && google.accounts.id){
+      google.accounts.id.cancel();
+    }
+  }catch(e){}
 }
 
 /** Запасной путь: сработает, только если скрипт Google не загрузился. */
@@ -5690,7 +5790,7 @@ async function startGoogleLogin(){
     toast('Google сейчас недоступен — войдите почтой или через Telegram');
     return;
   }
-  google.accounts.id.initialize({ client_id: window.__LC_GOOGLE_ID, callback: onGoogleCredential });
+  googleInit(window.__LC_GOOGLE_ID);
   google.accounts.id.prompt();
 }
 function tgIcon(cls){
@@ -15179,6 +15279,7 @@ async function bootFromServer(){
   persistPlace();
   armBack();          /* с первого экрана «Назад» уже под нашим присмотром */
   offerNotif();       /* через минуту предложим уведомления, если уместно */
+  offerGoogleOneTap(); /* и карточку входа Google — на спокойном экране */
   /* Разрешение уже дали раньше — убеждаемся, что устройство подписано:
      адрес мог смениться, а мог и не доехать до сервера в прошлый раз. */
   pushSubscribe();
