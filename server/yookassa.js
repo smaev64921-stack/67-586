@@ -4,6 +4,22 @@ function configured() {
   return !!(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET);
 }
 
+/* Тестовый магазин ЮKassa работает по тому же адресу, что и боевой, —
+   отдельного тестового хоста у неё нет. Признак нужен только для
+   подсказки: если id боевого магазина, а ключ тестовый (или наоборот),
+   пара не сойдётся. Сам секрет отсюда никуда не уходит. */
+function secretIsTest() {
+  return /^test_/i.test(String(process.env.YOOKASSA_SECRET || '').trim());
+}
+
+/* Пробелы и кавычки вокруг значения — вторая частая причина: при
+   вставке в панель хостинга легко прихватить лишнее. */
+function credsLookDirty() {
+  const id = String(process.env.YOOKASSA_SHOP_ID || '');
+  const sec = String(process.env.YOOKASSA_SECRET || '');
+  return id !== id.trim() || sec !== sec.trim() || /["']/.test(id) || /["']/.test(sec);
+}
+
 function moneyStr(n) {
   const v = Math.round(Number(n) * 100) / 100;
   if (!Number.isFinite(v)) return '0.00';
@@ -207,6 +223,30 @@ async function createPayment({
     /* ЮKassa кладёт имя поля в parameter — без него описание ошибки бесполезно */
     const base = (data && data.description) || (data && data.message) || 'Ошибка ЮKassa';
     const param = data && data.parameter ? ` Поле: ${data.parameter}.` : '';
+
+    /* invalid_credentials означает ровно одно: пара «магазин + ключ» не
+       подошла. Владельцу нужен не английский текст от ЮKassa, а что
+       именно проверить, поэтому называем три причины по порядку
+       вероятности. Оплата в этот момент не работает у всех. */
+    if (data && data.code === 'invalid_credentials') {
+      const why = [
+        'Чаще всего переменные поменяли, а сайт не перезапустили: значения читаются один раз при старте, и в памяти остаются старые.',
+        'Ключ должен быть от того же магазина, что и YOOKASSA_SHOP_ID: тестовый ключ к боевому магазину (и наоборот) не подходит.'
+          + (secretIsTest() ? ' Сейчас ключ тестовый — значит и id магазина должен быть тестовым.' : ''),
+        'Ключ мог быть перевыпущен в личном кабинете ЮKassa: старый после этого перестаёт работать.',
+        credsLookDirty() ? 'В YOOKASSA_SHOP_ID или YOOKASSA_SECRET попали лишние пробелы или кавычки.' : ''
+      ].filter(Boolean).join(' ');
+      const err = new Error(
+        'ЮKassa не приняла пару «магазин + ключ» — оплата сейчас не проходит ни у кого. ' + why +
+        ' Проверьте: ЮKassa → Настройки → Магазин и API-ключ, затем впишите значения в переменные окружения и перезапустите сайт.'
+      );
+      err.status = 502;
+      err.code = 'YOOKASSA_BAD_CREDENTIALS';
+      err.details = data;
+      console.error('ЮKassa: магазин или ключ не подошли.',
+        'тестовый ключ:', secretIsTest(), '· лишние символы:', credsLookDirty());
+      throw err;
+    }
     /* самая частая причина: магазин с 54-ФЗ, а чек собрать не из чего */
     const hint = (data && data.parameter === 'receipt' && !receipt)
       ? ' Магазин требует чек, а у заказа нет email или телефона покупателя — заполните их на шаге «Получение».'

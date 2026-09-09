@@ -3049,6 +3049,11 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 /* Название зоны в строке под картой — подсказка, а не заголовок. */
 .dlv__zone{color:var(--muted2)}
 
+/* Название во внутренних шапках чуть меньше, чем на главной, и уходит
+   на совсем узких экранах: рядом стоят «назад», избранное и корзина. */
+.hd__brand--sub{font-size:13px;letter-spacing:.14em}
+@media (max-width:359px){ .hd__brand--sub{display:none} }
+
 .pvz__manual{margin:0 0 4px}
 .pvz__ta{
   width:100%;min-height:88px;resize:vertical;margin-top:6px;margin-bottom:12px;
@@ -6771,10 +6776,15 @@ const hdMain  = () => `<header class="hd hd--main">
       ${MARK()}<span class="hd__brand">${esc(BRAND)}</span></button>
   </div>
   <div class="hd__sp"></div>${hdActions()}</header>`;
-/* назад + логотип слева — одинаково во всех шапках */
+/* Назад + логотип слева — одинаково во всех шапках.
+
+   Название рядом со знаком, как на главной: без него человек, зашедший
+   в карточку товара, видел одну монограмму и терял, в каком он магазине.
+   На узких экранах надпись прячется — там дороже место под корзину. */
 const hdLeft = () => `<div class="hd__l">
   <button class="hd__b" data-a="back" aria-label="Назад">${svg('back')}</button>
-  <button class="hd__logo" data-a="go:home" aria-label="На главную">${MARK()}</button>
+  <button class="hd__logo hd__logo--name" data-a="go:home" aria-label="На главную">
+    ${MARK()}<span class="hd__brand hd__brand--sub">${esc(BRAND)}</span></button>
 </div>`;
 
 const hdBack = () => `<header class="hd">${hdLeft()}<div class="hd__sp"></div></header>`;
