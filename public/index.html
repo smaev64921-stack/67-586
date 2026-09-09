@@ -3079,12 +3079,15 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 }
 .pvz__lead{font-size:13px;color:var(--muted);line-height:1.45;margin:0 0 12px}
 .pvz__map-s{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;padding:0 20px}
-.pvz__search{display:flex;gap:8px;margin:0 0 10px}
-.pvz__search .f__i{flex:1;margin:0}
-.pvz__search-b{flex:none;padding:0 14px;min-height:44px}
-.pvz__cities{display:flex;gap:8px;overflow-x:auto;margin:0 0 10px;padding-bottom:2px;scrollbar-width:none}
-.pvz__cities::-webkit-scrollbar{display:none}
-.pvz__cities .chip{flex:none}
+/* Поиск города — поле во всю ширину со значком внутри. Кнопка «Найти»
+   рядом отъедала треть строки на телефоне, и название города не влезало;
+   ищем по вводу и по Enter, нажимать нечего. */
+.pvz__search{position:relative;margin:0 0 10px}
+.pvz__search .f__i{margin:0;padding-left:40px}
+.pvz__search-ic{
+  position:absolute;left:13px;top:50%;transform:translateY(-50%);
+  color:var(--muted2);pointer-events:none;display:flex
+}
 .pvz__state{
   padding:14px;border:1.5px solid var(--line2);border-radius:var(--r-md);
   background:var(--card);font-size:13px;color:var(--muted);line-height:1.5;margin:10px 0
@@ -3111,9 +3114,16 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   width:12px;height:12px;min-width:0;padding:0;font-size:0;
   background:var(--ink);opacity:.42;border:2px solid #fff
 }
-.pvz__ctrl{display:flex;gap:8px;overflow-x:auto;padding:14px 0 4px;scrollbar-width:none}
+/* Ряд прокручивается вбок. Справа — растворение в фон: обрезанный чип
+   иначе выглядит сломанной вёрсткой, а не продолжением списка. */
+.pvz__ctrl{
+  display:flex;gap:8px;overflow-x:auto;margin:0 0 10px;padding-bottom:2px;
+  scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+  mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)
+}
 .pvz__ctrl::-webkit-scrollbar{display:none}
-.pvz__ctrl .chip{flex:none;font-size:12.5px;padding:8px 13px}
+.pvz__ctrl .chip{flex:none;font-size:12.5px;padding:9px 13px;min-height:38px}
 .pvz__geo{display:inline-flex;align-items:center;gap:6px}
 .pvz__head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 8px}
 .pvz__i{
@@ -3134,7 +3144,9 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .pvz__b{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .pvz__n{font-size:14px;font-weight:600;line-height:1.35}
 .pvz__m{font-size:12px;color:var(--muted);line-height:1.45}
-.pvz__choose{flex:none;align-self:center;padding:9px 12px;min-height:38px}
+/* Кнопки «Выбрать» на каждой строке больше нет: строка и так вся
+   нажимается, а кружок слева показывает выбранный. Две мишени в одной
+   строке только заставляли целиться. */
 .pvz__more{width:100%;padding:12px;margin-top:2px}
 
 .pvz__pickbtn{
@@ -4630,13 +4642,13 @@ function pickupPaneHTML(){
   const manual = S.checkout.pvz && S.checkout.pvz.manual;
   return `
   <div class="pvz__search">
+    <span class="pvz__search-ic">${svg('search','ic ic--sm')}</span>
     <input class="f__i" id="pvzSearch" value="${esc(pvzView.q || '')}"
-      placeholder="Город — например, Екатеринбург" autocomplete="address-level2">
-    <button type="button" class="ghb pvz__search-b" data-a="pvzsearch">Найти</button>
+      placeholder="Город — например, Екатеринбург" autocomplete="address-level2"
+      enterkeyhint="search">
   </div>
-  <div class="pvz__cities" id="pvzCities"></div>
-  <div class="pvz__map" id="pvzMap"><span class="pvz__map-s">Загружаем карту…</span></div>
   <div class="pvz__ctrl" id="pvzCtrl"></div>
+  <div class="pvz__map" id="pvzMap"><span class="pvz__map-s">Загружаем карту…</span></div>
   <div id="pvzPicked">${pvzPickedHTML()}</div>
   <div id="pvzList"></div>
   <details class="pvz__by-hand"${manual && addr ? ' open' : ''}>
@@ -4721,6 +4733,11 @@ async function refreshQuote(){
 
 /** Сумма на кнопке и строка про срок. Только они, без карты. */
 function paintDeliveryTotals(){
+  /* Вкладки тоже показывают цену, а она меняется от введённого города —
+     без этого на вкладке висел базовый тариф, а в строке под формой
+     стоял зональный, и две цифры спорили друг с другом. */
+  const tabs = document.querySelector('#dlvBox .dlv__tabs');
+  if(tabs) tabs.outerHTML = deliveryTabsHTML();
   const btn = document.getElementById('coGo');
   if(btn) btn.innerHTML = `Продолжить · ${money(orderTotal())}`;
   const note = document.getElementById('dlvNote');
@@ -4754,8 +4771,6 @@ function deliveryRender(){
 
 /** Обновить подписи, не трогая карту. */
 function deliveryPaint(){
-  const tabs = document.querySelector('#dlvBox .dlv__tabs');
-  if(tabs) tabs.outerHTML = deliveryTabsHTML();
   const picked = document.getElementById('pvzPicked');
   if(picked) picked.innerHTML = pvzPickedHTML();
   pvzPaint();
@@ -4939,30 +4954,35 @@ function pvzShown(){
 function pvzPaint(){
   const ctrl = document.getElementById('pvzCtrl');
   const box  = document.getElementById('pvzList');
-  const citiesBox = document.getElementById('pvzCities');
-  if(!ctrl || !box || !citiesBox) return;
+  if(!ctrl || !box) return;
   const filtered = pvzFiltered();
   const total = filtered.length;
 
-  citiesBox.innerHTML = pvzView.cities.length ? pvzView.cities.map(c => `
+  /* Всё управление одной строкой: раньше «рядом со мной» жило под картой,
+     а найденные города — над ней, и выбранный город показывался дважды.
+     Теперь один ряд: сначала кнопка «рядом», следом города. */
+  const cities = pvzView.cities.map(c => `
     <button type="button" class="chip" data-a="pvzcity:${encodeURIComponent(c.code)}"
-      aria-pressed="${pvzView.city && +pvzView.city.code === +c.code}">
-      ${esc(c.city)}${c.region ? ' · ' + esc(c.region) : ''}
-    </button>`).join('') : '';
-
+      aria-pressed="${!pvzView.byGeo && pvzView.city && +pvzView.city.code === +c.code}">
+      ${esc(c.city)}
+    </button>`).join('');
+  const geoText = pvzView.geo === 'wait' ? 'Ищем вас…' : (pvzView.me ? 'Вы здесь' : 'Рядом со мной');
   ctrl.innerHTML = `
     <button class="chip pvz__geo" data-a="pvzgeo" aria-pressed="${!!pvzView.me}">
-      ${svg('pin','ic ic--xs')} ${pvzView.geo === 'wait' ? 'Ищем вас…' : 'Рядом со мной'}</button>
-    ${pvzView.city ? `<span class="chip" aria-pressed="true">${esc(pvzView.city.city || 'Город выбран')}</span>` : ''}`;
+      ${svg('pin','ic ic--xs')} ${geoText}</button>
+    ${cities}
+    ${!cities && pvzView.city && !pvzView.me ? `<span class="chip" aria-pressed="true">${esc(pvzView.city.city)}</span>` : ''}`;
 
   if(pvzView.loading){
     box.innerHTML = `<div class="pvz__state"><b>Загружаем ПВЗ СДЭК</b>Получаем реальные пункты выдачи и строим карту.</div>`;
     return;
   }
   if(pvzView.error){
-    box.innerHTML = `<div class="pvz__state pvz__state--err"><b>Не удалось загрузить ПВЗ</b>${esc(pvzView.error)}</div>`;
+    box.innerHTML = `<div class="pvz__state pvz__state--err"><b>Не удалось загрузить пункты</b>${esc(pvzView.error)}</div>`;
     const mapBox = document.getElementById('pvzMap');
-    if(mapBox) mapBox.innerHTML = '<span class="pvz__map-s">ПВЗ не загружены</span>';
+    if(mapBox && !mapBox.querySelector('canvas, .leaflet-pane')){
+      mapBox.innerHTML = '<span class="pvz__map-s">Пункты не загрузились</span>';
+    }
     return;
   }
   if(!pvzView.city && !pvzView.me && !filtered.length){
@@ -4984,7 +5004,6 @@ function pvzPaint(){
           <span class="pvz__m">${esc(p.city)}${p.km != null ? ' · ' + pvzKm(p.km) + ' от вас' : ''}</span>
           ${p.hours ? `<span class="pvz__m">${esc(p.hours)}</span>` : ''}
         </span>
-        <span class="btn pvz__choose">Выбрать</span>
       </button>`;
     }).join('') : `<p class="none" style="padding:22px 12px">В этом городе пунктов пока нет</p>`}
     ${total > list.length ? `<button type="button" class="ghb pvz__more" data-a="pvzmore">Показать все · ${total}</button>` : ''}`;
@@ -5177,14 +5196,24 @@ function gisKeyReady(key){
     if(gisKeySeen.wait) return gisKeySeen.wait;
   }
   gisKeySeen = {key, ok:null, wait:null};
-  gisKeySeen.wait = fetch(GIS_KEY_CHECK + encodeURIComponent(key) + '/services/mapgl-js-api')
-    .then(r => r.ok)
-    .catch(() => false)
+  /* Ответа может не быть вовсе — медленная сеть, блокировка, отвал.
+     Без срока ожидания карта не появилась бы НИКАКАЯ: мы бы вечно
+     ждали вердикта и не рисовали даже запасную. Две с половиной
+     секунды — и уходим на OpenStreetMap. */
+  const withTimeout = new Promise(res => setTimeout(() => res(false), 2500));
+  gisKeySeen.wait = Promise.race([
+    fetch(GIS_KEY_CHECK + encodeURIComponent(key) + '/services/mapgl-js-api')
+      .then(r => r.ok)
+      .catch(() => false),
+    withTimeout
+  ])
     .then(ok => {
       if(gisKeySeen.key !== key) return ok;
-      gisKeySeen.ok = ok;
+      /* Отрицательный ответ не запоминаем навсегда: он мог быть просто
+         не дождавшимся таймаутом, а сеть через минуту оживёт. */
+      gisKeySeen.ok = ok ? true : null;
       gisKeySeen.wait = null;
-      if(!ok) console.warn('Ключ 2ГИС не принят — карта рисуется на OpenStreetMap');
+      if(!ok) console.warn('2ГИС не ответил вовремя — карта рисуется на OpenStreetMap');
       return ok;
     });
   return gisKeySeen.wait;
@@ -6118,12 +6147,10 @@ function deliveryPlace(mode){
   const p = S.checkout.pvz;
   const c = S.checkout.courier || {};
   if(m === 'courier'){
-    /* Город курьера ещё не введён — берём город выбранного пункта:
-       цена на второй вкладке должна быть про тот же город, а не
-       базовая по стране. */
-    const city = String(c.city || '').trim() || (p ? String(p.city || '') : '');
-    const region = String(c.city || '').trim() ? '' : (p ? String(p.region || '') : '');
-    return {city, region, addr:String(c.street||'')};
+    /* Город курьера подставлять из выбранного пункта нельзя: сервер
+       считает по тому адресу, который человек вписал, и цифры на
+       вкладке разошлись бы с итогом. Не вписан — базовый тариф. */
+    return {city:String(c.city || '').trim(), region:'', addr:String(c.street || '')};
   }
   return p ? {city:String(p.city||''), region:String(p.region||''), addr:String(p.addr||'')}
            : {city:String(c.city||''), region:'', addr:''};
@@ -11515,9 +11542,6 @@ document.addEventListener('click', e => {
       deliveryRender();
       break;
     }
-    case 'pvzsearch':
-      pvzSearchCity(true);
-      break;
     case 'pvzcity':
       pvzView.me = null;
       pvzView.geo = 'idle';
