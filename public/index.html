@@ -6915,9 +6915,15 @@ function cardBuyLabel(on, out){
 function cardHTML(p, i){
   const on = cardInCart(p);
   const out = soldOut(p);
-  /* В карточке каталога хватает первых кадров: за остальными покупатель
-     идёт внутрь товара. Иначе сотня товаров по 8 фото — это 800 запросов. */
-  const gal = (p.gal && p.gal.length ? p.gal : [p.img]).filter(Boolean).slice(0, 3);
+  /* Кадры в карточке каталога. Раньше их обрезало до трёх ради скорости,
+     но точки под фото рисуются по этому же списку — и карточка врала:
+     показывала три точки там, где внутри товара пять фотографий.
+
+     Обрезаем теперь на восьми — это про запас от кривого товара с сотней
+     кадров, а не про обычный. Скорость держится не обрезкой, а тем, что
+     всё кроме обложки грузится лениво и низким приоритетом: пока кадр не
+     подвинули в видимую часть, браузер его не запрашивает. */
+  const gal = (p.gal && p.gal.length ? p.gal : [p.img]).filter(Boolean).slice(0, 8);
   const badge = out
     ? `<span class="card__badge card__badge--out">Нет в наличии</span>`
     : (p.badge && BADGE_LAB[p.badge]
@@ -6932,11 +6938,18 @@ function cardHTML(p, i){
       ${badge || off ? `<span class="card__tags">${badge}${
         off ? `<span class="card__off">−${off}%</span>` : ''}</span>` : ''}
       <div class="card__track">${gal.map((src, gi) => {
-        /* сразу грузим только обложки первых карточек; остальные кадры —
-           lazy и низким приоритетом, иначе каталог из сотни товаров
-           тянет тысячу файлов разом */
+        /* Обложки первых карточек грузим сразу — иначе на Safari верх
+           экрана какое-то время пустой.
+
+           Дальше третьего кадра адрес кладём в data-src и подставляем
+           только когда карточку впервые листнули. Проверил вживую:
+           loading="lazy" внутри горизонтальной ленты НЕ откладывает —
+           браузер считает такие кадры видимыми и тянет все разом. На
+           каталоге из сотни товаров это сотни лишних запросов. */
         const above = !gi && (+i || 0) < 4;
-        return `<div class="card__slide"><img class="card__img" src="${src}" alt="" decoding="async"
+        const later = gi > 2;
+        return `<div class="card__slide"><img class="card__img"
+          ${later ? `data-src="${src}"` : `src="${src}"`} alt="" decoding="async"
           loading="${above ? 'eager' : 'lazy'}" fetchpriority="${above ? 'high' : (gi ? 'low' : 'auto')}"
           draggable="false"></div>`;
       }).join('')}</div>
@@ -8278,11 +8291,27 @@ function bindGalleryTrack(track, { dotsSel, onIndex } = {}){
     dots.forEach((d, k) => d.classList.toggle('on', k === i));
     if(onIndex) onIndex(i);
   };
+
+  /* Кадры, отложенные до первого листания. Пока ленту не тронули, их
+     адресов в разметке нет и браузер за ними не ходит. */
+  const hydrate = () => {
+    const later = track.querySelectorAll('img[data-src]');
+    if(!later.length) return;
+    later.forEach(im => {
+      im.src = im.dataset.src;
+      im.removeAttribute('data-src');
+    });
+  };
+
   let raf = 0;
   track.addEventListener('scroll', () => {
+    hydrate();
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(paint);
   }, {passive:true});
+  /* Палец лёг на ленту — почти наверняка сейчас листнут: успеваем
+     загрузить до того, как кадр окажется на экране. */
+  track.addEventListener('pointerdown', hydrate, {passive:true, once:true});
   const down = e => {
     const p = e.touches ? e.touches[0] : e;
     x0 = p.clientX; y0 = p.clientY; moved = false; holding = true;

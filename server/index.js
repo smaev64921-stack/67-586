@@ -135,6 +135,51 @@ app.use(express.json({ limit: '15mb' }));
 app.use(jsonCompression());
 app.use(authOptional);
 
+/* ==========================================================
+   ТЕХНИЧЕСКИЕ ОШИБКИ — ТОЛЬКО ВЛАДЕЛЬЦУ
+
+   В сообщениях об ошибках 5xx лежат ответы платёжного шлюза, адреса
+   и внутренние подробности. Покупателю это не нужно и вредно: он
+   видит английский JSON от ЮKassa вместо понятного «что делать».
+
+   Проверки формы (4xx) — наоборот, написаны ДЛЯ него: «укажите город»,
+   «товара не осталось». Их не трогаем, иначе магазином нельзя будет
+   пользоваться.
+
+   Подменяем в одном месте, а не в тридцати шести обработчиках: так
+   новый маршрут не сможет однажды проговориться.
+   ========================================================== */
+const CALM_ERROR = 'Не получилось — это сбой на нашей стороне. '
+  + 'Отчёт уже ушёл в поддержку, мы разбираемся. '
+  + 'Попробуйте, пожалуйста, через несколько часов.';
+
+/* Кому показывать подробности. Роль admin — это ADMIN_EMAIL, служебный
+   аккаунт магазина. Владелец заходит и под своей обычной почтой,
+   поэтому есть ERROR_ADMINS: список адресов через запятую. Пусто —
+   значит подробности видит только admin. */
+function seesErrorDetails(user) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  const list = String(process.env.ERROR_ADMINS || '')
+    .split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!list.length) return false;
+  return list.includes(String(user.email || '').trim().toLowerCase());
+}
+
+app.use((req, res, next) => {
+  const json = res.json.bind(res);
+  res.json = (body) => {
+    const techFail = res.statusCode >= 500
+      && body && typeof body === 'object' && body.error;
+    if (!techFail) return json(body);
+    if (seesErrorDetails(req.user)) return json(body);
+    /* Владельцу подробности приходят в Телеграм и в data/errors.log —
+       здесь они просто не доезжают до чужого экрана. */
+    return json({ error: CALM_ERROR });
+  };
+  next();
+});
+
 async function telegramWebhookHandler(req, res) {
   try {
     if (!telegramBot.configured()) return res.sendStatus(404);
@@ -1133,7 +1178,11 @@ app.use((err, req, res, _next) => {
     ip: clientIp(req),
     user: req.user ? `${req.user.id} · ${req.user.email || ''}` : ''
   });
-  res.status(500).json({ error: 'Серверная ошибка' });
+  res.status(500).json({
+    error: seesErrorDetails(req.user)
+      ? ('Серверная ошибка: ' + ((err && err.message) || 'без описания'))
+      : CALM_ERROR
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
