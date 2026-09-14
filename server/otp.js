@@ -451,6 +451,14 @@ async function sendCodeToChat(chatId, code) {
   }
 }
 
+/**
+ * В какой Telegram можно слать код для этого номера.
+ *
+ * Только в ДОКАЗАННЫЙ чат: привязанный к аккаунту или подтверждённый
+ * контактом. Раньше годился любой чат из хранилища кодов — а туда его
+ * мог записать кто угодно, открыв ссылку входа в своём Telegram. Так
+ * код входа в чужой аккаунт уходил атакующему.
+ */
 function findChatByPhone(phone) {
   const p = normalizePhone(phone);
   if (!p) return '';
@@ -465,7 +473,8 @@ function findChatByPhone(phone) {
   } catch (_) {}
   const data = load();
   const row = data.byPhone && data.byPhone[p];
-  if (row && row.chatId) return String(row.chatId);
+  /* Из хранилища кодов — только если чат был подтверждён контактом. */
+  if (row && row.chatId && row.verified) return String(row.chatId);
   return '';
 }
 
@@ -492,7 +501,9 @@ async function startPhoneAuth(rawPhone) {
 
   const code = genCode();
   const session = genSession();
-  const knownChat = findChatByPhone(phone) || (prev && prev.chatId) || null;
+  /* Чат прошлой попытки берём, только если его подтвердили: иначе один
+     перехваченный вход навсегда закрепил бы чужой чат за номером. */
+  const knownChat = findChatByPhone(phone) || (prev && prev.verified && prev.chatId) || null;
 
   data.byPhone[phone] = {
     code,
@@ -502,6 +513,7 @@ async function startPhoneAuth(rawPhone) {
     createdAt: Date.now(),
     expiresAt: Date.now() + TTL_MS,
     chatId: knownChat,
+    verified: !!knownChat,
     linked: !!knownChat,
     delivered: false,
     via: null
@@ -539,10 +551,47 @@ async function linkOtpSession(session, chatId) {
     return { ok: false, error: 'Сессия истекла — начните вход на сайте заново' };
   }
 
+  /* Открыть ссылку входа может кто угодно: она возвращается тому, кто
+     начал вход на сайте, а не владельцу номера. Раньше этого хватало,
+     чтобы привязать свой чат к ЧУЖОМУ номеру и получить код входа в
+     чужой аккаунт — без всякого участия жертвы.
+
+     Теперь ссылка привязывает только чат, который уже доказан для этого
+     номера. Иначе бот просит поделиться контактом и сверяет номер. */
+  const owner = findChatByPhone(phone);
+  if (owner && owner !== String(chatId)) {
+    return {
+      ok: false,
+      error: 'Этот номер привязан к другому Telegram. Откройте бота в том аккаунте, где этот номер.'
+    };
+  }
+  if (!owner) return { ok: false, needContact: true, phone };
+
   row.chatId = String(chatId);
+  row.verified = true;
   row.linked = true;
   saveData(data);
   return { ok: true, phone, linked: true };
+}
+
+/**
+ * Привязать чат к номеру после того, как человек поделился СВОИМ
+ * контактом и номер совпал с введённым на сайте. Только отсюда чат
+ * становится доказанным. Проверку «контакт свой» делает бот.
+ */
+function linkOtpVerified(rawPhone, chatId) {
+  const phone = normalizePhone(rawPhone);
+  if (!phone) return { ok: false, error: 'Номер не распознан' };
+  const data = load();
+  const row = data.byPhone && data.byPhone[phone];
+  if (!row || Date.now() > row.expiresAt) {
+    return { ok: false, error: 'Вход на сайте устарел — начните заново' };
+  }
+  row.chatId = String(chatId);
+  row.verified = true;
+  row.linked = true;
+  saveData(data);
+  return { ok: true, phone };
 }
 
 async function deliverOtpBySession(session, chatId) {
@@ -566,7 +615,9 @@ async function sendPhoneCode(rawPhone) {
     throw Object.assign(new Error(`Подождите ${wait} с`), { status: 429 });
   }
 
-  let chatId = row.chatId || findChatByPhone(phone);
+  /* Код — только в подтверждённый чат. Неподтверждённый chatId в записи
+     мог оставить кто угодно, открыв ссылку входа. */
+  let chatId = (row.verified && row.chatId) || findChatByPhone(phone);
   if (!chatId) {
     throw Object.assign(
       new Error('Сначала откройте бота по кнопке и нажмите Start'),
@@ -666,6 +717,7 @@ module.exports = {
   sendPhoneCode,
   phoneAuthStatus,
   linkOtpSession,
+  linkOtpVerified,
   deliverOtpBySession,
   verifyOtp,
   requestOtp,

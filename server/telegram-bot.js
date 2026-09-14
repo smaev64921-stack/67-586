@@ -1931,10 +1931,43 @@ async function handleContactReg(msg) {
   const c = msg.contact;
   if (!c || !c.phone_number) return false;
 
-  /* только свой контакт */
-  if (c.user_id && from.id && +c.user_id !== +from.id) {
+  /* Только СВОЙ контакт — и проверка обязана закрываться, а не открываться.
+
+     Раньше чужой номер отсекался, только если в карточке был user_id и он
+     не совпадал с отправителем. Но у карточки с номером, которого нет в
+     Telegram, user_id нет вовсе — и проверка молча пропускала её. Любой
+     мог прислать боту контакт с номером жертвы и получить ссылку входа в
+     её аккаунт на сайте, а с номером владельца — в админку.
+
+     Кнопка «Поделиться контактом» (request_contact) всегда ставит user_id
+     отправителя, поэтому честный вход этой проверкой не задевается. */
+  if (!c.user_id || !from.id || +c.user_id !== +from.id) {
     await sendWithMarkupFallback(chatId, {
       text: 'Нужен ваш собственный номер — нажмите «Поделиться контактом» ещё раз.'
+    });
+    return true;
+  }
+
+  /* Ждали подтверждения номера для входа на сайте. Контакт уже проверен
+     выше как собственный — остаётся сверить номер с введённым. */
+  const otpWait = getAwait(chatId);
+  if (otpWait && otpWait.type === 'otp_phone') {
+    const { normalizePhone } = require('./sms');
+    const { linkOtpVerified } = require('./otp');
+    setAwait(chatId, null);
+    if (normalizePhone(c.phone_number) !== normalizePhone(otpWait.phone)) {
+      await sendWithMarkupFallback(chatId, {
+        text: 'Номер не совпадает с тем, что вы ввели на сайте. Проверьте номер и начните вход заново.',
+        reply_markup: { remove_keyboard: true }
+      });
+      return true;
+    }
+    const r = linkOtpVerified(c.phone_number, chatId);
+    await sendWithMarkupFallback(chatId, {
+      text: r.ok
+        ? '✅ Номер подтверждён. Вернитесь на сайт Canvas и нажмите «Отправить код» — он придёт сюда.'
+        : (r.error || 'Не получилось — начните вход на сайте заново.'),
+      reply_markup: { remove_keyboard: true }
     });
     return true;
   }
@@ -2563,7 +2596,15 @@ async function handleMessage(msg) {
       try {
         const { linkOtpSession } = require('./otp');
         const r = await linkOtpSession(start.session, chatId);
-        if (!r.ok) {
+        if (!r.ok && r.needContact) {
+          /* Номер ещё ни разу не подтверждали — просим контакт и сверяем.
+             Код входа уйдёт сюда, только если номер совпадёт с введённым. */
+          setAwait(chatId, { type: 'otp_phone', phone: r.phone, at: Date.now() });
+          await askShareContact(chatId, {
+            title: '<b>Подтвердите номер</b>',
+            hint: 'Нажмите кнопку ниже. Код для входа придёт сюда, только если номер совпадёт с тем, что вы ввели на сайте.'
+          });
+        } else if (!r.ok) {
           await upsertMain(chatId, {
             text: `<b>${escHtml(r.error || 'Сессия не найдена')}</b>\n\nВернитесь на сайт, укажите номер и откройте бота снова.`,
             reply_markup: welcomeMarkup(chatId)
