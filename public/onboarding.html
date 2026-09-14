@@ -613,6 +613,185 @@ img{display:block;max-width:100%}
 .exit.is-on{clip-path:circle(var(--r) at var(--x) var(--y))}
 .exit.is-on img{opacity:1;transform:none}
 
+/* ================= ЦВЕТ ВЖИВУЮ =================
+   Нажали на цвет в палитре — снизу выезжает шторка: этот цвет на людях, на
+   ней и на нём, если такая съёмка есть. Внутри цвета листаются кружками,
+   стрелками и свайпом вбок; закрывается шторка крестиком, тапом мимо,
+   свайпом вниз, Esc и системной «Назад».
+   Блок самостоятельный. Убрать его — значит удалить этот CSS, разметку
+   #sheet и скрипт «Цвет вживую» — палитра станет прежней: строку-подсказку
+   под кнопками ставит сам скрипт, а кнопки-цвета без него выглядят так же,
+   как прежние <span>. */
+/* Оттенок фона шторки плавно перетекает из цвета в цвет. Без @property
+   браузер его просто переключит — тоже не страшно. */
+@property --tint{syntax:'<color>';inherits:true;initial-value:rgba(244,244,244,0)}
+
+.tone{cursor:pointer}
+.tone i{transition:transform .25s var(--out)}
+.tone:hover i{transform:scale(1.08)}
+/* Нажатие видно по кружку, а не по всей кнопке: у кнопки transform занят
+   появлением, и отклик на касание ждал бы её задержки. */
+.tone:active i{transform:scale(.88)}
+
+.pal__hint{
+  position:relative;display:flex;align-items:center;gap:10px;margin-top:18px;
+  font-size:12.5px;line-height:1.4;color:var(--muted);
+  opacity:0;transition:opacity .8s var(--ease) .9s
+}
+.pal.is-in .pal__hint{opacity:1}
+.pal__hint::before{
+  content:'';width:7px;height:7px;border-radius:50%;flex:none;background:var(--ink)
+}
+/* Круги от точки — через transform и opacity: они крутятся без остановки, а
+   анимированная тень заставляла бы браузер перерисовывать страницу каждый
+   кадр на любом экране. */
+.pal__hint::after{
+  content:'';position:absolute;left:0;top:50%;width:7px;height:7px;margin-top:-3.5px;
+  border-radius:50%;background:rgba(11,11,11,.3);
+  animation:ping 2.2s var(--ease) infinite
+}
+@keyframes ping{0%{transform:scale(1);opacity:1}70%,100%{transform:scale(3.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){ .pal__hint{opacity:1} .pal__hint::after{display:none} }
+/* Подсказка добавила развороту строку, и на 360x640 палитра вылезала за
+   экран на 32 px. Отбираем воздух, как уже сделано для низких экранов выше. */
+@media (max-height:700px){
+  .pal{gap:18px;padding:40px 0}
+  .pal__row{margin-top:22px}
+  .pal__hint{margin-top:12px}
+}
+
+/* На компьютере с обычной полосой прокрутки она пропадала вместе с
+   прокруткой, и всё под затемнением прыгало вбок на её ширину. Скрипт
+   кладёт ширину полосы в --sb, здесь её место держим полем. */
+html.is-locked{overflow:hidden;overscroll-behavior:none;padding-right:var(--sb,0px)}
+html.is-locked .skip{right:calc(14px + var(--sb,0px))}
+
+.sheet{position:fixed;inset:0;z-index:90;display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+/* Пока шторка уезжает, касания уже принадлежат странице: иначе тап по
+   другому цвету в эти треть секунды проваливался в затемнение. */
+.sheet.is-closing{pointer-events:none}
+.sheet__veil{
+  position:absolute;inset:0;background:rgba(12,12,12,.46);
+  opacity:0;transition:opacity .4s var(--ease);touch-action:none
+}
+.sheet.is-open .sheet__veil{opacity:1}
+
+.sheet__card{
+  position:relative;width:100%;max-height:calc(100svh - 16px);
+  overflow:auto;overscroll-behavior:contain;
+  padding:10px 20px calc(22px + env(safe-area-inset-bottom));
+  border-radius:22px 22px 0 0;
+  background:var(--bg) radial-gradient(130% 60% at 50% 0%, var(--tint, rgba(244,244,244,0)) 0%, rgba(244,244,244,0) 100%);
+  box-shadow:0 -18px 50px rgba(0,0,0,.14);
+  transform:translateY(100%);
+  transition:transform .6s var(--out), --tint .7s var(--ease)
+}
+.sheet.is-open .sheet__card{transform:none}
+/* Уезжает с разгоном, а не с торможением: закрытие должно быть быстрее
+   открытия, иначе кажется, что шторка упирается. */
+.sheet.is-closing .sheet__card{transition:transform .34s cubic-bezier(.4,0,1,1), opacity .3s var(--ease)}
+.sheet__card:focus{outline:none}
+
+/* touch-action:pan-y, а не none: вбок и вниз шторку ведёт скрипт, но на
+   телефоне лёжа карточка выше экрана, и прокрутить её к кружкам должно быть
+   можно с любого места, а не только с узких полей. */
+.sheet__grip{width:40px;height:4px;border-radius:2px;background:#d2d2d2;margin:0 auto 12px;touch-action:pan-y}
+.sheet__head{display:flex;align-items:center;gap:14px;margin-bottom:16px;touch-action:pan-y}
+.sheet__dot{
+  width:38px;height:38px;border-radius:50%;flex:none;
+  background:linear-gradient(90deg,var(--a) 0%,var(--b) 100%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)
+}
+.sheet__name{flex:1;min-width:0}
+.sheet__k{font-size:11px;font-weight:600;letter-spacing:.2em;color:var(--muted);margin-bottom:3px}
+.sheet__k b{color:var(--ink);font-weight:600}
+.sheet__t{
+  font-family:var(--f-display);font-weight:400;
+  font-size:clamp(26px,7vw,34px);line-height:1.1;letter-spacing:-.008em;margin:0
+}
+.sheet__x{
+  width:44px;height:44px;border-radius:50%;flex:none;
+  display:grid;place-items:center;
+  border:1px solid var(--line);background:rgba(255,255,255,.85);color:var(--soft);
+  transition:color .2s var(--ease), transform .2s var(--out)
+}
+.sheet__x:hover{color:var(--ink)}
+.sheet__x:active{transform:scale(.92)}
+.sheet__x svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round}
+
+/* Два кадра 2:3 рядом. Потолок по ширине — от высоты экрана: всё, что вокруг
+   снимков (ручка, шапка, подписи, кружки, поля), занимает около 250 px, а
+   пара кадров в высоту — 0,75 своей общей ширины. */
+.sheet__pics{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 auto;
+  max-width:max(240px, calc((100svh - 250px) * 1.333 + 10px));
+  touch-action:pan-y;transition:transform .35s var(--out)
+}
+.sheet__ph{margin:0;min-width:0}
+.sheet__frame{
+  position:relative;overflow:hidden;background:#eaeaea;aspect-ratio:2/3;
+  clip-path:inset(0 0 100% 0);transition:clip-path 1s var(--out)
+}
+.sheet__frame.is-ready{clip-path:inset(0 0 0 0)}
+.sheet__ph + .sheet__ph .sheet__frame{transition-delay:.1s}
+/* Новый снимок наезжает поверх прежнего шторкой: вперёд по палитре — справа,
+   назад — слева. Прежний лежит под ним, пока шторка не закроет его целиком. */
+.sheet__img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center 12%;
+  transition:clip-path .9s var(--out), transform 1.3s var(--out)
+}
+.sheet__cap{
+  margin-top:9px;font-size:10.5px;font-weight:600;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+
+.sheet__tones{display:flex;justify-content:center;gap:12px;margin-top:20px}
+.sheet__tone{
+  width:44px;height:44px;border-radius:50%;
+  background:linear-gradient(90deg,var(--a) 0%,var(--b) 100%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);
+  transition:box-shadow .3s var(--out), transform .2s var(--out)
+}
+.sheet__tone[aria-current="true"]{box-shadow:inset 0 0 0 1px rgba(0,0,0,.16), 0 0 0 3px var(--bg), 0 0 0 4.5px var(--ink)}
+.sheet__tone:active{transform:scale(.9)}
+/* Фокус с клавиатуры — пунктиром: сплошное кольцо не отличить от кольца
+   выбранного цвета. Отступ 5 px, а не больше: кружки стоят через 12 px, и
+   дальнее кольцо легло бы на соседнее. */
+.sheet__tone:focus-visible{outline:2px dashed var(--ink);outline-offset:5px}
+
+/* На широком экране — окно посередине вместо шторки снизу. */
+@media (min-width:820px){
+  .sheet{align-items:center;padding:24px}
+  .sheet__card{
+    width:min(720px,100%);max-height:calc(100svh - 48px);
+    padding:24px 30px 28px;border-radius:22px;
+    box-shadow:0 30px 80px rgba(0,0,0,.2);
+    opacity:0;transform:translateY(26px) scale(.97);
+    transition:transform .55s var(--out), opacity .4s var(--ease), --tint .7s var(--ease)
+  }
+  .sheet.is-open .sheet__card{opacity:1;transform:none}
+  .sheet.is-closing .sheet__card{opacity:0;transform:translateY(16px) scale(.98)}
+  .sheet__grip{display:none}
+  .sheet__head{margin-bottom:20px}
+  .sheet__pics{gap:14px;max-width:max(300px, calc((100svh - 300px) * 1.333 + 14px))}
+}
+
+/* Телефон лёжа: высоты 340–430 px. Снимки мельче, поля тоньше — иначе ряд
+   кружков уезжал за нижний край карточки. */
+@media (max-height:500px){
+  .sheet__grip{display:none}
+  .sheet__card{padding-top:12px}
+  .sheet__head{margin-bottom:8px}
+  .sheet__tones{margin-top:10px}
+  .sheet__pics{max-width:calc((100svh - 200px) * 1.333 + 14px)}
+}
+@media (min-width:820px) and (max-height:500px){
+  .sheet{padding:8px}
+  .sheet__card{max-height:calc(100svh - 16px);padding-bottom:12px}
+}
+
 /* ---------- если анимации мешают ---------- */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
@@ -707,11 +886,11 @@ img{display:block;max-width:100%}
     <h2 class="pal__t">Пять цветов<em>и один крой</em></h2>
     <p class="pal__d">От чёрного до белого. Посадка во всех одинаковая: взяли чёрную — красная сядет так же.</p>
     <div class="pal__row">
-      <span class="tone"><i style="--a:#000000;--b:#e2e2e2"></i>Чёрный</span>
-      <span class="tone"><i style="--a:#33201a;--b:#d9c6ba"></i>Шоколад</span>
-      <span class="tone"><i style="--a:#b00d16;--b:#ff9ea2"></i>Красный</span>
-      <span class="tone"><i style="--a:#5ea2dd;--b:#eaf4fd"></i>Голубой</span>
-      <span class="tone"><i style="--a:#cfcfcf;--b:#ffffff"></i>Белый</span>
+      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#000000;--b:#e2e2e2"></i>Чёрный</button>
+      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#33201a;--b:#d9c6ba"></i>Шоколад</button>
+      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#b00d16;--b:#ff9ea2"></i>Красный</button>
+      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#5ea2dd;--b:#eaf4fd"></i>Голубой</button>
+      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#cfcfcf;--b:#ffffff"></i>Белый</button>
     </div>
   </div>
 
@@ -783,6 +962,31 @@ img{display:block;max-width:100%}
     <p class="fin__note">Листайте наверх, чтобы посмотреть ещё раз</p>
   </div>
 </section>
+
+<!-- ====== цвет вживую: шторка палитры ======
+     Снимки и подписи ставит скрипт «Цвет вживую» ниже — по цвету, на который
+     нажали. -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet__veil" data-close></div>
+  <div class="sheet__card" role="dialog" aria-modal="true" aria-labelledby="sheetT" tabindex="-1">
+    <div class="sheet__grip" aria-hidden="true"></div>
+    <div class="sheet__head">
+      <span class="sheet__dot" id="sheetDot" aria-hidden="true"></span>
+      <div class="sheet__name" aria-live="polite">
+        <p class="sheet__k" aria-hidden="true"><b id="sheetN">01</b> / <span id="sheetOf">05</span></p>
+        <h2 class="sheet__t" id="sheetT">Чёрный</h2>
+      </div>
+      <button class="sheet__x" type="button" data-close aria-label="Закрыть">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="sheet__pics" id="sheetPics">
+      <figure class="sheet__ph"><div class="sheet__frame"></div><figcaption class="sheet__cap" aria-hidden="true"></figcaption></figure>
+      <figure class="sheet__ph"><div class="sheet__frame"></div><figcaption class="sheet__cap" aria-hidden="true"></figcaption></figure>
+    </div>
+    <div class="sheet__tones" id="sheetTones" role="group" aria-label="Другие цвета"></div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -960,6 +1164,381 @@ img{display:block;max-width:100%}
 
     setTimeout(leave, 880);
   });
+})();
+</script>
+
+<script>
+/* ===== ЦВЕТ ВЖИВУЮ =====
+   Шторка палитры: нажали на цвет — показываем его на людях. Стили и разметка
+   помечены тем же названием; вместе с ними этот скрипт убирается целиком. */
+(function(){
+  'use strict';
+  var sheet = document.getElementById('sheet');
+  var chips = document.querySelectorAll('.pal .tone');
+  if(!sheet || !chips.length) return;
+
+  /* Снимки по цветам — в том же порядке, что кнопки в палитре: файл, кто,
+     ракурс. Мужской съёмки в красном и голубом нет, женской в белом тоже —
+     там два ракурса одного человека. Появятся снимки — допишите их сюда.
+     Оттенок — лёгкая подсветка шторки сверху, под цвет. */
+  var TONES = [
+    { tint:'rgba(0,0,0,.10)',        shots:[['look-16','Она','спереди'], ['look-23','Он','спереди']] },
+    { tint:'rgba(74,49,40,.20)',     shots:[['look-22','Она','спереди'], ['look-18','Он','спереди']] },
+    { tint:'rgba(216,30,40,.15)',    shots:[['look-20','Она','спереди'], ['look-11','Она','сзади']] },
+    { tint:'rgba(94,162,221,.24)',   shots:[['look-19','Она','спереди'], ['look-10','Она','сзади']] },
+    { tint:'rgba(255,255,255,.95)',  shots:[['look-02','Он','спереди'],  ['look-12','Он','сбоку']] }
+  ];
+
+  var card = sheet.querySelector('.sheet__card');
+  var pics = document.getElementById('sheetPics');
+  var figs = [].slice.call(pics.querySelectorAll('.sheet__ph'));
+  var dot = document.getElementById('sheetDot');
+  var num = document.getElementById('sheetN');
+  var title = document.getElementById('sheetT');
+  var box = document.getElementById('sheetTones');
+  var closeBtn = sheet.querySelector('.sheet__x');
+
+  var reduce = false;
+  try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}
+
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function src(name){ return '/onboarding/' + name + '.jpg'; }
+
+  /* Имя и растяжку цвета берём с самих кнопок палитры: поправили там —
+     шторка подхватила сама. */
+  var list = [];
+  [].forEach.call(chips, function(chip, i){
+    if(!TONES[i]) return;
+    var sw = chip.querySelector('i');
+    list.push({
+      chip: chip,
+      name: chip.textContent.trim(),
+      a: sw ? sw.style.getPropertyValue('--a') : '#000',
+      b: sw ? sw.style.getPropertyValue('--b') : '#fff',
+      tint: TONES[i].tint,
+      shots: TONES[i].shots
+    });
+  });
+  var total = list.length;
+  document.getElementById('sheetOf').textContent = pad(total);
+
+  /* Строку-подсказку под палитрой ставим отсюда, а не в разметке: уберут
+     шторку — уйдёт и обещание, которое больше нечему выполнять. Палитра
+     проявляется позже загрузки, так что появление подсказки не теряется. */
+  var row = document.querySelector('.pal__row');
+  if(row){
+    var hint = document.createElement('p');
+    hint.className = 'pal__hint';
+    hint.textContent = 'Нажмите на цвет — покажем его вживую';
+    row.parentNode.insertBefore(hint, row.nextSibling);
+  }
+
+  var swatches = list.map(function(t, i){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sheet__tone';
+    b.style.setProperty('--a', t.a);
+    b.style.setProperty('--b', t.b);
+    b.setAttribute('aria-label', t.name);
+    b.addEventListener('click', function(){ go(i); });
+    box.appendChild(b);
+    return b;
+  });
+
+  /* --- снимки ---
+     Новый кадр проявляем только когда он уже раскодирован: иначе шторка
+     наезжала бы пустым серым прямоугольником, а картинка вспыхивала бы
+     следом. Больше двух с половиной секунд не ждём — на плохой сети лучше
+     показать, что есть. */
+  function ready(img){
+    var p = img.decode ? img.decode() : new Promise(function(res, rej){ img.onload = res; img.onerror = rej; });
+    return Promise.race([
+      p.catch(function(){}),
+      new Promise(function(res){ setTimeout(res, 2500); })
+    ]);
+  }
+
+  var warmed = {};
+  function warm(i){
+    list[(i + total) % total].shots.forEach(function(s){
+      if(warmed[s[0]]) return;
+      warmed[s[0]] = true;
+      new Image().src = src(s[0]);
+    });
+  }
+
+  function bump(el, dir){
+    if(reduce || !el.animate) return;
+    el.animate(
+      [{ opacity: 0, transform: 'translateX(' + (dir * 14) + 'px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 460, easing: 'cubic-bezier(.16,1,.3,1)' }
+    );
+  }
+
+  var cur = -1;
+  function show(i, dir){
+    var t = list[i];
+    cur = i;
+    num.textContent = pad(i + 1);
+    title.textContent = t.name;
+    dot.style.setProperty('--a', t.a);
+    dot.style.setProperty('--b', t.b);
+    card.style.setProperty('--tint', t.tint);
+    swatches.forEach(function(s, k){ s.setAttribute('aria-current', k === i ? 'true' : 'false'); });
+    if(dir){ bump(title.parentNode, dir); bump(dot, dir); }
+
+    figs.forEach(function(fig, k){
+      var shot = t.shots[k];
+      var frame = fig.querySelector('.sheet__frame');
+      var cap = fig.querySelector('.sheet__cap');
+      /* Метка против гонки: пока грузился этот снимок, могли нажать следующий
+         цвет — тогда этот уже не нужен. */
+      var token = frame._t = (frame._t || 0) + 1;
+      /* Первый показ раскрывается рамкой целиком, дальше — снимок поверх снимка. */
+      var fresh = !frame.classList.contains('is-ready');
+
+      var img = new Image();
+      img.className = 'sheet__img';
+      img.alt = t.name + ': ' + (shot[1] === 'Он' ? 'на нём' : 'на ней') + ', ' + shot[2];
+      img.decoding = 'async';
+      if(!fresh && !reduce){
+        img.style.clipPath = dir < 0 ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)';
+        img.style.transform = 'scale(1.06)';
+      }
+      img.src = src(shot[0]);
+      /* Прежние снимки ещё лежат под новым до конца шторки, но читалке уже
+         не нужны: иначе она объявляла бы и старый цвет, и новый. */
+      [].forEach.call(frame.querySelectorAll('img'), function(old){
+        old.alt = '';
+        old.setAttribute('aria-hidden', 'true');
+      });
+      frame.appendChild(img);
+
+      cap.textContent = shot[1] + ' · ' + shot[2];
+      if(dir) bump(cap, dir);
+
+      ready(img).then(function(){
+        if(frame._t !== token){ img.remove(); return; }
+        if(fresh){
+          frame.classList.add('is-ready');
+        } else {
+          void img.offsetWidth;                 /* зафиксировать начальную шторку */
+          img.style.transitionDelay = (k * 90) + 'ms';
+          img.style.clipPath = 'inset(0 0 0 0)';
+          img.style.transform = 'none';
+        }
+        /* Прежние снимки под новым больше не видны — убираем, чтобы при
+           быстром листании в рамке не копились слои. */
+        setTimeout(function(){
+          if(frame._t !== token) return;
+          [].slice.call(frame.children).forEach(function(el){ if(el !== img) el.remove(); });
+        }, 1100 + k * 90);
+      });
+    });
+  }
+
+  function go(i, dir){
+    i = (i + total) % total;
+    if(i === cur) return;
+    show(i, dir || (i > cur ? 1 : -1));
+    warm(i + 1); warm(i - 1);
+  }
+
+  /* --- открыть и закрыть --- */
+  var others = [].filter.call(document.body.children, function(el){
+    return el !== sheet && el.tagName !== 'SCRIPT';
+  });
+  /* Страница под шторкой недоступна ни с клавиатуры, ни для чтения с экрана. */
+  function setInert(on){
+    others.forEach(function(el){
+      if(on) el.setAttribute('inert', ''); else el.removeAttribute('inert');
+    });
+  }
+
+  var isOpen = false, opener = null, pushed = false, hideTimer = 0, backTimer = 0;
+  var root = document.documentElement;
+
+  function open(i, from, byKeyboard){
+    if(isOpen){ go(i); return; }
+    isOpen = true;
+    opener = from || null;
+    clearTimeout(hideTimer);
+    clearTimeout(backTimer);
+    sheet.hidden = false;
+    sheet.classList.remove('is-closing');
+    setInert(true);
+    /* Ширина полосы прокрутки — до того как она пропадёт: её место держит поле. */
+    root.style.setProperty('--sb', Math.max(0, innerWidth - root.clientWidth) + 'px');
+    root.classList.add('is-locked');
+    show(i, 0);
+    void sheet.offsetWidth;                    /* иначе выезд не анимируется */
+    sheet.classList.add('is-open');
+    /* Своя запись в истории: системная «Назад» на телефоне закрывает шторку,
+       а не уводит со страницы. Адрес не меняем. */
+    try{ history.pushState({ lcSheet: 1 }, ''); pushed = true; }catch(_){ pushed = false; }
+    /* С клавиатуры фокус встаёт на крестик — сразу видно, как выйти. После
+       касания или мыши — на саму шторку: кольцо фокуса вокруг крестика там
+       выглядело бы как чужая обводка, а читалка всё равно объявит окно. */
+    if(byKeyboard && closeBtn) closeBtn.focus({ preventScroll: true });
+    else card.focus({ preventScroll: true });
+    warm(i + 1); warm(i - 1);
+  }
+
+  function finish(){
+    /* Страховочный таймер из close() своё отработал или больше не нужен.
+       Не снять его — и шторку, открытую заново в эти 350 мс, он захлопнул бы
+       сам, оставив в истории мёртвую запись. */
+    clearTimeout(backTimer);
+    if(!isOpen) return;
+    isOpen = false;
+    sheet.classList.remove('is-open');
+    sheet.classList.add('is-closing');
+    card.style.transform = '';
+    card.style.transition = '';
+    root.classList.remove('is-locked');
+    setInert(false);
+    if(opener && opener.focus) opener.focus({ preventScroll: true });
+    hideTimer = setTimeout(function(){
+      sheet.hidden = true;
+      sheet.classList.remove('is-closing');
+      /* Следующее открытие снова раскроет рамки с нуля. */
+      figs.forEach(function(fig){
+        var frame = fig.querySelector('.sheet__frame');
+        frame._t = (frame._t || 0) + 1;
+        frame.classList.remove('is-ready');
+        frame.textContent = '';
+      });
+      cur = -1;
+    }, reduce ? 0 : 380);
+  }
+
+  /* Закрываем через историю, если сами туда писали: иначе в ней осталась бы
+     лишняя запись, и «Назад» потом срабатывала бы вхолостую. Страховочный
+     таймер — на случай, если браузер так и не пришлёт popstate. */
+  function close(){
+    if(!isOpen) return;
+    if(pushed){
+      pushed = false;
+      history.back();
+      backTimer = setTimeout(finish, 350);
+    } else {
+      finish();
+    }
+  }
+
+  window.addEventListener('popstate', function(){
+    if(!isOpen) return;
+    pushed = false;
+    finish();
+  });
+  /* Страница открылась на записи, которую оставила шторка. Так бывает в двух
+     случаях. Перезагрузили с открытой шторкой — шагаем на запись раньше: это
+     переход внутри страницы, без загрузки, зато первая же «Назад» потом
+     уводит со страницы, а не срабатывает вхолостую. Вернулись «Вперёд» из
+     магазина — эта запись осталась у браузера после ухода через
+     location.replace; знакомство второй раз не показываем, уходим обратно. */
+  try{
+    if(history.state && history.state.lcSheet){
+      var nav = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+      if(nav && nav.type === 'back_forward'){ location.replace('/#home'); return; }
+      history.back();
+    }
+  }catch(_){}
+
+  list.forEach(function(t, i){
+    /* detail = 0 — «клик» пришёл с Enter или пробела, а не от пальца. */
+    t.chip.addEventListener('click', function(e){ open(i, t.chip, e.detail === 0); });
+    /* Палец коснулся — тянем снимки заранее, пока он ещё не отпущен. */
+    t.chip.addEventListener('pointerdown', function(){ warm(i); }, { passive: true });
+  });
+
+  [].forEach.call(sheet.querySelectorAll('[data-close]'), function(el){
+    el.addEventListener('click', close);
+  });
+
+  sheet.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){ e.preventDefault(); close(); return; }
+    if(e.key === 'ArrowRight'){ e.preventDefault(); go(cur + 1, 1); return; }
+    if(e.key === 'ArrowLeft'){ e.preventDefault(); go(cur - 1, -1); return; }
+    if(e.key !== 'Tab') return;
+    /* Tab ходит по кругу внутри шторки — к странице под ней не выпадает. */
+    var f = [].slice.call(card.querySelectorAll('button'));
+    var first = f[0], last = f[f.length - 1];
+    if(e.shiftKey && (document.activeElement === first || document.activeElement === card)){
+      e.preventDefault(); last.focus();
+    } else if(!e.shiftKey && document.activeElement === last){
+      e.preventDefault(); first.focus();
+    }
+  });
+
+  /* --- жесты ---
+     Вбок по снимкам — соседний цвет, вниз — закрыть. Направление решаем по
+     первым восьми пикселям движения и дальше его не меняем, иначе косой свайп
+     дёргал бы шторку то вниз, то вбок. */
+  var g = null;
+  function x0(e){ return e.touches[0].clientX; }
+  function y0(e){ return e.touches[0].clientY; }
+
+  card.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1){
+      /* Второй палец посреди жеста — жест отменяем и возвращаем всё на
+         место, иначе шторка так и осталась бы сдвинутой. */
+      if(g && g.mode){
+        card.style.transition = ''; card.style.transform = '';
+        pics.style.transition = ''; pics.style.transform = '';
+      }
+      g = null;
+      return;
+    }
+    g = { x: x0(e), y: y0(e), t: e.timeStamp, dx: 0, dy: 0, mode: '', pics: pics.contains(e.target) };
+  }, { passive: true });
+
+  card.addEventListener('touchmove', function(e){
+    if(!g) return;
+    g.dx = x0(e) - g.x;
+    g.dy = y0(e) - g.y;
+    if(!g.mode){
+      if(Math.abs(g.dx) < 8 && Math.abs(g.dy) < 8) return;
+      if(Math.abs(g.dy) > Math.abs(g.dx)){
+        /* Вверх или внутри прокрутки на низком экране — это не закрытие. */
+        g.mode = (g.dy > 0 && card.scrollTop <= 0) ? 'v' : 'x';
+      } else {
+        g.mode = g.pics ? 'h' : 'x';
+      }
+      if(g.mode === 'v') card.style.transition = 'none';
+      if(g.mode === 'h') pics.style.transition = 'none';
+    }
+    if(g.mode === 'v'){
+      if(e.cancelable) e.preventDefault();
+      card.style.transform = 'translateY(' + Math.max(0, g.dy) + 'px)';
+    } else if(g.mode === 'h'){
+      if(e.cancelable) e.preventDefault();
+      pics.style.transform = 'translateX(' + (g.dx * 0.18).toFixed(1) + 'px)';
+    }
+  }, { passive: false });
+
+  function end(e){
+    if(!g) return;
+    var s = g; g = null;
+    if(s.mode === 'v'){
+      var speed = s.dy / Math.max(1, e.timeStamp - s.t);
+      card.style.transition = '';
+      if(s.dy > 110 || (s.dy > 30 && speed > 0.6)) close();
+      else card.style.transform = '';
+    } else if(s.mode === 'h'){
+      pics.style.transition = '';
+      pics.style.transform = '';
+      if(Math.abs(s.dx) > 48) go(cur + (s.dx < 0 ? 1 : -1), s.dx < 0 ? 1 : -1);
+    }
+  }
+  card.addEventListener('touchend', end);
+  card.addEventListener('touchcancel', end);
+
+  /* Старый iOS прокручивает страницу под затемнением, даже когда прокрутка
+     у неё выключена. Касание по затемнению гасим руками. */
+  sheet.querySelector('.sheet__veil').addEventListener('touchmove', function(e){
+    if(e.cancelable) e.preventDefault();
+  }, { passive: false });
 })();
 </script>
 </body>
