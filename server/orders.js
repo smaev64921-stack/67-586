@@ -436,7 +436,9 @@ function claimOrdersForUser(user) {
    с той, что уйдёт в оплату. Товары пересчитываем по своей базе —
    присланной сумме верить нельзя. */
 function quoteForCart({ items, promoCode, delivery, pvz } = {}) {
-  const list = Array.isArray(items) ? items : [];
+  /* Больше 50 разных позиций в одной корзине не бывает — а без предела
+     открытый маршрут перебирал бы присланный массив любой длины. */
+  const list = Array.isArray(items) ? items.slice(0, 50) : [];
   let goods = 0;
   for (const i of list) {
     const p = getProduct(i && i.id);
@@ -480,6 +482,24 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
   }
   if (!items || !items.length) {
     throw Object.assign(new Error('Корзина пуста'), { status: 400 });
+  }
+  if (items.length > 50) {
+    throw Object.assign(new Error('Слишком много позиций в одном заказе'), { status: 400 });
+  }
+
+  /* Товар списывается со склада в момент оформления и возвращается, только
+     если за 10 минут не оплатили. Без предела один бесплатный аккаунт
+     оформлял бы заказ за заказом и держал весь склад «проданным» — живые
+     покупатели видели бы «нет в наличии». Три неоплаченных за раз хватает
+     любому честному покупателю. Админ тестирует без ограничений. */
+  if (!(user && user.role === 'admin')) {
+    const pending = db.prepare(`
+      SELECT COUNT(*) AS n FROM orders
+      WHERE user_id = ? AND status = 'Ожидает оплаты' AND pay_status != 'paid' AND pay_status != 'manual'
+    `).get(user.id);
+    if (pending && pending.n >= 3) {
+      throw Object.assign(new Error('У вас уже есть неоплаченные заказы — оплатите их или подождите 10 минут, пока они отменятся'), { status: 429 });
+    }
   }
 
   const normalized = items.map((i) => {

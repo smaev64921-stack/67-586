@@ -135,6 +135,31 @@ app.use(express.json({ limit: '15mb' }));
 app.use(jsonCompression());
 app.use(authOptional);
 
+/* Заголовки безопасности на всех ответах.
+
+   frame-ancestors / X-Frame-Options: сайт нельзя встроить в чужую
+   страницу. Иначе админку показывали бы владельцу в невидимом фрейме
+   и заставляли нажимать кнопки не глядя. Мини-приложением Telegram
+   магазин не открывается — фрейм ему не нужен.
+
+   Referrer-Policy: одноразовые коды входа приходят в адресе страницы
+   (?tg_phone=…). Без этой строки адрес целиком уходил бы на любой
+   внешний сайт, на который человек перешёл, — вместе с кодом.
+
+   base-uri / object-src / form-action закрывают подмену базового
+   адреса страницы, вставку плагинов и угон отправки форм. Скриптов
+   эта политика не ограничивает: витрина собрана на встроенном коде,
+   и строгая политика скриптов её сломала бы. */
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'");
+  res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(self), microphone=()');
+  next();
+});
+
 /* ==========================================================
    ТЕХНИЧЕСКИЕ ОШИБКИ — ТОЛЬКО ВЛАДЕЛЬЦУ
 
@@ -423,6 +448,11 @@ app.delete('/api/admin/reviews/:id', adminRequired, (req, res) => {
    Витрина показывает эту цифру ещё до оплаты, и она обязана совпасть
    с той, что уйдёт в ЮKassa, — поэтому считает сервер, а не браузер. */
 app.post('/api/delivery/quote', (req, res) => {
+  /* Маршрут открыт без входа и перебирает присланный список товаров —
+     без лимита им можно было загрузить сервер одним скриптом. Живой
+     человек на шаге доставки делает десятки запросов, не сотни. */
+  const rl = hit('delivery-quote', clientIp(req), { limit: 240, windowMs: 10 * 60 * 1000, label: 'Слишком часто' });
+  if (!rl.ok) return res.status(429).json({ error: rl.error });
   try {
     res.json(quoteForCart({
       items: req.body.items,

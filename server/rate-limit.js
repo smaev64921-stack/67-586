@@ -38,9 +38,23 @@ function hit(scope, id, { limit = 10, windowMs = 15 * 60 * 1000, label = 'Сли
   return { ok: true, left: Math.max(0, limit - row.count) };
 }
 
+/**
+ * Адрес клиента для лимитов.
+ *
+ * Раньше брали ПЕРВЫЙ адрес из X-Forwarded-For — а его пишет сам клиент.
+ * Подставил новый адрес в каждый запрос — и каждый запрос шёл с чистым
+ * счётчиком: перебор кодов входа, рассылка SMS за счёт магазина, подбор
+ * паролей шли без ограничений.
+ *
+ * Прокси хостинга ДОПИСЫВАЕТ настоящий адрес в конец цепочки, и подделать
+ * этот последний адрес клиент не может — всё, что он прислал, остаётся
+ * левее. Поэтому берём последний.
+ */
 function clientIp(req) {
-  const xf = String((req && req.headers && req.headers['x-forwarded-for']) || '').split(',')[0].trim();
-  return xf || (req && req.ip) || (req && req.socket && req.socket.remoteAddress) || 'unknown';
+  const chain = String((req && req.headers && req.headers['x-forwarded-for']) || '')
+    .split(',').map((x) => x.trim()).filter(Boolean);
+  const last = chain.length ? chain[chain.length - 1] : '';
+  return last || (req && req.socket && req.socket.remoteAddress) || (req && req.ip) || 'unknown';
 }
 
 module.exports = { hit, clientIp };
