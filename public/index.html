@@ -3893,7 +3893,7 @@ function rvItemHTML(r, opts = {}){
     </div>
     <p class="rvi__t">${esc(r.text)}</p>
     ${(r.photos || []).length ? `<div class="rvi__ph">${r.photos.map((ph,i) =>
-      `<button data-a="rvpic:${r.id}:${i}" aria-label="Фото ${i+1} из отзыва"><img src="${ph}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+      `<button data-a="rvpic:${r.id}:${i}" aria-label="Фото ${i+1} из отзыва"><img src="${esc(ph)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
     ${r.reply && r.reply.text ? `<div class="rvi__rep">
       <p class="rvi__rep-n">${svg('chat','ic ic--xs')} Ответ магазина${r.reply.date ? ` · ${esc(r.reply.date)}` : ''}</p>
       <p class="rvi__rep-t">${esc(r.reply.text)}</p></div>` : ''}
@@ -3936,7 +3936,7 @@ function rvSummaryHTML(p, st){
   ${st.photos.length ? `<div class="rv__phw">
     <p class="rv__fit-t" style="margin-bottom:8px">Фото покупателей · ${st.photos.length}</p>
     <div class="rv__ph">${st.photos.slice(0,10).map((ph,i) =>
-      `<button data-a="rvzoom:${i}" aria-label="Фото покупателя ${i+1}"><img src="${ph.src}" alt="" loading="lazy"></button>`).join('')}</div>
+      `<button data-a="rvzoom:${i}" aria-label="Фото покупателя ${i+1}"><img src="${esc(ph.src)}" alt="" loading="lazy"></button>`).join('')}</div>
   </div>` : ''}`;
 }
 
@@ -4344,7 +4344,7 @@ function rvPaintForm(){
   const pics = document.getElementById('rvPics');
   if(pics){
     pics.innerHTML = rvDraft.photos.map((ph,i) => `<span class="rvf__pic">
-      <img src="${ph}" alt=""><button data-rvrm="${i}" aria-label="Убрать фото">${svg('x','ic ic--xs')}</button></span>`).join('') +
+      <img src="${esc(ph)}" alt=""><button data-rvrm="${i}" aria-label="Убрать фото">${svg('x','ic ic--xs')}</button></span>`).join('') +
       (rvDraft.photos.length < RV_MAX_PHOTOS
         ? `<button class="rvf__add" id="rvAdd">${svg('camera','ic ic--sm')} Добавить</button>` : '');
   }
@@ -12965,8 +12965,8 @@ function viewDash(){
   const top = a.top.length ? a.top.map((t,i) => `
     <div class="ad__toprow">
       <span class="ad__rank">${i+1}</span>
-      <img class="ad__th" style="width:36px;height:46px" src="${t.img||''}" alt="">
-      <span class="ad__topn">${t.name}</span>
+      <img class="ad__th" style="width:36px;height:46px" src="${esc(t.img||'')}" alt="">
+      <span class="ad__topn">${esc(t.name)}</span>
       <span class="ad__topm">${t.qty} шт · ${money(t.sum)}</span>
     </div>`).join('') : `<p class="ad__m" style="padding:8px 0">Пока нет продаж — оформите тестовый заказ.</p>`;
 
@@ -13030,9 +13030,9 @@ function adRows(){
     return `<div class="ad__row ${p.on ? '' : 'ad__row--off'}">
       <img class="ad__th" src="${p.img}" alt="">
       <div class="ad__i">
-        <span class="ad__n">${p.name} ${badge}</span>
-        <span class="ad__m">${GENDER_LAB[p.gender] || 'Мужское'} · ${p.cat} · арт. ${p.sku||'—'}</span>
-        <span class="ad__m">Остаток: ${stockN} · ${(p.sizes||[]).join(', ')||'—'}</span>
+        <span class="ad__n">${esc(p.name)} ${badge}</span>
+        <span class="ad__m">${GENDER_LAB[p.gender] || 'Мужское'} · ${esc(p.cat)} · арт. ${esc(p.sku||'—')}</span>
+        <span class="ad__m">Остаток: ${stockN} · ${esc((p.sizes||[]).join(', ')||'—')}</span>
         ${(() => {
           /* Рейтинг рядом с остатком: сразу видно, на какой товар
              жалуются, не заходя в раздел отзывов. */
@@ -13063,7 +13063,7 @@ function viewCatalog(){
       <button class="ad__b ad__b--pri" id="aNew">+ Товар</button>
     </div>
     <div class="ad__bar">
-      <input class="ad__in" id="aQ" placeholder="Поиск: название или артикул" value="${adQ}">
+      <input class="ad__in" id="aQ" placeholder="Поиск: название или артикул" value="${esc(adQ)}">
     </div>
     <div class="ad__filters" id="aFilters">
       <button class="ad__pick-b" data-ag="all" aria-pressed="${adG==='all'}">Все</button>
@@ -13096,10 +13096,10 @@ function viewOrders(){
   const list = ADMIN_ORDERS.filter(o => adOrdFilter==='all' || o.status===adOrdFilter);
   const rows = list.length ? list.map(o => `
     <button class="ad__row ad__row--click" data-ordview="${o.num}">
-      <img class="ad__th" src="${(o.items&&o.items[0]&&o.items[0].img)||''}" alt="">
+      <img class="ad__th" src="${esc((o.items&&o.items[0]&&o.items[0].img)||'')}" alt="">
       <div class="ad__i">
-        <span class="ad__n">№${o.num} · ${o.customerName||'Гость'}</span>
-        <span class="ad__m">${o.date} · ${(o.items||[]).length} поз. · ${o.email||'без email'}</span>
+        <span class="ad__n">№${esc(o.num)} · ${esc(o.customerName||'Гость')}</span>
+        <span class="ad__m">${esc(o.date)} · ${(o.items||[]).length} поз. · ${esc(o.email||'без email')}</span>
         <span class="ad__p">${money(o.price)} ${statusBadge(o.status)}</span>
       </div>
       ${svg('chev','ic ic--sm')}
@@ -13126,7 +13126,7 @@ function orderDrawer(num){
   w.className = 'ad__form';
   w.innerHTML = `<div class="ad__card">
     <h2 class="ad__ct">Заказ №${o.num}</h2>
-    <p class="ad__m" style="margin:-8px 0 14px">${o.date} · ${o.customerName||'Гость'} · ${o.email||'—'}${o.guest ? ' · без аккаунта' : ''}</p>
+    <p class="ad__m" style="margin:-8px 0 14px">${esc(o.date)} · ${esc(o.customerName||'Гость')} · ${esc(o.email||'—')}${o.guest ? ' · без аккаунта' : ''}</p>
     <label class="ad__l">Статус</label>
     <div class="ad__pick" id="oSt">
       ${ORDER_STATUSES.map(s => `<button type="button" class="ad__pick-b" data-v="${s}" aria-pressed="${o.status===s}">${s}</button>`).join('')}
@@ -13134,9 +13134,9 @@ function orderDrawer(num){
     <label class="ad__l">Трек-номер</label>
     <input class="ad__f" id="oTrack" value="${esc(o.track||'')}" placeholder="Например, 1234 5678 9012">
     <div class="ad__sec">Состав</div>
-    ${(o.items||[]).map(i => `<div class="dl"><span class="dl__k">${i.name}, ${i.size} × ${i.qty}</span>
+    ${(o.items||[]).map(i => `<div class="dl"><span class="dl__k">${esc(i.name)}, ${esc(i.size)} × ${+i.qty || 0}</span>
       <span class="dl__v">${money(i.price*i.qty)}</span></div>`).join('')}
-    <div class="dl"><span class="dl__k">Адрес</span><span class="dl__v">${o.addr||'—'}</span></div>
+    <div class="dl"><span class="dl__k">Адрес</span><span class="dl__v">${esc(o.addr||'—')}</span></div>
     <div class="dl"><span class="dl__k">Телефон</span><span class="dl__v">${esc(o.phone||'—')}</span></div>
     <div class="dl"><span class="dl__k">Доставка</span>
       <span class="dl__v">${o.shipMode ? shipModeName(o.shipMode) : '—'} · ${(+o.ship || 0) ? money(o.ship) : 'бесплатно'}</span></div>
@@ -13196,8 +13196,8 @@ function viewClients(){
     return `<button class="ad__row ad__row--click" data-cliview="${encodeURIComponent(c.email)}">
       <span class="ad__av">${ini}</span>
       <div class="ad__i">
-        <span class="ad__n">${c.name||'Гость'} ${(accountByEmail(c.email)||{}).admin?statusBadge('админ'):''}${blocked?statusBadge('блок'):''}</span>
-        <span class="ad__m">${c.email} · ${c.phone||'нет телефона'}</span>
+        <span class="ad__n">${esc(c.name||'Гость')} ${(accountByEmail(c.email)||{}).admin?statusBadge('админ'):''}${blocked?statusBadge('блок'):''}</span>
+        <span class="ad__m">${esc(c.email)} · ${esc(c.phone||'нет телефона')}</span>
         <span class="ad__m">${c.orders} зак. · ${money(c.sum)}${note?' · '+note:''}</span>
       </div>
       ${svg('chev','ic ic--sm')}
@@ -13225,14 +13225,14 @@ function clientDrawer(email){
   const w = document.createElement('div');
   w.className = 'ad__form';
   w.innerHTML = `<div class="ad__card">
-    <h2 class="ad__ct">${c.name||'Клиент'}</h2>
-    <p class="ad__m" style="margin:-8px 0 14px">${c.email}<br>${c.phone||'Телефон не указан'}</p>
+    <h2 class="ad__ct">${esc(c.name||'Клиент')}</h2>
+    <p class="ad__m" style="margin:-8px 0 14px">${esc(c.email)}<br>${esc(c.phone||'Телефон не указан')}</p>
     <div class="ad__kpi" style="grid-template-columns:1fr 1fr">
       <div class="ad__stat"><div class="ad__stat-l">Заказов</div><div class="ad__stat-v">${c.orders}</div></div>
       <div class="ad__stat"><div class="ad__stat-l">Сумма</div><div class="ad__stat-v" style="font-size:18px">${money(c.sum)}</div></div>
     </div>
     <label class="ad__l">Заметка</label>
-    <textarea class="ad__f" id="cNote" rows="3" placeholder="Предпочитает M, писать в Telegram…">${meta.note||''}</textarea>
+    <textarea class="ad__f" id="cNote" rows="3" placeholder="Предпочитает M, писать в Telegram…">${esc(meta.note||'')}</textarea>
     <label class="ad__sw"><input type="checkbox" id="cBlock" ${meta.blocked?'checked':''}> Осторожный клиент / пометка</label>
     ${acc ? `<label class="ad__sw"><input type="checkbox" id="cAdmin" ${acc.admin?'checked':''}
       ${self?'disabled':''}> Администратор — полный доступ к админке</label>

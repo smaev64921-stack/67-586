@@ -1096,6 +1096,13 @@ const IMMUTABLE = 'public, max-age=31536000, immutable';
 function sendImage(res, found) {
   if (!found) return res.status(404).end();
   res.setHeader('Content-Type', found.mime);
+  /* Картинка отдаётся с домена магазина. SVG, открытый по прямой ссылке,
+     исполнил бы свой скрипт в нашем окне и прочёл токен входа из
+     localStorage — достаточно прислать владельцу ссылку. Песочница
+     запрещает картинке любой скрипт и выдаёт ей чужое происхождение;
+     в <img> на витрине картинки от этого показываются как прежде. */
+  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', IMMUTABLE);
   res.setHeader('Content-Length', found.buf.length);
   res.end(found.buf);

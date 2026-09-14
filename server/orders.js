@@ -487,12 +487,25 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
     if (!p || (!p.on && !(user && user.role === 'admin'))) {
       throw Object.assign(new Error('Товар не найден'), { status: 400 });
     }
+    /* Размер — только из тех, что есть у товара. Раньше в заказ писалась
+       любая присланная строка: и мусорный размер, которого не сошьют, и
+       разметка со скриптом, которая потом показывалась владельцу в
+       админке. Без размеров (аксессуары) — ONESIZE. */
+    const sizes = Array.isArray(p.sizes) ? p.sizes.map(String) : [];
+    const want = String(i.size || '').trim();
+    const size = sizes.length ? want : 'ONESIZE';
+    if (sizes.length && !sizes.includes(size)) {
+      throw Object.assign(new Error('Такого размера у товара нет: ' + (p.name || '')), { status: 400 });
+    }
+    /* Количество — разумное: сотня тысяч штук в одной строке заказа
+       бронировала бы весь склад одним запросом. */
+    const qty = Math.max(1, Math.min(99, Math.round(+i.qty || 1)));
     return {
       id: p.id,
       name: p.name,
       img: p.img,
-      size: String(i.size || ''),
-      qty: Math.max(1, Math.round(+i.qty || 1)),
+      size,
+      qty,
       price: p.price
     };
   });

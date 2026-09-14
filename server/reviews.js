@@ -43,7 +43,12 @@ function parsePhotos(raw) {
   if (!Array.isArray(arr)) return [];
   return arr
     .map((x) => String(x || '').trim())
-    .filter((x) => /^data:image\//i.test(x) || /^https?:\/\//i.test(x))
+    /* Только растровая картинка, закодированная прямо в отзыве. Раньше
+       пропускалась любая строка, начинающаяся с http, — и адрес вида
+       https://x" onerror="… рвал атрибут src и запускал скрипт у каждого,
+       кто открыл товар. Внешние адреса отзыву не нужны: фото покупатель
+       загружает сам. SVG тоже нельзя — внутри него бывает скрипт. */
+    .filter((x) => /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/]+=*$/i.test(x))
     .slice(0, 3);
 }
 
