@@ -157,19 +157,27 @@ img{display:block;max-width:100%}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 
-.intro__go{
-  position:absolute;left:0;right:0;bottom:calc(30px + env(safe-area-inset-bottom));
+/* «Листайте» — на заставке и на двух первых разворотах. Трёх раз подряд
+   хватает, чтобы привыкнуть листать, дальше подсказка только мешала бы. */
+.hint{
   display:flex;flex-direction:column;align-items:center;gap:11px;
-  font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
-  opacity:0;animation:fadeUp .8s var(--out) 1.9s forwards
+  font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)
 }
-.intro__line{width:1px;height:46px;background:var(--ghost);position:relative;overflow:hidden}
-.intro__line::after{
-  content:'';position:absolute;left:0;top:-46px;width:1px;height:46px;
+.hint__line{width:1px;height:46px;background:var(--ghost);position:relative;overflow:hidden}
+/* Бегунок едет через transform, а не через top: top сдвигал бы раскладку на
+   каждом кадре, а крутятся подсказки без остановки. */
+.hint__line::after{
+  content:'';position:absolute;left:0;top:0;width:1px;height:100%;
   background:linear-gradient(transparent,var(--ink));
+  transform:translateY(-100%);
   animation:runDown 1.9s var(--ease) infinite
 }
-@keyframes runDown{to{top:46px}}
+@keyframes runDown{to{transform:translateY(100%)}}
+
+.intro__go{
+  position:absolute;left:0;right:0;bottom:calc(30px + env(safe-area-inset-bottom));
+  opacity:0;animation:fadeUp .8s var(--out) 1.9s forwards
+}
 
 /* ================= РАЗВОРОТЫ ================= */
 .look{min-height:100svh;display:flex;align-items:center;padding:64px 20px}
@@ -225,9 +233,71 @@ img{display:block;max-width:100%}
 .look__t em{font-style:normal;display:block;color:var(--ink-2)}
 .look__d{font-size:clamp(14.5px,3.9vw,15.5px);line-height:1.6;color:var(--soft);max-width:36ch}
 
+/* Второй разворот сделан по эскизу владельца: номер стоит прямо в заголовке,
+   заголовок в одну строку, отдельной строки-рубрики нет. Текст там вдвое
+   длиннее прочих — рубрика, вторая строка заголовка и узкий абзац вместе
+   съели бы у снимков сотню пикселей высоты.
+   Номер набран как цифра в рубрике у соседей — мелко и жирно, — чтобы
+   нумерация по-прежнему читалась одной системой. */
+/* nowrap: на экранах уже 353 px «и» оставалось висеть в конце первой строки,
+   а «ощущения» уезжало под номер. Так перенос идёт целиком перед «и ощущения». */
+.look__t--row em{display:inline;white-space:nowrap}
+.look__n{
+  font-family:var(--f-text);font-size:11px;font-weight:600;letter-spacing:.2em;
+  vertical-align:top;position:relative;top:.9em;margin-right:14px;color:var(--ink)
+}
+.look__d--wide{max-width:42ch}
+/* Рядом с кадром колонка узкая, и заголовок в строку всё равно переломится —
+   пусть ломается как у соседей: вторая часть серым с новой строки. */
+@media(min-width:820px){ .look__t--row em{display:block} }
+
 /* Первый разворот — двое спина к спине, снимок квадратный. В общей рамке 4/5
    у правого парня срезало бы рукав: пара занимает почти всю ширину кадра. */
 .look--sq .look__ph{aspect-ratio:1/1}
+
+/* ================= ПЕРВЫЕ ДВА РАЗВОРОТА: ЗНАК И «ЛИСТАЙТЕ» =================
+   Сверху знак, снизу подсказка — как на заставке, чтобы первые экраны
+   читались одной серией. Оба стоят в потоке, а не поверх: на низком экране
+   абсолютные наползли бы на снимок. Свободная высота делится поровну между
+   зазорами (space-between), и разворот держит середину.
+
+   Высоту под снимки считаем от экрана. Знак — 7,5% высоты, поля, зазоры,
+   подсказка и абзац — почти постоянные пиксели, а заголовок растёт вместе с
+   шириной (clamp 30…48 px), поэтому его вычитаем тем же clamp: две строки —
+   это 2,24 кегля, одна — 1,12. Тройка кадров в высоту — 0,96 своей ширины,
+   отсюда множитель 1,04. Вырезы экрана (safe-area) добавляются к полям —
+   значит, и из высоты под снимки их тоже вычитаем, иначе в установленном
+   приложении разворот оказывался выше экрана.
+   Меньше 190 px снимок не ужимаем: пусть лучше разворот чуть подрастёт, чем
+   фото превратится в марку. */
+.look--lead{
+  flex-direction:column;justify-content:space-between;gap:16px;
+  padding:calc(12px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom))
+}
+.look--lead .look__in{gap:22px}
+.lead__mark{
+  flex:none;width:auto;height:clamp(44px,7.5svh,72px);
+  opacity:0;transform:translateY(-10px);
+  transition:opacity .9s var(--out), transform .9s var(--out)
+}
+.look.is-in .lead__mark{opacity:1;transform:none}
+.look--lead .hint{flex:none;opacity:0;transition:opacity .9s var(--ease) .9s}
+.look.is-in .hint{opacity:1}
+
+.look--lead{--safe:calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))}
+.look--lead .look__ph{max-height:max(190px, calc(92.5svh - 283px - var(--safe) - clamp(67px, 17vw, 108px)))}
+.look--lead .duo{max-width:min(100%, max(190px, calc((92.5svh - 338px - var(--safe) - clamp(34px, 8.5vw, 54px)) * 1.04)))}
+
+/* Невысокий телефон: забираем воздух у подсказки, а не у снимков. Узкий —
+   тоже: при 360–369 px абзац второго разворота встаёт в семь строк вместо
+   шести, и без этого разворот вылезал за экран на 8–12 px. */
+@media (max-height:700px), (max-width:369px){
+  .look--lead{gap:12px}
+  .look--lead .hint{gap:8px}
+  .look--lead .hint__line{height:30px}
+  .look--lead .look__ph{max-height:max(190px, calc(92.5svh - 258px - var(--safe) - clamp(67px, 17vw, 108px)))}
+  .look--lead .duo{max-width:min(100%, max(190px, calc((92.5svh - 326px - var(--safe) - clamp(34px, 8.5vw, 54px)) * 1.04)))}
+}
 
 /* ================= РАЗВОРОТ НА ДВА КАДРА =================
    Одна вещь двумя снимками. Класс один на обе пары, меняется только начинка.
@@ -289,12 +359,97 @@ img{display:block;max-width:100%}
 .look.is-in .duo__ph--lo{clip-path:inset(0 0 0 0)}
 .look.is-in .duo__ph--lo img{transition-delay:.18s}
 
+/* Третий кадр — в пустой угол над малым. Высокий и квадрат оставляли там
+   дыру как раз под снимок: 36% ширины на 44% высоты. Кадр заходит на высокий
+   на 4% — та же склейка внахлёст, что у квадрата, — и стоит ровно на верхней
+   кромке квадрата, так что три кадра складываются в один блок.
+   Пропорция — цифрой: высокий кадр 2:3 при ширине 64% высотой 0,9615 ширины
+   блока, квадрат — 0,52, значит угол высотой 0,4415. Отсюда 40 / 44,15. */
+.duo__ph--top{
+  position:absolute;top:0;right:0;
+  width:40%;aspect-ratio:40/44.15;
+  border-left:7px solid var(--bg);
+  /* Третья склейка — снизу вверх, будто кадр выдвинули из-за квадрата. */
+  clip-path:inset(100% 0 0 0);
+  transition-delay:.34s
+}
+.look.is-in .duo__ph--top{clip-path:inset(0 0 0 0)}
+.look.is-in .duo__ph--top img{transition-delay:.34s}
+
+/* Зеркальная тройка: высокий кадр справа, малые слева. Два разворота с
+   тройкой подряд в одну сторону читались бы как повтор одного макета. */
+.duo--mirror{flex-direction:row-reverse}
+.duo--mirror::after{transform-origin:100% 50%}
+.duo--mirror .duo__ph--lo{
+  margin-left:0;margin-right:-16%;
+  border-left:0;border-right:7px solid var(--bg);
+  clip-path:inset(0 0 0 100%)
+}
+.duo--mirror .duo__ph--top{right:auto;left:0;border-left:0;border-right:7px solid var(--bg)}
+
 @media(min-width:820px){
   /* Рядом с текстом колонка и так узкая — потолок по высоте больше не нужен,
      ширину ограничивает сама колонка. data-flip уводит пару вправо, ровно как
      это уже сделано для одиночного кадра. */
   .duo{max-width:100%;padding-bottom:16px}
   .look[data-flip] .duo{order:2}
+  /* На первых разворотах знак и подсказка отнимают у экрана около 230 px. */
+  .look--lead .look__in{gap:60px}
+  .look--lead .look__ph{max-height:calc(100svh - 230px)}
+  .look--lead .duo{max-width:min(100%, calc((100svh - 230px) * 1.04))}
+}
+
+/* ================= ВЕЕР: ТРИ РАКУРСА =================
+   «Спереди, сзади и вполоборота» — буквально: три снимка рядом, как на
+   поворотном столе. Средний крупнее и лежит сверху, крайние заходят под него
+   на 4% ширины веера — это 13% их собственной ширины, ровно полоса стены за
+   локтем. На 8% под средним пропадали рукава: 30 + 48 + 30 − 8 = 100.
+   Крайние выезжают из-под среднего: каждый раскрывается от внутреннего края
+   наружу и заодно отъезжает на место — веер раскрывается, а не мигает. */
+.fan{
+  position:relative;display:flex;align-items:flex-end;justify-content:center;
+  width:100%;padding-bottom:13px;
+  /* Потолок как у пары: 0,72 ширины в высоту, и вместе с текстом разворот
+     обязан влезть в 360x640. */
+  max-width:min(100%, 61svh);margin-right:auto
+}
+.fan::after{
+  content:'';position:absolute;left:0;right:0;bottom:0;height:1px;
+  background:var(--line);
+  transform:scaleX(0);transform-origin:50% 50%;
+  transition:transform .9s var(--out) .1s
+}
+.look.is-in .fan::after{transform:scaleX(1)}
+
+.fan__ph{
+  position:relative;overflow:hidden;background:#eaeaea;flex:none;
+  aspect-ratio:2/3;width:30%;
+  transition:clip-path 1.05s var(--out), transform 1.05s var(--out)
+}
+.fan__ph img{
+  width:100%;height:100%;object-fit:cover;object-position:var(--op,center 12%);
+  transform:scale(1.12);transition:transform 1.5s var(--out)
+}
+.look.is-in .fan__ph img{transform:scale(1)}
+.fan__ph--mid{
+  width:48%;margin:0 -4%;z-index:1;
+  /* Поля цвета страницы по бокам — иначе средний слипся бы с крайними. */
+  border-left:7px solid var(--bg);border-right:7px solid var(--bg);
+  clip-path:inset(0 0 100% 0)
+}
+.fan__ph--l{clip-path:inset(0 0 0 100%);transform:translateX(22%);transition-delay:.22s}
+.fan__ph--r{clip-path:inset(0 100% 0 0);transform:translateX(-22%);transition-delay:.3s}
+.look.is-in .fan__ph{clip-path:inset(0 0 0 0);transform:none}
+.look.is-in .fan__ph--l img{transition-delay:.22s}
+.look.is-in .fan__ph--r img{transition-delay:.3s}
+
+@media(min-width:820px){
+  .fan{max-width:100%;padding-bottom:16px}
+  .look[data-flip] .fan{order:2}
+  /* Три кадра в половине колонки выходили мельче одиночного снимка, который
+     тут стоял раньше. Отдаём вееру колонку пошире — текст короткий, ему
+     и трети с лишним хватает. */
+  .look--fan .look__in{grid-template-columns:1.4fr 1fr}
 }
 
 /* ================= ПАЛИТРА =================
@@ -461,11 +616,12 @@ img{display:block;max-width:100%}
 /* ---------- если анимации мешают ---------- */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
-  .look__ph,.duo__ph,.duo__ph--lo{clip-path:none}
-  .look__ph img,.duo__ph img{transform:none}
-  .duo::after{transform:none}
+  .look__ph,.duo__ph,.duo__ph--lo,.duo--mirror .duo__ph--lo,.fan__ph{clip-path:none}
+  .fan__ph{transform:none}
+  .look__ph img,.duo__ph img,.fan__ph img{transform:none}
+  .duo::after,.fan::after{transform:none}
   .tick__row{animation:none}
-  .look__txt > *,.pal__k,.pal__t,.pal__d,.tone,
+  .look__txt > *,.pal__k,.pal__t,.pal__d,.tone,.lead__mark,.look--lead .hint,
   .fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
   .fin__wall{opacity:.2;transform:none}
 }
@@ -480,11 +636,12 @@ img{display:block;max-width:100%}
 <section class="intro snap">
   <img class="intro__mark" src="/logo.png?v=lc2" alt="Canvas" width="325" height="520">
   <h1 class="intro__sub" id="introSub">Базовые вещи, которые носят каждый день</h1>
-  <div class="intro__go"><span class="intro__line"></span>Листайте</div>
+  <div class="intro__go hint"><span class="hint__line"></span>Листайте</div>
 </section>
 
 <!-- ====== развороты ====== -->
-<section class="look look--sq snap" data-look>
+<section class="look look--sq look--lead snap" data-look>
+  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="look__in">
     <div class="look__ph">
       <img src="/onboarding/look-14.jpg" alt="Двое спина к спине: чёрная и белая футболки" loading="eager" decoding="async" fetchpriority="high">
@@ -495,10 +652,14 @@ img{display:block;max-width:100%}
       <p class="look__d">Два цвета, с которых начинается гардероб. Такую футболку надеваешь не задумываясь.</p>
     </div>
   </div>
+  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
 </section>
 
-<!-- Одна футболка двумя кадрами: силуэт целиком и ткань вблизи. -->
-<section class="look snap" data-look data-flip>
+<!-- Ткань тремя кадрами: белая футболка целиком и полотно вблизи, а в углу —
+     тот же парень в шоколадной. Третий кадр сразу показывает, что ткань та же
+     и в цвете, не дожидаясь палитры. -->
+<section class="look look--lead snap" data-look data-flip>
+  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="look__in">
     <div class="duo">
       <div class="duo__ph duo__ph--hi" style="--ar:852/1280">
@@ -507,13 +668,16 @@ img{display:block;max-width:100%}
       <div class="duo__ph duo__ph--lo" style="--ar:1/1">
         <img src="/onboarding/look-15.jpg" alt="Полотно белой футболки оттянуто пальцами" loading="lazy" decoding="async">
       </div>
+      <div class="duo__ph duo__ph--top">
+        <img src="/onboarding/look-18.jpg" alt="Тот же парень в шоколадной футболке" loading="lazy" decoding="async" style="--op:center 14%">
+      </div>
     </div>
     <div class="look__txt">
-      <p class="look__k"><b>02</b><i></i>Ткань</p>
-      <h2 class="look__t">Оттяните<em>и отпустите</em></h2>
-      <p class="look__d">Полотно оттянуто пальцами: плотное, на просвет ничего. Рядом та же футболка в покое — плечо спущено, край падает ровно.</p>
+      <h2 class="look__t look__t--row"><span class="look__n">02</span>Ткань <em>и ощущения</em></h2>
+      <p class="look__d look__d--wide">Наш материал — это полотно высокого класса. Вы чувствуете лишь приятные ощущения, когда ткань соприкасается с кожей. Форма сохраняется даже при длительном использовании. Никакого дискомфорта — одно удовольствие в каждом движении.</p>
     </div>
   </div>
+  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
 </section>
 
 <!-- Та же вещь анфас и в профиль. Профиль сдвинут по горизонтали: девушка
@@ -559,10 +723,20 @@ img{display:block;max-width:100%}
   </div>
 </section>
 
-<section class="look snap" data-look>
+<!-- Три ракурса ровно в том порядке, что в тексте: спереди, вполоборота
+     (крупно, посередине), сзади. -->
+<section class="look look--fan snap" data-look>
   <div class="look__in">
-    <div class="look__ph">
-      <img src="/onboarding/look-05.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
+    <div class="fan">
+      <div class="fan__ph fan__ph--l">
+        <img src="/onboarding/look-19.jpg" alt="Голубая футболка спереди" loading="lazy" decoding="async">
+      </div>
+      <div class="fan__ph fan__ph--mid">
+        <img src="/onboarding/look-05.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
+      </div>
+      <div class="fan__ph fan__ph--r">
+        <img src="/onboarding/look-10.jpg" alt="Голубая футболка сзади" loading="lazy" decoding="async">
+      </div>
     </div>
     <div class="look__txt">
       <p class="look__k"><b>05</b><i></i>Съёмка</p>
@@ -572,10 +746,19 @@ img{display:block;max-width:100%}
   </div>
 </section>
 
+<!-- Красная тремя кадрами, зеркально второму развороту: высокий кадр справа. -->
 <section class="look snap" data-look data-flip>
   <div class="look__in">
-    <div class="look__ph">
-      <img src="/onboarding/look-03.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
+    <div class="duo duo--mirror">
+      <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
+        <img src="/onboarding/look-03.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
+      </div>
+      <div class="duo__ph duo__ph--lo" style="--ar:1/1">
+        <img src="/onboarding/look-20.jpg" alt="Красная футболка спереди, руки в карманах" loading="lazy" decoding="async" style="--op:center 8%">
+      </div>
+      <div class="duo__ph duo__ph--top">
+        <img src="/onboarding/look-21.jpg" alt="Красная футболка, взгляд через плечо" loading="lazy" decoding="async" style="--op:center 10%">
+      </div>
     </div>
     <div class="look__txt">
       <p class="look__k"><b>06</b><i></i>Доставка</p>

@@ -1164,6 +1164,9 @@ const indexHandler = serveTextFile(path.join(publicDir, 'index.html'));
 app.get('/', indexHandler);
 app.get('/index.html', indexHandler);
 app.get('/api-bridge.js', serveTextFile(path.join(publicDir, 'api-bridge.js')));
+/* Знакомство открывается при каждом входе, а express.static отдаёт его без
+   сжатия: 78 КБ вместо ~22 в br. Кэш и ETag те же — no-cache с проверкой. */
+app.get('/onboarding.html', serveTextFile(path.join(publicDir, 'onboarding.html')));
 app.use(express.static(publicDir, {
   extensions: ['html'],
   /* Картинки товаров лежат под именами с хешем и правда не меняются — их держим
