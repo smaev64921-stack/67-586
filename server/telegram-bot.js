@@ -42,8 +42,19 @@ function isDataOwnerChat(chatId) {
   return String(chatId || '') === DATA_OWNER_CHAT();
 }
 
-const WEBHOOK_SECRET = () =>
-  String(process.env.TELEGRAM_WEBHOOK_SECRET || process.env.JWT_SECRET || 'luxe-canvas-tg').slice(0, 64);
+/* Секрет вебхука. Раньше при пустой переменной он падал на JWT_SECRET и
+   дальше на литерал 'luxe-canvas-tg' — строку из открытого кода, по
+   которой любой мог слать боту поддельные апдейты от имени владельца.
+   Теперь либо свой сильный секрет из переменной, либо выведенный из
+   секрета сервера. Он же уходит в setWebhook, так что Telegram и
+   проверка всегда согласны. */
+const { derive: deriveSecret, strong: strongSecret } = require('./secrets');
+const WEBHOOK_SECRET = () => {
+  const env = String(process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+  /* Telegram принимает в secret_token только A-Z a-z 0-9 _ - */
+  if (strongSecret(env) && /^[A-Za-z0-9_-]{32,256}$/.test(env)) return env;
+  return deriveSecret('telegram-webhook').slice(0, 64);
+};
 
 const STATUS_CODE = {
   p: 'Ожидает оплаты',

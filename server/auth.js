@@ -2,7 +2,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { db } = require('./db');
 
-const JWT_SECRET = () => process.env.JWT_SECRET || 'dev-only-change-me';
+/* Подпись сессий — только сильным секретом, без публичной запасной строки.
+   Подробности и почему — в server/secrets.js. */
+const { serverSecret, PUBLIC_VALUES } = require('./secrets');
+const JWT_SECRET = () => serverSecret();
 const JWT_VERIFY = { algorithms: ['HS256'] };
 const COOKIE = 'lc_token';
 
@@ -123,6 +126,16 @@ function login({ email, password }) {
   if (!row || !bcrypt.compareSync(String(password || ''), row.password_hash)) {
     throw Object.assign(new Error('Неверный email или пароль'), { status: 401 });
   }
+  /* Пароль админа по умолчанию напечатан в коде и в .env.example, а те
+     лежат в открытом репозитории. Кто прочитал — тот вошёл в админку.
+     Поэтому такой пароль больше не открывает ничего: владелец входит
+     ссылкой из бота или задаёт новый через ADMIN_PASSWORD. */
+  if (row.role === 'admin' && PUBLIC_VALUES.has(String(password || '').trim().toLowerCase())) {
+    throw Object.assign(
+      new Error('Этот пароль опубликован и больше не действует. Войдите в админку ссылкой из Telegram-бота или задайте новый пароль в ADMIN_PASSWORD.'),
+      { status: 403, code: 'PUBLIC_ADMIN_PASSWORD' }
+    );
+  }
   return row;
 }
 
@@ -178,8 +191,21 @@ function clearAuthCookie(res) {
 /** Гарантировать пользователя ADMIN_EMAIL с ролью admin. */
 function ensureAdminUser() {
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@luxecanvas.ru').trim().toLowerCase();
-  const adminPass = process.env.ADMIN_PASSWORD || 'ChangeMe123!';
+  /* Пароль из переменной берём, только если он не из опубликованных.
+     Иначе админ заводится со случайным паролем, который никто не знает:
+     войти можно ссылкой из бота, а пароль — задать потом. */
+  const envPass = String(process.env.ADMIN_PASSWORD || '').trim();
+  const ownPass = envPass && !PUBLIC_VALUES.has(envPass.toLowerCase()) ? envPass : '';
+  const adminPass = ownPass || require('crypto').randomBytes(24).toString('base64url');
   let row = findByEmail(adminEmail);
+  /* Уже заведённый админ с опубликованным паролем: владелец задал свой в
+     ADMIN_PASSWORD — ставим его. Раньше хэш писался только при создании,
+     и заданный потом пароль не менял ничего. */
+  if (row && ownPass && bcrypt.compareSync('ChangeMe123!', row.password_hash || '')) {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(ownPass, 10), row.id);
+    console.log('Пароль админа по умолчанию заменён на ADMIN_PASSWORD');
+    row = findById(row.id);
+  }
   if (!row) {
     const hash = bcrypt.hashSync(adminPass, 10);
     const info = db.prepare(`

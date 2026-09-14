@@ -76,7 +76,12 @@ function seedIfEmpty() {
   }
 
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@luxecanvas.ru').trim().toLowerCase();
-  const adminPass = process.env.ADMIN_PASSWORD || 'ChangeMe123!';
+  /* Опубликованный пароль по умолчанию больше не ставится: без своего
+   ADMIN_PASSWORD админ получает случайный, никому не известный пароль
+   и входит ссылкой из бота. */
+const adminPass = (process.env.ADMIN_PASSWORD && !/^changeme123!$/i.test(process.env.ADMIN_PASSWORD.trim()))
+  ? process.env.ADMIN_PASSWORD
+  : require('crypto').randomBytes(24).toString('base64url');
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
   if (!existing) {
     const hash = bcrypt.hashSync(adminPass, 10);
