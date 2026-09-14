@@ -330,7 +330,11 @@ function applyNewPassword(map, email, row, password) {
   const pass = String(password || '');
   if (pass.length < 6) throw Object.assign(new Error('Пароль минимум 6 символов'), { status: 400 });
   const hash = bcrypt.hashSync(pass, 10);
-  db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hash, row.userId);
+  /* Смена пароля отзывает все выданные сессии: пароль меняют как раз тогда,
+     когда подозревают, что вход увели. Раньше украденный токен продолжал
+     пускать ещё 30 дней после смены. Устройство, где меняли пароль, получит
+     свежий токен — findById ниже вернёт уже новую версию. */
+  db.prepare(`UPDATE users SET password_hash = ?, token_ver = token_ver + 1 WHERE id = ?`).run(hash, row.userId);
   delete map[email];
   save(map);
   return findById(row.userId);

@@ -11,7 +11,7 @@ const COOKIE = 'lc_token';
 
 function signUser(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
+    { id: user.id, email: user.email, role: user.role, v: (user.token_ver | 0) },
     JWT_SECRET(),
     { algorithm: 'HS256', expiresIn: '30d' }
   );
@@ -52,7 +52,7 @@ function findByGoogleId(googleId) {
 }
 
 /** Вход / регистрация через Google. */
-function upsertGoogleUser({ googleId, email, name, last }) {
+function upsertGoogleUser({ googleId, email, name, last, emailVerified }) {
   const gid = String(googleId || '').trim();
   if (!gid) throw Object.assign(new Error('Нет Google ID'), { status: 400 });
 
@@ -60,10 +60,24 @@ function upsertGoogleUser({ googleId, email, name, last }) {
   if (row) return row;
 
   const em = String(email || '').trim().toLowerCase();
-  if (em && em.includes('@') && !isPlaceholderEmail(em)) {
+  /* К существующему аккаунту по почте привязываем, только если Google
+     подтвердил, что почта принадлежит этому человеку. */
+  if (emailVerified !== false && em && em.includes('@') && !isPlaceholderEmail(em)) {
     row = findByEmail(em);
     if (row) {
-      db.prepare(`UPDATE users SET google_id = ? WHERE id = ?`).run(gid, row.id);
+      /* Предзахват. Почту при регистрации у нас не подтверждают, поэтому
+         злоумышленник мог заранее завести аккаунт на чужой адрес со своим
+         паролем. Когда настоящий владелец входит через Google, он
+         попадал в этот аккаунт, а пароль злоумышленника продолжал
+         работать — и тот видел все его заказы и адреса.
+
+         Google только что доказал, чья это почта. Значит, пароль, заданный
+         неизвестно кем, больше не действует, а все выданные сессии
+         отзываются. Настоящий владелец при желании задаст пароль заново
+         через «Забыли пароль» — письмо придёт ему. */
+      const lockedPass = bcrypt.hashSync(require('crypto').randomBytes(24).toString('hex'), 10);
+      db.prepare(`UPDATE users SET google_id = ?, password_hash = ?, token_ver = token_ver + 1 WHERE id = ?`)
+        .run(gid, lockedPass, row.id);
       if (name && !row.name) {
         db.prepare(`UPDATE users SET name = ? WHERE id = ?`).run(String(name).trim(), row.id);
       }
@@ -74,7 +88,10 @@ function upsertGoogleUser({ googleId, email, name, last }) {
     }
   }
 
-  const finalEmail = em && em.includes('@')
+  /* Неподтверждённая почта — не наша забота, чья она: новый аккаунт живёт
+     на служебном адресе. Иначе ветка ниже («крайне редко») находила по этой
+     почте чужой аккаунт и привязывала Google к нему — в обход проверки выше. */
+  const finalEmail = (emailVerified !== false && em && em.includes('@'))
     ? em
     : `g${gid}@google.luxecanvas`;
   if (findByEmail(finalEmail)) {
@@ -154,7 +171,9 @@ function authOptional(req, _res, next) {
     try {
       const payload = jwt.verify(token, JWT_SECRET(), JWT_VERIFY);
       const row = findById(payload.id);
-      if (row) req.user = row;
+      /* Токен старой версии отозван. У токенов, выданных до появления
+         версии, поля v нет — это 0, и они живут до первого отзыва. */
+      if (row && (payload.v | 0) === (row.token_ver | 0)) req.user = row;
     } catch (_) {}
   }
   next();
@@ -202,7 +221,7 @@ function ensureAdminUser() {
      ADMIN_PASSWORD — ставим его. Раньше хэш писался только при создании,
      и заданный потом пароль не менял ничего. */
   if (row && ownPass && bcrypt.compareSync('ChangeMe123!', row.password_hash || '')) {
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(ownPass, 10), row.id);
+    db.prepare('UPDATE users SET password_hash = ?, token_ver = token_ver + 1 WHERE id = ?').run(bcrypt.hashSync(ownPass, 10), row.id);
     console.log('Пароль админа по умолчанию заменён на ADMIN_PASSWORD');
     row = findById(row.id);
   }
@@ -299,11 +318,18 @@ function redeemTgAdminToken(token) {
   return finish(payload.chatId);
 }
 
+/**
+ * Аккаунт по номеру — только среди ПОДТВЕРЖДЁННЫХ номеров.
+ *
+ * Все вызовы — это маршрутизация входа: чей аккаунт открыть и куда слать
+ * код. Раньше годился любой номер из профиля, а его можно вписать без
+ * проверки и без уникальности — и перехватить вход настоящего владельца.
+ */
 function findByPhone(phone) {
   const { normalizePhone } = require('./sms');
   const p = normalizePhone(phone);
   if (!p) return null;
-  const rows = db.prepare(`SELECT * FROM users WHERE phone IS NOT NULL AND trim(phone) != ''`).all();
+  const rows = db.prepare(`SELECT * FROM users WHERE phone_verified = 1 AND phone IS NOT NULL AND trim(phone) != '' ORDER BY id`).all();
   for (const row of rows) {
     if (normalizePhone(row.phone) === p) return row;
   }
@@ -330,7 +356,7 @@ function upsertUserByPhone({ phone, name, last, middle, via }) {
   const em = phoneEmail(p);
   if (findByEmail(em)) {
     const existing = findByEmail(em);
-    db.prepare(`UPDATE users SET phone = ? WHERE id = ?`).run(formatPhoneDisplay(p), existing.id);
+    db.prepare(`UPDATE users SET phone = ?, phone_verified = 1 WHERE id = ?`).run(formatPhoneDisplay(p), existing.id);
     return findById(existing.id);
   }
 
@@ -338,8 +364,8 @@ function upsertUserByPhone({ phone, name, last, middle, via }) {
   const display = formatPhoneDisplay(p);
   /* email-заглушка только внутри БД (UNIQUE). На сайт не отдаём. */
   const info = db.prepare(`
-    INSERT INTO users (email, password_hash, name, last_name, middle_name, phone, role)
-    VALUES (?, ?, ?, ?, ?, ?, 'user')
+    INSERT INTO users (email, password_hash, name, last_name, middle_name, phone, role, phone_verified)
+    VALUES (?, ?, ?, ?, ?, ?, 'user', 1)
   `).run(
     em,
     hash,
@@ -383,11 +409,29 @@ function updateProfile(userId, { name, last, middle, email, phone }) {
     throw Object.assign(new Error('Укажите корректный телефон'), { status: 400 });
   }
 
+  const { normalizePhone } = require('./sms');
+  const nextNorm = cleanPhone ? normalizePhone(cleanPhone) : '';
+  const prevNorm = row.phone ? normalizePhone(row.phone) : '';
+  const phoneChanged = nextNorm !== prevNorm;
+
+  /* Номер, который уже подтверждён в чужом аккаунте, вписать нельзя: это
+     и есть способ перехватить чужой вход по телефону. */
+  if (phoneChanged && nextNorm) {
+    const owner = findByPhone(nextNorm);
+    if (owner && +owner.id !== +userId) {
+      throw Object.assign(new Error('Этот номер уже привязан к другому аккаунту'), { status: 409 });
+    }
+  }
+
+  /* Вписанный руками номер — только контакт для курьера. Входить по нему
+     и получать коды можно после подтверждения через Telegram, поэтому
+     смена номера снимает отметку. Тот же номер — отметка остаётся. */
   db.prepare(`
     UPDATE users
-    SET name = ?, last_name = ?, middle_name = ?, email = ?, phone = ?
+    SET name = ?, last_name = ?, middle_name = ?, email = ?, phone = ?,
+        phone_verified = CASE WHEN ? THEN 0 ELSE phone_verified END
     WHERE id = ?
-  `).run(cleanName, cleanLast, cleanMiddle, nextEmail, cleanPhone, userId);
+  `).run(cleanName, cleanLast, cleanMiddle, nextEmail, cleanPhone, phoneChanged ? 1 : 0, userId);
 
   return findById(userId);
 }

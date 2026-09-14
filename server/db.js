@@ -102,6 +102,17 @@ try { db.exec('ALTER TABLE products ADD COLUMN size_chart TEXT NOT NULL DEFAULT 
 try { db.exec("ALTER TABLE products ADD COLUMN colors_json TEXT NOT NULL DEFAULT '[]'"); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN middle_name TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch (_) {}
+/* Подтверждён ли номер. Вписанный руками в профиле номер — просто контакт;
+   входить по номеру и получать на него коды можно только с подтверждённым
+   (через Telegram). Иначе любой вписывал себе чужой номер и перехватывал
+   вход его владельца. Аккаунты, созданные входом по телефону, подтверждены
+   по определению — их помечаем сразу, чтобы никто не потерял аккаунт. */
+try { db.exec('ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
+/* Версия сессий. Растёт, когда все выданные токены надо отозвать: сменили
+   пароль, вышли на всех устройствах, аккаунт перешёл к настоящему владельцу
+   почты. Токен со старой версией перестаёт пускать сразу, а не через 30 дней. */
+try { db.exec('ALTER TABLE users ADD COLUMN token_ver INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
+try { db.exec("UPDATE users SET phone_verified = 1 WHERE phone_verified = 0 AND email LIKE '%@phone.luxecanvas'"); } catch (_) {}
 try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL AND google_id != \'\''); } catch (_) {}
 try { db.exec("ALTER TABLE reviews ADD COLUMN sku TEXT NOT NULL DEFAULT ''"); } catch (_) {}
 try { db.exec('ALTER TABLE reviews ADD COLUMN user_id INTEGER'); } catch (_) {}
