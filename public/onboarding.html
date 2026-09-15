@@ -157,8 +157,8 @@ img{display:block;max-width:100%}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 
-/* «Листайте» — на заставке и на двух первых разворотах. Трёх раз подряд
-   хватает, чтобы привыкнуть листать, дальше подсказка только мешала бы. */
+/* «Листайте» — на заставке и внизу каждого разворота: одна и та же подсказка
+   на всех экранах держит серию вместе и не даёт застрять посередине. */
 .hint{
   display:flex;flex-direction:column;align-items:center;gap:11px;
   font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)
@@ -255,20 +255,20 @@ img{display:block;max-width:100%}
    у правого парня срезало бы рукав: пара занимает почти всю ширину кадра. */
 .look--sq .look__ph{aspect-ratio:1/1}
 
-/* ================= ПЕРВЫЕ ДВА РАЗВОРОТА: ЗНАК И «ЛИСТАЙТЕ» =================
-   Сверху знак, снизу подсказка — как на заставке, чтобы первые экраны
-   читались одной серией. Оба стоят в потоке, а не поверх: на низком экране
-   абсолютные наползли бы на снимок. Свободная высота делится поровну между
-   зазорами (space-between), и разворот держит середину.
+/* ================= ЗНАК И «ЛИСТАЙТЕ» НА КАЖДОМ РАЗВОРОТЕ =================
+   Сверху знак, снизу подсказка — как на заставке, и так на всех шести
+   разворотах: листаешь серию, а не отдельные экраны. Оба стоят в потоке, а
+   не поверх: на низком экране абсолютные наползли бы на снимок.
 
-   Высоту под снимки считаем от экрана. Знак — 7,5% высоты, поля, зазоры,
-   подсказка и абзац — почти постоянные пиксели, а заголовок растёт вместе с
-   шириной (clamp 30…48 px), поэтому его вычитаем тем же clamp: две строки —
-   это 2,24 кегля, одна — 1,12. Тройка кадров в высоту — 0,96 своей ширины,
-   отсюда множитель 1,04. Вырезы экрана (safe-area) добавляются к полям —
-   значит, и из высоты под снимки их тоже вычитаем, иначе в установленном
-   приложении разворот оказывался выше экрана.
-   Меньше 190 px снимок не ужимаем: пусть лучше разворот чуть подрастёт, чем
+   Снимкам на телефоне достаётся вся высота, что осталась от знака, текста
+   и подсказки. Считает её сам браузер: обёртка .look__pics растягивается
+   на свободное место и служит контейнером размеров, а кадры внутри берут
+   ширину от её высоты (единицы cqh). Раньше высота под снимки задавалась
+   формулой с подобранными пикселями — на шести разных разворотах с разным
+   текстом она ошибалась то в одну, то в другую сторону.
+   Выше своего естественного размера обёртка не растёт: на высоком экране
+   лишнее место уходит поровну над и под блоком «снимки + текст».
+   Меньше 190 px снимки не ужимаем: пусть лучше разворот чуть подрастёт, чем
    фото превратится в марку. */
 .look--lead{
   flex-direction:column;justify-content:space-between;gap:16px;
@@ -280,23 +280,38 @@ img{display:block;max-width:100%}
   opacity:0;transform:translateY(-10px);
   transition:opacity .9s var(--out), transform .9s var(--out)
 }
-.look.is-in .lead__mark{opacity:1;transform:none}
-.look--lead .hint{flex:none;opacity:0;transition:opacity .9s var(--ease) .9s}
-.look.is-in .hint{opacity:1}
+.is-in > .lead__mark{opacity:1;transform:none}
+.look--lead > .hint,.pal--lead > .hint{flex:none;opacity:0;transition:opacity .9s var(--ease) .9s}
+.is-in > .hint{opacity:1}
 
-.look--lead{--safe:calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))}
-.look--lead .look__ph{max-height:max(190px, calc(92.5svh - 283px - var(--safe) - clamp(67px, 17vw, 108px)))}
-.look--lead .duo{max-width:min(100%, max(190px, calc((92.5svh - 338px - var(--safe) - clamp(34px, 8.5vw, 54px)) * 1.04)))}
+/* На широком экране обёртки как будто нет: кадры — прямо ячейка сетки. */
+.look__pics{display:contents}
 
-/* Невысокий телефон: забираем воздух у подсказки, а не у снимков. Узкий —
-   тоже: при 360–369 px абзац второго разворота встаёт в семь строк вместо
-   шести, и без этого разворот вылезал за экран на 8–12 px. */
+@media (max-width:819.98px){
+  /* stretch обязателен: от сетки тут остаётся align-items:center, а у
+     контейнера размеров своей ширины нет — по центру он схлопнулся бы в ноль. */
+  .look--lead .look__in{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;align-items:stretch}
+  .look__pics{
+    display:flex;align-items:flex-end;
+    flex:1 1 0;min-height:190px;container-type:size
+  }
+  /* Потолок обёртки — естественная высота кадров во всю колонку:
+     квадрат — сама ширина, тройка — 0,9615 ширины + линия, веер — 0,72. */
+  .look__pics--sq{max-height:calc(100vw - 40px)}
+  .look__pics--duo{max-height:calc((100vw - 40px) * .9615 + 13px)}
+  .look__pics--fan{max-height:calc((100vw - 40px) * .72 + 13px)}
+  /* Первая строка каждого правила — запас для браузеров без cqh (Safari до
+     16): там обёртка не контейнер, и кадры держатся за высоту экрана. */
+  .look__pics > .look__ph{max-height:40svh;max-height:100cqh}
+  .look__pics > .duo{max-width:min(100%, 34svh);max-width:min(100%, calc((100cqh - 13px) * 1.04))}
+  .look__pics > .fan{max-width:min(100%, 50svh);max-width:min(100%, calc((100cqh - 13px) * 1.389))}
+}
+
+/* Невысокий или узкий телефон: забираем воздух у подсказки, а не у снимков. */
 @media (max-height:700px), (max-width:369px){
   .look--lead{gap:12px}
   .look--lead .hint{gap:8px}
   .look--lead .hint__line{height:30px}
-  .look--lead .look__ph{max-height:max(190px, calc(92.5svh - 258px - var(--safe) - clamp(67px, 17vw, 108px)))}
-  .look--lead .duo{max-width:min(100%, max(190px, calc((92.5svh - 326px - var(--safe) - clamp(34px, 8.5vw, 54px)) * 1.04)))}
 }
 
 /* ================= РАЗВОРОТ НА ДВА КАДРА =================
@@ -312,14 +327,12 @@ img{display:block;max-width:100%}
    режутся вовсе. Меньший всегда квадрат: туда идёт горизонтальный снимок,
    который в вертикальной рамке потерял бы руки по краям (они на 33% и 71%
    ширины), — в квадрате видно 67% ширины, руки внутри с запасом. */
+/* Высоту тут диктует ширина (высокий кадр = 0,64 x ширина x 1,5 = 0,96 её),
+   поэтому потолок задаётся ширине — в блоке «Знак и «Листайте» на каждом
+   развороте», от высоты, что осталась под снимки. */
 .duo{
   position:relative;display:flex;align-items:flex-end;
-  width:100%;margin-right:auto;padding-bottom:13px;
-  /* Потолок задан ширине, а не высоте: высоту тут диктует ширина (высокий
-     кадр = 0,64 x ширина x 1,5 = 0,96 её), а обрезать по высоте значило бы
-     резать снимок. 41svh подобран так, чтобы вместе с текстом и полями
-     разворот влезал в экран 360x640 — самый тесный, где ещё есть прилипание. */
-  max-width:min(100%, 41svh)
+  width:100%;margin-right:auto;padding-bottom:13px
 }
 /* Линия набора, на которой стоят оба кадра: прочерчивается слева направо.
    Через scaleX, а не width, — ширину браузер пересчитывал бы каждый кадр. */
@@ -393,7 +406,7 @@ img{display:block;max-width:100%}
      это уже сделано для одиночного кадра. */
   .duo{max-width:100%;padding-bottom:16px}
   .look[data-flip] .duo{order:2}
-  /* На первых разворотах знак и подсказка отнимают у экрана около 230 px. */
+  /* На каждом развороте знак и подсказка отнимают у экрана около 230 px. */
   .look--lead .look__in{gap:60px}
   .look--lead .look__ph{max-height:calc(100svh - 230px)}
   .look--lead .duo{max-width:min(100%, calc((100svh - 230px) * 1.04))}
@@ -406,12 +419,11 @@ img{display:block;max-width:100%}
    локтем. На 8% под средним пропадали рукава: 30 + 48 + 30 − 8 = 100.
    Крайние выезжают из-под среднего: каждый раскрывается от внутреннего края
    наружу и заодно отъезжает на место — веер раскрывается, а не мигает. */
+/* В высоту веер — 0,72 своей ширины; потолок ширине ставит тот же блок, что
+   и паре кадров. */
 .fan{
   position:relative;display:flex;align-items:flex-end;justify-content:center;
-  width:100%;padding-bottom:13px;
-  /* Потолок как у пары: 0,72 ширины в высоту, и вместе с текстом разворот
-     обязан влезть в 360x640. */
-  max-width:min(100%, 61svh);margin-right:auto
+  width:100%;padding-bottom:13px;margin-right:auto
 }
 .fan::after{
   content:'';position:absolute;left:0;right:0;bottom:0;height:1px;
@@ -508,11 +520,6 @@ img{display:block;max-width:100%}
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)
 }
 
-/* На низком экране (телефон лёжа, крупный системный шрифт) палитра вместе с
-   бегущей строкой не помещалась в разворот и вылезала на 40 пикселей. Отбираем
-   воздух, а не содержимое: кнопки и строка остаются как были. */
-@media (max-height:700px){ .pal{gap:24px;padding:48px 0} }
-
 /* ================= БЕГУЩАЯ СТРОКА ================= */
 .tick{overflow:hidden;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 /* Тридцать секунд на круг заметно тянули внимание на себя — а на этом
@@ -531,6 +538,46 @@ img{display:block;max-width:100%}
 }
 .tick__row span:nth-child(even){color:transparent;-webkit-text-stroke:.7px var(--ghost)}
 @keyframes tick{to{transform:translateX(-50%)}}
+
+/* Палитра со знаком и «Листайте», как остальные развороты. Знак и подсказка
+   отталкиваются от краёв автоматическими отступами, и палитра с бегущей
+   строкой держатся вместе посередине. Чтобы всё это влезло в экран,
+   поджимаем воздух: зазоры, поля строки, кегль строки. */
+.pal--lead{
+  justify-content:flex-start;gap:16px;
+  padding:calc(12px + env(safe-area-inset-top)) 0 calc(20px + env(safe-area-inset-bottom))
+}
+.pal--lead > .lead__mark{align-self:center;margin-bottom:auto}
+.pal--lead > .hint{align-self:center;margin-top:auto}
+.pal--lead .pal__row{margin-top:22px}
+.pal--lead .tick{padding:14px 0}
+.pal--lead .tick__row span{font-size:clamp(28px,7vw,56px)}
+/* Невысокий экран: кнопки-цвета компактнее — три их ряда были самой высокой
+   частью разворота. Порог 740, а не 700, как у разворотов со снимками: те
+   тянутся под экран сами, а палитре тянуться нечем, и без ужатия ей нужно
+   720–730 px — телефоны высотой 701–740 оставались бы без экрана в запасе.
+   Зазор 12 px — здесь, а не в общем правиле выше: безусловное .pal--lead
+   идёт позже и перебивало его. */
+@media (max-height:740px), (max-width:369px){
+  .pal--lead{gap:12px;padding-top:calc(10px + env(safe-area-inset-top));padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  .pal--lead .hint{gap:8px}
+  .pal--lead .hint__line{height:30px}
+  .pal--lead .pal__row{gap:10px;margin-top:18px}
+  .pal--lead .tone{padding:8px 18px 8px 8px;gap:11px}
+  .pal--lead .tone i{width:30px;height:30px}
+  .pal--lead .tick{padding:10px 0}
+}
+/* Совсем низкий экран — строка тоньше и мельче. */
+@media (max-height:660px){
+  .pal--lead .tick{padding:6px 0}
+  .pal--lead .tick__row span{font-size:24px}
+}
+/* Самые маленькие телефоны (уже 350 px и ниже 640): подсказка там в две
+   строки, и без этих пикселей разворот вылезал на 7 px. */
+@media (max-height:640px) and (max-width:349px){
+  .pal--lead{gap:10px}
+  .pal--lead .pal__row{margin-top:14px}
+}
 
 /* ================= ФИНАЛ ================= */
 .fin{
@@ -652,13 +699,12 @@ img{display:block;max-width:100%}
 }
 @keyframes ping{0%{transform:scale(1);opacity:1}70%,100%{transform:scale(3.4);opacity:0}}
 @media (prefers-reduced-motion:reduce){ .pal__hint{opacity:1} .pal__hint::after{display:none} }
-/* Подсказка добавила развороту строку, и на 360x640 палитра вылезала за
-   экран на 32 px. Отбираем воздух, как уже сделано для низких экранов выше. */
-@media (max-height:700px){
-  .pal{gap:18px;padding:40px 0}
-  .pal__row{margin-top:22px}
-  .pal__hint{margin-top:12px}
-}
+/* Подсказка добавляет развороту строку — на низком экране прижимаем её к
+   кнопкам плотнее, остальной воздух палитра уже отдала сама (.pal--lead). */
+@media (max-height:740px), (max-width:369px){ .pal__hint{margin-top:12px;gap:8px} }
+/* На 360 px строка «…покажем его вживую» не влезала на пиксель и роняла
+   «вживую» на вторую строку — кегль на полпикселя меньше её держит. */
+@media (max-width:369px){ .pal__hint{font-size:12.5px} }
 
 /* На компьютере с обычной полосой прокрутки она пропадала вместе с
    прокруткой, и всё под затемнением прыгало вбок на её ширину. Скрипт
@@ -800,7 +846,7 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
   .look__ph img,.duo__ph img,.fan__ph img{transform:none}
   .duo::after,.fan::after{transform:none}
   .tick__row{animation:none}
-  .look__txt > *,.pal__k,.pal__t,.pal__d,.tone,.lead__mark,.look--lead .hint,
+  .look__txt > *,.pal__k,.pal__t,.pal__d,.tone,.lead__mark,.look--lead .hint,.pal--lead .hint,
   .fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
   .fin__wall{opacity:.2;transform:none}
 }
@@ -822,8 +868,10 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
 <section class="look look--sq look--lead snap" data-look>
   <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="look__in">
-    <div class="look__ph">
-      <img src="/onboarding/look-14.jpg" alt="Двое спина к спине: чёрная и белая футболки" loading="eager" decoding="async" fetchpriority="high">
+    <div class="look__pics look__pics--sq">
+      <div class="look__ph">
+        <img src="/onboarding/look-14.jpg" alt="Двое спина к спине: чёрная и белая футболки" loading="eager" decoding="async" fetchpriority="high">
+      </div>
     </div>
     <div class="look__txt">
       <p class="look__k"><b>01</b><i></i>Коллекция</p>
@@ -840,15 +888,17 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
 <section class="look look--lead snap" data-look data-flip>
   <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="look__in">
-    <div class="duo">
-      <div class="duo__ph duo__ph--hi" style="--ar:852/1280">
-        <img src="/onboarding/look-12.jpg" alt="Белая футболка сбоку, руки в карманах" loading="lazy" decoding="async">
-      </div>
-      <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-        <img src="/onboarding/look-15.jpg" alt="Полотно белой футболки оттянуто пальцами" loading="lazy" decoding="async">
-      </div>
-      <div class="duo__ph duo__ph--top">
-        <img src="/onboarding/look-18.jpg" alt="Тот же парень в шоколадной футболке" loading="lazy" decoding="async" style="--op:center 14%">
+    <div class="look__pics look__pics--duo">
+      <div class="duo">
+        <div class="duo__ph duo__ph--hi" style="--ar:852/1280">
+          <img src="/onboarding/look-12.jpg" alt="Белая футболка сбоку, руки в карманах" loading="lazy" decoding="async">
+        </div>
+        <div class="duo__ph duo__ph--lo" style="--ar:1/1">
+          <img src="/onboarding/look-15.jpg" alt="Полотно белой футболки оттянуто пальцами" loading="lazy" decoding="async">
+        </div>
+        <div class="duo__ph duo__ph--top">
+          <img src="/onboarding/look-18.jpg" alt="Тот же парень в шоколадной футболке" loading="lazy" decoding="async" style="--op:center 14%">
+        </div>
       </div>
     </div>
     <div class="look__txt">
@@ -861,14 +911,17 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
 
 <!-- Та же вещь анфас и в профиль. Профиль сдвинут по горизонтали: девушка
      стоит правее середины кадра, и по центру квадрат срезал бы ей спину. -->
-<section class="look snap" data-look>
+<section class="look look--lead snap" data-look>
+  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="look__in">
-    <div class="duo">
-      <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
-        <img src="/onboarding/look-16.jpg" alt="Чёрная женская футболка, вид спереди" loading="lazy" decoding="async">
-      </div>
-      <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-        <img src="/onboarding/look-17.jpg" alt="Та же футболка в профиль" loading="lazy" decoding="async" style="--op:34% 12%">
+    <div class="look__pics look__pics--duo">
+      <div class="duo">
+        <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
+          <img src="/onboarding/look-16.jpg" alt="Чёрная женская футболка, вид спереди" loading="lazy" decoding="async">
+        </div>
+        <div class="duo__ph duo__ph--lo" style="--ar:1/1">
+          <img src="/onboarding/look-17.jpg" alt="Та же футболка в профиль" loading="lazy" decoding="async" style="--op:34% 12%">
+        </div>
       </div>
     </div>
     <div class="look__txt">
@@ -877,10 +930,12 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
       <p class="look__d">Анфас и строгий профиль подряд. Сбоку видно главное: полотно идёт от груди вниз, не касаясь фигуры.</p>
     </div>
   </div>
+  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
 </section>
 
 <!-- ====== палитра ====== -->
-<section class="pal snap" data-look>
+<section class="pal pal--lead snap" data-look>
+  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="pal__in">
     <p class="pal__k"><b>04</b><i></i>Цвет</p>
     <h2 class="pal__t">Пять цветов<em>и один крой</em></h2>
@@ -900,21 +955,25 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
       <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
     </div>
   </div>
+  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
 </section>
 
 <!-- Три ракурса ровно в том порядке, что в тексте: спереди, вполоборота
      (крупно, посередине), сзади. -->
-<section class="look look--fan snap" data-look>
+<section class="look look--fan look--lead snap" data-look>
+  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="look__in">
-    <div class="fan">
-      <div class="fan__ph fan__ph--l">
-        <img src="/onboarding/look-19.jpg" alt="Голубая футболка спереди" loading="lazy" decoding="async">
-      </div>
-      <div class="fan__ph fan__ph--mid">
-        <img src="/onboarding/look-05.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
-      </div>
-      <div class="fan__ph fan__ph--r">
-        <img src="/onboarding/look-10.jpg" alt="Голубая футболка сзади" loading="lazy" decoding="async">
+    <div class="look__pics look__pics--fan">
+      <div class="fan">
+        <div class="fan__ph fan__ph--l">
+          <img src="/onboarding/look-19.jpg" alt="Голубая футболка спереди" loading="lazy" decoding="async">
+        </div>
+        <div class="fan__ph fan__ph--mid">
+          <img src="/onboarding/look-05.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
+        </div>
+        <div class="fan__ph fan__ph--r">
+          <img src="/onboarding/look-10.jpg" alt="Голубая футболка сзади" loading="lazy" decoding="async">
+        </div>
       </div>
     </div>
     <div class="look__txt">
@@ -923,20 +982,24 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
       <p class="look__d">Спереди, сзади и вполоборота, при одном свете — цвет на экране такой же, каким приедет.</p>
     </div>
   </div>
+  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
 </section>
 
 <!-- Красная тремя кадрами, зеркально второму развороту: высокий кадр справа. -->
-<section class="look snap" data-look data-flip>
+<section class="look look--lead snap" data-look data-flip>
+  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
   <div class="look__in">
-    <div class="duo duo--mirror">
-      <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
-        <img src="/onboarding/look-03.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
-      </div>
-      <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-        <img src="/onboarding/look-20.jpg" alt="Красная футболка спереди, руки в карманах" loading="lazy" decoding="async" style="--op:center 8%">
-      </div>
-      <div class="duo__ph duo__ph--top">
-        <img src="/onboarding/look-21.jpg" alt="Красная футболка, взгляд через плечо" loading="lazy" decoding="async" style="--op:center 10%">
+    <div class="look__pics look__pics--duo">
+      <div class="duo duo--mirror">
+        <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
+          <img src="/onboarding/look-03.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
+        </div>
+        <div class="duo__ph duo__ph--lo" style="--ar:1/1">
+          <img src="/onboarding/look-20.jpg" alt="Красная футболка спереди, руки в карманах" loading="lazy" decoding="async" style="--op:center 8%">
+        </div>
+        <div class="duo__ph duo__ph--top">
+          <img src="/onboarding/look-21.jpg" alt="Красная футболка, взгляд через плечо" loading="lazy" decoding="async" style="--op:center 10%">
+        </div>
       </div>
     </div>
     <div class="look__txt">
@@ -945,6 +1008,7 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
       <p class="look__d">Любой пункт выдачи СДЭК на выбор, оплата картой на сайте. Статус заказа придёт в Telegram, если подключите бота.</p>
     </div>
   </div>
+  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
 </section>
 
 <!-- ====== финал ====== -->
