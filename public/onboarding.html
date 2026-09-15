@@ -680,9 +680,39 @@ img{display:block;max-width:100%}
    появлением, и отклик на касание ждал бы её задержки. */
 .tone:active i{transform:scale(.88)}
 
+/* --- видно, что цвета нажимаются ---
+   Кнопки-цвета читались как легенда к палитре, и разворот пролистывали, ни
+   разу не нажав. Поэтому, пока человек сам не нажал ни одного цвета, по
+   кнопкам по очереди «нажимает» рука, а кружок отзывается так же, как на
+   настоящее касание: сжимается и пускает кольцо. Подсказка под кнопками —
+   тёмная и крупнее, а не серая сноска. */
+.pal__row{position:relative}
+.tone i{position:relative}
+.tone i::after{
+  content:'';position:absolute;inset:-1px;border-radius:50%;
+  border:1.5px solid var(--ink);opacity:0;pointer-events:none
+}
+/* scale, а не transform: transform у кружка занят наведением и нажатием. */
+.tone.is-demo i{animation:toneTap .8s var(--out)}
+.tone.is-demo i::after{animation:toneRing 1.1s var(--out)}
+@keyframes toneTap{0%{scale:1}28%{scale:.84}62%{scale:1.07}100%{scale:1}}
+@keyframes toneRing{0%{opacity:.6;transform:scale(1)}100%{opacity:0;transform:scale(2)}}
+
+.pal__hand{
+  position:absolute;left:0;top:0;z-index:2;width:40px;height:40px;
+  pointer-events:none;opacity:0;
+  filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))
+}
+.pal__hand svg{display:block;width:100%;height:100%;overflow:visible}
+.pal__hand path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* Белая подложка под контуром — рука читается и на чёрном кружке, и на белом. */
+.pal__hand-halo path{stroke:#fff;stroke-width:4.6}
+.pal__hand-fill path{fill:#fff;stroke:none}
+.pal__hand-ink path{stroke:var(--ink);stroke-width:1.6}
+
 .pal__hint{
   position:relative;display:flex;align-items:center;gap:10px;margin-top:18px;
-  font-size:12.5px;line-height:1.4;color:var(--muted);
+  font-size:13px;font-weight:500;line-height:1.4;color:var(--ink);
   opacity:0;transition:opacity .8s var(--ease) .9s
 }
 .pal.is-in .pal__hint{opacity:1}
@@ -1293,7 +1323,7 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
   if(row){
     var hint = document.createElement('p');
     hint.className = 'pal__hint';
-    hint.textContent = 'Нажмите на цвет — покажем его вживую';
+    hint.textContent = 'Нажмите на любой цвет — покажем его вживую';
     row.parentNode.insertBefore(hint, row.nextSibling);
   }
 
@@ -1509,9 +1539,95 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
     }
   }catch(_){}
 
+  /* --- рука показывает, что цвета нажимаются ---
+     Пока человек не нажал ни одного цвета сам, рука по очереди «нажимает» на
+     кнопки: подходит снизу справа, жмёт — кружок отзывается, — и уходит.
+     Пять нажатий подряд, потом пауза; кнопки ушли с экрана — рука стоит.
+     Первое своё нажатие выключает её насовсем, и в следующие визиты тоже. */
+  var TAPPED = 'lc_tone_tapped';
+  var tapped = false;
+  try{ tapped = localStorage.getItem(TAPPED) === '1'; }catch(_){}
+  /* Рука с поднятым указательным в квадрате 24x24, кончик пальца — точка
+     (10,5; 3). HAND — контур и складки пальцев, SHAPE — тот же силуэт
+     замкнутым, им ладонь заливается белым. */
+  var HAND = [
+    'M9 16V4.5a1.5 1.5 0 0 1 3 0V12',
+    'M12 10.5a1.5 1.5 0 0 1 3 0V12',
+    'M15 11a1.5 1.5 0 0 1 3 0V12.5',
+    'M18 12a1.5 1.5 0 0 1 3 0V16c0 3.9-2.9 6-6.2 6h-1.6c-2.1 0-3.4-.7-4.6-2l-3.3-3.6a1.5 1.5 0 0 1 2.2-2L9 16'
+  ];
+  var SHAPE = 'M9 16V4.5a1.5 1.5 0 0 1 3 0V10.5a1.5 1.5 0 0 1 3 0V11a1.5 1.5 0 0 1 3 0V12a1.5 1.5 0 0 1 3 0V16c0 3.9-2.9 6-6.2 6h-1.6c-2.1 0-3.4-.7-4.6-2l-3.3-3.6a1.5 1.5 0 0 1 2.2-2L9 16Z';
+  var hand = null, demoTimer = 0, pressTimer = 0, demoStep = 0, palSeen = false;
+
+  function stopDemo(){
+    clearTimeout(demoTimer);
+    clearTimeout(pressTimer);
+    if(hand && hand.getAnimations) hand.getAnimations().forEach(function(a){ a.cancel(); });
+  }
+
+  function markTapped(){
+    if(tapped) return;
+    tapped = true;
+    try{ localStorage.setItem(TAPPED, '1'); }catch(_){}
+    stopDemo();
+  }
+
+  function demo(){
+    clearTimeout(demoTimer);
+    if(tapped || !palSeen || isOpen) return;
+    var t = list[demoStep % total];
+    var circle = t.chip.querySelector('i');
+    var box = row.getBoundingClientRect(), c = circle.getBoundingClientRect();
+    var s = hand.offsetWidth;
+    /* Кончик пальца — в середину кружка. */
+    var x = c.left - box.left + c.width / 2 - s * 10.5 / 24;
+    var y = c.top - box.top + c.height / 2 - s * 3 / 24;
+    function at(dx, dy, sc){ return 'translate(' + (x + dx).toFixed(1) + 'px,' + (y + dy).toFixed(1) + 'px) scale(' + sc + ')'; }
+    /* Плавность — на каждом отрезке, а не на всём движении: иначе общая
+       кривая сдвигает время, и дно нажатия приходится не на 52%, а на треть
+       пути — рука успевала уйти раньше, чем кружок отзывался. */
+    var E = 'cubic-bezier(.4,0,.2,1)';
+    hand.animate([
+      { opacity: 0, transform: at(26, 30, 1), easing: E },
+      { opacity: 1, transform: at(5, 7, 1), offset: .38, easing: E },
+      { opacity: 1, transform: at(0, 0, .88), offset: .52, easing: E },
+      { opacity: 1, transform: at(4, 6, 1), offset: .7, easing: E },
+      { opacity: 0, transform: at(24, 28, 1) }
+    ], { duration: 1700, fill: 'both' });
+    /* Кружок отзывается в миг «нажатия». */
+    pressTimer = setTimeout(function(){
+      if(tapped) return;
+      t.chip.classList.remove('is-demo');
+      void t.chip.offsetWidth;
+      t.chip.classList.add('is-demo');
+    }, 1700 * .52);
+    demoStep++;
+    demoTimer = setTimeout(demo, demoStep % total ? 3200 : 6500);
+  }
+
+  if(row && !tapped && !reduce && document.body.animate && 'IntersectionObserver' in window){
+    hand = document.createElement('span');
+    hand.className = 'pal__hand';
+    hand.setAttribute('aria-hidden', 'true');
+    var d = HAND.map(function(p){ return '<path d="' + p + '"/>'; }).join('');
+    hand.innerHTML = '<svg viewBox="0 0 24 24"><g class="pal__hand-halo">' + d + '</g>' +
+      '<g class="pal__hand-fill"><path d="' + SHAPE + '"/></g><g class="pal__hand-ink">' + d + '</g></svg>';
+    row.appendChild(hand);
+    /* Смотрим на сами кнопки, а не на весь разворот: на телефоне лёжа
+       разворот выше экрана, 60% его не видно никогда — и рука не выходила
+       вовсе, хотя кнопки были прямо перед глазами. */
+    new IntersectionObserver(function(rows){
+      palSeen = rows[rows.length - 1].intersectionRatio >= .9;
+      if(!palSeen){ stopDemo(); return; }
+      /* Первый раз ждём, пока кнопки проявятся, дальше — почти сразу. */
+      clearTimeout(demoTimer);
+      demoTimer = setTimeout(demo, demoStep ? 700 : 1500);
+    }, { threshold: 0.9 }).observe(row);
+  }
+
   list.forEach(function(t, i){
     /* detail = 0 — «клик» пришёл с Enter или пробела, а не от пальца. */
-    t.chip.addEventListener('click', function(e){ open(i, t.chip, e.detail === 0); });
+    t.chip.addEventListener('click', function(e){ markTapped(); open(i, t.chip, e.detail === 0); });
     /* Палец коснулся — тянем снимки заранее, пока он ещё не отпущен. */
     t.chip.addEventListener('pointerdown', function(){ warm(i); }, { passive: true });
   });
