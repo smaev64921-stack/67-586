@@ -649,6 +649,9 @@ s{color:var(--muted2)}
   opacity:0;transform:scale(1.04);transition:opacity .4s var(--ease), transform .6s var(--ease)}
 .hcs__ph img.on{opacity:1;transform:none}
 .hcs__pics figcaption{margin-top:7px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+/* Пока грузятся снимки нового цвета, прежние чуть гаснут — видно, что
+   шторка ответила на нажатие, и ничего не моргает серым. */
+.hcs__pics.is-wait{opacity:.45;transition:opacity .2s var(--ease)}
 .hcs__tones{display:flex;justify-content:center;gap:12px;padding:14px 0 2px}
 .hcs__t{
   width:40px;height:40px;border-radius:var(--r-pill);padding:0;
@@ -8558,22 +8561,29 @@ function homeDuoHTML(){
 }
 
 let hcsIdx = 0;
+function hcsPicsHTML(t){
+  return t.shots.map(s => `
+    <figure><div class="hcs__ph"><img src="/onboarding/${s[0]}.jpg" alt="${t.name}: ${s[1] === 'Он' ? 'на нём' : 'на ней'}, ${s[2]}" decoding="async"></div>
+      <figcaption>${s[1]} · ${s[2]}</figcaption></figure>`).join('');
+}
+function hcsHeadHTML(t){ return `<i class="hcs__dot" style="${toneVars(t)}"></i>${t.name}`; }
+function hcsFootHTML(t){
+  const p = toneProduct(t);
+  return p
+    ? `<button class="btn" data-a="open:${p.id}">${esc(p.name)} · ${money(p.price)}</button>`
+    : `<button class="btn" data-a="go:catalog">Смотреть в каталоге</button>`;
+}
 function hcsInner(i){
   const t = HOME_TONES[i];
-  const p = toneProduct(t);
   return `<div class="sheet__g"></div>
-    <div class="sheet__h"><span class="sheet__t"><i class="hcs__dot" style="${toneVars(t)}"></i>${t.name}</span>
+    <div class="sheet__h"><span class="sheet__t">${hcsHeadHTML(t)}</span>
       <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button></div>
     <div class="sheet__b">
-      <div class="hcs__pics">${t.shots.map(s => `
-        <figure><div class="hcs__ph"><img src="/onboarding/${s[0]}.jpg" alt="${t.name}: ${s[1] === 'Он' ? 'на нём' : 'на ней'}, ${s[2]}" decoding="async"></div>
-          <figcaption>${s[1]} · ${s[2]}</figcaption></figure>`).join('')}</div>
+      <div class="hcs__pics">${hcsPicsHTML(t)}</div>
       <div class="hcs__tones" role="group" aria-label="Другие цвета">${HOME_TONES.map((x, k) => `
         <button class="hcs__t" data-hcs="${k}" style="${toneVars(x)}" aria-label="${x.name}" aria-current="${k === i}"></button>`).join('')}</div>
     </div>
-    <div class="sheet__f">${p
-      ? `<button class="btn" data-a="open:${p.id}">${esc(p.name)} · ${money(p.price)}</button>`
-      : `<button class="btn" data-a="go:catalog">Смотреть в каталоге</button>`}</div>`;
+    <div class="sheet__f">${hcsFootHTML(t)}</div>`;
 }
 
 /* Снимки цвета тянем заранее: по касанию кружка (палец ещё не отпущен) и
@@ -8601,15 +8611,40 @@ function sheetHomeColor(i){
   hcsWarm(hcsIdx + 1); hcsWarm(hcsIdx - 1);
 }
 
-/* Смена цвета внутри открытой шторки — на месте, без повторного выезда. */
+/* Смена цвета внутри открытой шторки. Название, кружки и кнопка меняются
+   сразу, а снимки — когда новые загрузятся: иначе на их месте моргал бы
+   серый прямоугольник. Ждём не дольше секунды, дальше показываем как есть. */
 function hcsShow(i){
   const box = ov.querySelector('.hcs');
   if(!box) return sheetHomeColor(i);
-  hcsIdx = (i + HOME_TONES.length) % HOME_TONES.length;
-  box.setAttribute('aria-label', 'Цвет ' + HOME_TONES[hcsIdx].name);
-  box.innerHTML = hcsInner(hcsIdx);
-  hcsReveal(box);
-  hcsWarm(hcsIdx + 1); hcsWarm(hcsIdx - 1);
+  const k = (i + HOME_TONES.length) % HOME_TONES.length;
+  if(k === hcsIdx) return;
+  hcsIdx = k;
+  const t = HOME_TONES[k];
+  box.setAttribute('aria-label', 'Цвет ' + t.name);
+  const head = box.querySelector('.sheet__t');
+  if(head) head.innerHTML = hcsHeadHTML(t);
+  const foot = box.querySelector('.sheet__f');
+  if(foot) foot.innerHTML = hcsFootHTML(t);
+  box.querySelectorAll('.hcs__t').forEach((b, n) => b.setAttribute('aria-current', n === k));
+  const pics = box.querySelector('.hcs__pics');
+  if(pics) pics.classList.add('is-wait');
+  hcsWarm(k + 1); hcsWarm(k - 1);
+
+  const loaded = Promise.all(t.shots.map(sh => new Promise(res => {
+    const im = new Image();
+    im.onload = im.onerror = res;
+    im.src = `/onboarding/${sh[0]}.jpg`;
+  })));
+  Promise.race([loaded, new Promise(r => setTimeout(r, 1000))]).then(() => {
+    const cur = ov.querySelector('.hcs');
+    if(!cur || hcsIdx !== k) return;
+    const box2 = cur.querySelector('.hcs__pics');
+    if(!box2) return;
+    box2.innerHTML = hcsPicsHTML(t);
+    box2.classList.remove('is-wait');
+    hcsReveal(cur);
+  });
 }
 
 document.addEventListener('click', e => {
