@@ -476,7 +476,11 @@ app.get('/api/cdek/cities', async (req, res) => {
   if (q.length < 2 && !hasGeo) return res.json({ cities: [] });
   if (cdek.configured()) {
     try {
-      return res.json({ cities: await cdek.searchCities(q, geo) });
+      const live = await cdek.searchCities(q, geo);
+      /* Пустой ответ живого API — ещё не «нет такого города»: он ищет строго
+         по началу названия и не прощает опечаток. Справочник прощает, и
+         пустой экран покупателю лучше не показывать. */
+      if (live.length) return res.json({ cities: live });
     } catch (e) {
       console.warn('СДЭК города:', e.message, '— отвечаем из справочника');
     }

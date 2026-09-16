@@ -17,6 +17,7 @@
    тот же справочник.
    ========================================================== */
 
+const { cityQuery, looksLikeCity } = require('./city-query');
 const fs = require('fs');
 const path = require('path');
 
@@ -221,8 +222,15 @@ function cities() {
   return citiesCache;
 }
 
+/* 0 — то самое имя, 1 — начинается с запроса, 2 — просто содержит. */
+function rank(city, needle) {
+  if (city === needle) return 0;
+  return city.startsWith(needle) ? 1 : 2;
+}
+
 function searchCities(q, { lat, lng } = {}) {
-  const needle = norm(q);
+  /* «екб» и «г. Екатеринбург» превращаем в «Екатеринбург» до поиска. */
+  const needle = norm(cityQuery(q));
   const hasGeo = Number.isFinite(+lat) && Number.isFinite(+lng) && (+lat || +lng);
   let list = cities();
 
@@ -232,10 +240,21 @@ function searchCities(q, { lat, lng } = {}) {
     list = list
       .filter((c) => norm(c.city).includes(needle))
       .sort((a, b) => {
-        const sa = norm(a.city).startsWith(needle) ? 0 : 1;
-        const sb = norm(b.city).startsWith(needle) ? 0 : 1;
-        return sa - sb || b.points - a.points;
+        /* Точное имя вперёд всех: по запросу «Ишим» первым должен стоять
+           Ишим, а не Ишимбай, где пунктов больше. Дальше — совпадение с
+           начала названия, и только потом размер города. */
+        const ra = rank(norm(a.city), needle);
+        const rb = rank(norm(b.city), needle);
+        return ra - rb || b.points - a.points;
       });
+    /* Ничего не нашли — значит, скорее всего, опечатка: «екатеринбрг».
+       Прощаем одну-две буквы, но только когда точного совпадения нет,
+       чтобы «омск» не притащил «Томск» впереди самого Омска. */
+    if (!list.length) {
+      list = cities()
+        .filter((c) => looksLikeCity(needle, c.city))
+        .sort((a, b) => b.points - a.points);
+    }
   } else if (hasGeo) {
     const me = { lat: +lat, lng: +lng };
     list = list

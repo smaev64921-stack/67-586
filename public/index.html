@@ -3155,6 +3155,11 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 @media (max-width:359px){ .hd__brand--sub{display:none} }
 
 .pvz__manual{margin:0 0 4px}
+/* Выходы из красной плашки: города в один тап и ручной адрес. */
+.pvz__fix-l{display:block;margin-top:12px;font-size:12.5px;font-weight:600;color:var(--ink)}
+.pvz__fix{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pvz__fix .chip{animation:popIn .3s var(--ease) both}
+.pvz__fix-b{display:block;width:100%;margin-top:12px}
 .pvz__ta{
   width:100%;min-height:88px;resize:vertical;margin-top:6px;margin-bottom:12px;
   font-size:14px;line-height:1.45
@@ -5102,7 +5107,15 @@ function pvzPaint(){
     return;
   }
   if(pvzView.error){
-    box.innerHTML = `<div class="pvz__state pvz__state--err"><b>Не удалось загрузить пункты</b>${esc(pvzView.error)}</div>`;
+    /* Плашка не тупик: рядом города в один тап и ручной адрес — покупателю
+       должно быть понятно, что делать дальше, а не только что пошло не так. */
+    box.innerHTML = `<div class="pvz__state pvz__state--err">
+      <b>Не удалось загрузить пункты</b>${esc(pvzView.error)}
+      <span class="pvz__fix-l">Выберите город:</span>
+      <span class="pvz__fix">${PVZ_POPULAR.map(c => `
+        <button type="button" class="chip" data-a="pvzcityname:${encodeURIComponent(c)}">${esc(c)}</button>`).join('')}</span>
+      <button type="button" class="ghb pvz__fix-b" data-a="pvzhand">Вписать адрес руками</button>
+    </div>`;
     const mapBox = document.getElementById('pvzMap');
     if(mapBox && !mapBox.querySelector('canvas, .leaflet-pane')){
       mapBox.innerHTML = '<span class="pvz__map-s">Пункты не загрузились</span>';
@@ -5132,6 +5145,10 @@ function pvzPaint(){
     }).join('') : `<p class="none" style="padding:22px 12px">В этом городе пунктов пока нет</p>`}
     ${total > list.length ? `<button type="button" class="ghb pvz__more" data-a="pvzmore">Показать все · ${total}</button>` : ''}`;
 }
+
+/* Города, которые чаще всего заказывают, — на случай, когда поиск не помог
+   или геолокация не сработала. Тап подставляет название в поиск. */
+const PVZ_POPULAR = ['Москва','Санкт-Петербург','Екатеринбург','Новосибирск','Казань','Тюмень','Челябинск','Краснодар'];
 
 function bindPvzSearch(){
   const input = document.getElementById('pvzSearch');
@@ -5170,7 +5187,7 @@ async function pvzSearchCity(force){
     pvzView.loading = false;
     if(!pvzView.cities.length){
       pvzView.points = [];
-      pvzSetError('СДЭК не нашёл такой город. Попробуйте написать город без сокращений.');
+      pvzSetError('Не нашли такой город. Проверьте написание — или выберите из списка ниже.');
       return;
     }
     pvzView.city = pvzView.cities[0];
@@ -5229,8 +5246,16 @@ function pvzLocate(force){
     },
     () => {
       pvzView.geo = 'deny';
-      pvzPaint();
+      /* Ничего ещё не выбрано — покупателю нужен следующий шаг прямо здесь,
+         всплывашка уедет, а он останется перед пустой картой. */
+      if(!pvzView.city && !pvzView.points.length){
+        pvzSetError('Не нашли вас по геолокации — напишите город в поле выше.');
+      } else {
+        pvzPaint();
+      }
       if(force) toast('Не получилось определить положение — введите город');
+      const inp = document.getElementById('pvzSearch');
+      if(inp && force) inp.focus();
     },
     {timeout: 8000, maximumAge: 300000}
   );
@@ -12244,6 +12269,26 @@ document.addEventListener('click', e => {
       else pvzLocate(true);
       break;
     case 'pvzmore': pvzView.all = true; pvzPaint(); pvzDrawMap(); break;
+    /* Город из подсказки: подставляем в поиск и ищем сразу — покупателю
+       не надо набирать его руками. */
+    case 'pvzcityname': {
+      const name = decodeURIComponent(a);
+      const inp = document.getElementById('pvzSearch');
+      if(inp) inp.value = name;
+      pvzView.q = name;
+      pvzSearchCity(true);
+      break;
+    }
+    /* Пункта нет или город не ищется — открываем поле «адрес руками». */
+    case 'pvzhand': {
+      const box = document.querySelector('.pvz__by-hand');
+      if(box){
+        box.open = true;
+        box.scrollIntoView({block:'center', behavior:'smooth'});
+        setTimeout(() => document.getElementById('pvzAddr')?.focus(), 320);
+      }
+      break;
+    }
     case 'pvzpick': pvzPick(decodeURIComponent(el.dataset.a.slice(8))); break;
 
     case 'rvto': {

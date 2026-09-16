@@ -1,3 +1,4 @@
+const { cityQuery } = require('./city-query');
 const CDEK_API_URL = (process.env.CDEK_API_URL || 'https://api.cdek.ru/v2').replace(/\/+$/, '');
 const CLIENT_ID = () => String(
   process.env.CDEK_CLIENT_ID ||
@@ -141,7 +142,9 @@ function normalizePoint(p) {
 }
 
 async function searchCities(q, { lat, lng } = {}) {
-  const city = String(q || '').trim();
+  /* «екб», «г. Екатеринбург» — приводим к тому, что понимает API СДЭК:
+     он ищет строго по началу названия. */
+  const city = cityQuery(q);
   const hasGeo = Number.isFinite(+lat) && Number.isFinite(+lng) && +lat !== 0 && +lng !== 0;
   if (city.length < 2 && !hasGeo) return [];
   const data = await cdekFetch('/location/cities', {
