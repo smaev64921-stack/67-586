@@ -594,6 +594,92 @@ s{color:var(--muted2)}
   transition:color var(--dur) var(--ease)}
 .sec__all:hover{color:var(--ink)}
 
+/* ===================== ГЛАВНАЯ: «ВЫБЕРИ СВОЙ ЦВЕТ» И «ОН И ОНА» =====================
+   Два блока под «Новинками» — продолжение знакомства в самом магазине.
+   Кружки цветов сделаны как «истории»: фото человека в футболке этого
+   цвета внутри кольца-растяжки — такой кружок хочется нажать, и все
+   понимают, что он нажимается. По нажатию выезжает шторка со снимками на
+   ней и на нём и кнопкой прямо в эту футболку.
+   Блок самостоятельный: убрать — значит удалить этот CSS, блок скрипта
+   с той же пометкой и одну строку в scrHome(). */
+.hcol{padding:0 0 6px}
+.hcol__d{padding:0 var(--pad);font-size:13px;line-height:1.5;color:var(--muted)}
+.hcol__row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:16px calc(var(--pad) - 4px) 8px}
+.hcol__b{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;padding:0}
+/* Кольцо — растяжка того же цвета, что у кружков в знакомстве; между кольцом
+   и фото полоса фона, как у историй. */
+.hcol__ring{
+  width:100%;max-width:64px;aspect-ratio:1/1;border-radius:var(--r-pill);padding:2.5px;
+  background:linear-gradient(135deg,var(--a) 0%,var(--b) 100%);
+  box-shadow:0 0 0 1px rgba(0,0,0,.08);
+  transition:transform .2s var(--ease)
+}
+.hcol__ring img{
+  display:block;width:100%;height:100%;border-radius:var(--r-pill);object-fit:cover;
+  border:2.5px solid var(--bg);background:var(--line)
+}
+.hcol__b:active .hcol__ring{transform:scale(.93)}
+.hcol__n{font-size:11.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+
+/* «Он и она»: две плитки во весь рост, подпись поверх затемнения снизу. */
+.hduo{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px var(--pad) 26px}
+.hduo__i{
+  position:relative;display:block;overflow:hidden;border-radius:var(--r-lg);
+  aspect-ratio:2/3;background:var(--line);text-align:left;padding:0
+}
+.hduo__i img{width:100%;height:100%;object-fit:cover;object-position:center 12%;transition:transform .6s var(--ease)}
+.hduo__i:hover img{transform:scale(1.03)}
+.hduo__i::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,0) 52%,rgba(0,0,0,.58) 100%)
+}
+.hduo__l{position:absolute;left:12px;right:12px;bottom:12px;z-index:1;color:#fff;display:flex;flex-direction:column;gap:3px}
+.hduo__l b{font-size:17px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;text-shadow:0 1px 10px rgba(0,0,0,.35)}
+.hduo__l span{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;opacity:.92}
+.hduo__l .ic{width:14px;height:14px}
+
+/* Шторка цвета: два снимка рядом, подписи, кружки, кнопка в товар. */
+.hcs__dot{display:inline-block;width:18px;height:18px;border-radius:var(--r-pill);vertical-align:-3px;margin-right:9px;
+  background:linear-gradient(90deg,var(--a),var(--b));box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)}
+.hcs__pics{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:10px;touch-action:pan-y}
+.hcs__pics figure{margin:0;min-width:0}
+.hcs__ph{position:relative;aspect-ratio:2/3;overflow:hidden;border-radius:var(--r-md);background:var(--line)}
+/* Снимок проявляется, когда загрузился, — а не вспыхивает поверх серого. */
+.hcs__ph img{width:100%;height:100%;object-fit:cover;object-position:center 12%;
+  opacity:0;transform:scale(1.04);transition:opacity .4s var(--ease), transform .6s var(--ease)}
+.hcs__ph img.on{opacity:1;transform:none}
+.hcs__pics figcaption{margin-top:7px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.hcs__tones{display:flex;justify-content:center;gap:12px;padding:14px 0 2px}
+.hcs__t{
+  width:40px;height:40px;border-radius:var(--r-pill);padding:0;
+  background:linear-gradient(90deg,var(--a),var(--b));box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);
+  transition:box-shadow .2s var(--ease), transform .16s var(--ease)
+}
+.hcs__t[aria-current="true"]{box-shadow:inset 0 0 0 1px rgba(0,0,0,.16),0 0 0 3px var(--card),0 0 0 4.5px var(--ink)}
+.hcs__t:active{transform:scale(.9)}
+.hcs .sheet__f .btn{width:100%}
+/* Шторка не выше экрана и на низком телефоне: снимки мельче, а не обрезаны. */
+@media (max-height:700px){ .hcs__pics{max-width:calc((86vh - 250px) * 1.333 + 8px);margin:0 auto} }
+@media (prefers-reduced-motion:reduce){ .hcs__ph img{transition:none;transform:none} }
+/* На широком экране — по сетке товаров (1200 px, поля 32): кружки подряд и
+   крупнее, а не разбросаны на всю ширину; плитки «Он и она» квадратные —
+   в пропорции 2:3 на пол-экрана каждая была бы выше самого экрана. */
+@media (min-width:760px){
+  .hcol{max-width:1200px;margin:0 auto;padding:0 32px 8px}
+  .hcol .sec__h{padding-left:0;padding-right:0;max-width:none}
+  .hcol__d{padding:0}
+  .hcol__row{display:flex;gap:28px;padding:18px 0 8px}
+  .hcol__b{width:88px}
+  .hcol__ring{max-width:88px}
+  .hcol__n{font-size:12.5px}
+  .hduo{max-width:1200px;margin:0 auto;padding:8px 32px 40px;gap:18px}
+  .hduo__i{aspect-ratio:1/1}
+  .hduo__i img{object-position:center 18%}
+  .hduo__l{left:22px;right:22px;bottom:20px}
+  .hduo__l b{font-size:24px}
+  .hduo__l span{font-size:14px}
+}
+
 /* ===================== БОКОВОЕ МЕНЮ (БУРГЕР) ===================== */
 .mnu{
   position:fixed;top:0;bottom:0;left:0;z-index:120;width:min(84vw,340px);
@@ -8398,9 +8484,140 @@ function scrHome(){
     <button class="sec__all" data-a="go:catalog">Смотреть все ${svg('arrowR','ic ic--sm')}</button>
   </div>
   <div class="grid">${nw.map(cardHTML).join('')}</div>
+  ${homeColorsHTML()}${homeDuoHTML()}
   ${siteFooter()}
   <button class="fab" data-a="chat" aria-label="Написать нам">${svg('chat')}</button>`;
 }
+
+/* ==========================================================
+   ГЛАВНАЯ: «ВЫБЕРИ СВОЙ ЦВЕТ» И «ОН И ОНА»
+   Стили — в блоке с той же пометкой. Снимки те же, что в знакомстве
+   (/onboarding/), к моменту главной они уже лежат в кэше; для кружков —
+   маленькие вырезки /home/color-N.webp.
+   ========================================================== */
+/* Цвета в том же порядке, что в знакомстве. re — как узнать футболку этого
+   цвета в каталоге по названию её цвета: у товаров цвета заданы админом,
+   и «Mokko» там — это наш «Шоколад». Мужской съёмки в красном и голубом
+   нет, женской в белом тоже — там два ракурса одного человека. */
+const HOME_TONES = [
+  {name:'Чёрный',  a:'#000000', b:'#e2e2e2', re:/ч[её]рн|black/i,           shots:[['look-16','Она','спереди'],['look-23','Он','спереди']]},
+  {name:'Шоколад', a:'#33201a', b:'#d9c6ba', re:/mokko|мокко|шокол|коричн/i, shots:[['look-22','Она','спереди'],['look-18','Он','спереди']]},
+  {name:'Красный', a:'#b00d16', b:'#ff9ea2', re:/красн|red/i,                shots:[['look-20','Она','спереди'],['look-11','Она','сзади']]},
+  {name:'Голубой', a:'#5ea2dd', b:'#eaf4fd', re:/голуб|blue/i,               shots:[['look-19','Она','спереди'],['look-10','Она','сзади']]},
+  {name:'Белый',   a:'#cfcfcf', b:'#ffffff', re:/молоч|бел|white/i,          shots:[['look-02','Он','спереди'],['look-12','Он','сбоку']]}
+];
+const toneVars = t => `--a:${t.a};--b:${t.b}`;
+
+/* Футболка этого цвета из каталога: в продаже и с таким названием цвета. */
+function toneProduct(t){
+  return PRODUCTS.find(p => p.on && p.cat === 'Футболки' &&
+    (p.colors || []).some(c => c && t.re.test(String(c.name || '')))) || null;
+}
+
+function homeColorsHTML(){
+  return `<section class="hcol">
+    <div class="sec__h"><h2 class="sec__t">Выбери свой цвет</h2></div>
+    <p class="hcol__d">Нажмите на цвет — покажем его вживую.</p>
+    <div class="hcol__row">${HOME_TONES.map((t, i) => `
+      <button class="hcol__b" data-hc="${i}" aria-haspopup="dialog" aria-label="${t.name}: показать вживую">
+        <span class="hcol__ring" style="${toneVars(t)}"><img src="/home/color-${i + 1}.webp" alt="" loading="lazy" decoding="async" width="200" height="200"></span>
+        <span class="hcol__n">${t.name}</span>
+      </button>`).join('')}</div>
+  </section>`;
+}
+
+/* «Для него» ведёт в унисекс, а не в «Мужское»: мужских моделей в каталоге
+   пока нет, оверсайз — унисекс, и именно он на снимках Левы. */
+function homeDuoHTML(){
+  return `<div class="sec__h"><h2 class="sec__t">Он и она</h2></div>
+  <div class="hduo">
+    <button class="hduo__i" data-a="gen:w"><img src="/onboarding/look-20.jpg" alt="" loading="lazy" decoding="async">
+      <span class="hduo__l"><b>Для неё</b><span>Женские футболки ${svg('arrowR','ic')}</span></span></button>
+    <button class="hduo__i" data-a="gen:u"><img src="/onboarding/look-12.jpg" alt="" loading="lazy" decoding="async">
+      <span class="hduo__l"><b>Для него</b><span>Оверсайз унисекс ${svg('arrowR','ic')}</span></span></button>
+  </div>`;
+}
+
+let hcsIdx = 0;
+function hcsInner(i){
+  const t = HOME_TONES[i];
+  const p = toneProduct(t);
+  return `<div class="sheet__g"></div>
+    <div class="sheet__h"><span class="sheet__t"><i class="hcs__dot" style="${toneVars(t)}"></i>${t.name}</span>
+      <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button></div>
+    <div class="sheet__b">
+      <div class="hcs__pics">${t.shots.map(s => `
+        <figure><div class="hcs__ph"><img src="/onboarding/${s[0]}.jpg" alt="${t.name}: ${s[1] === 'Он' ? 'на нём' : 'на ней'}, ${s[2]}" decoding="async"></div>
+          <figcaption>${s[1]} · ${s[2]}</figcaption></figure>`).join('')}</div>
+      <div class="hcs__tones" role="group" aria-label="Другие цвета">${HOME_TONES.map((x, k) => `
+        <button class="hcs__t" data-hcs="${k}" style="${toneVars(x)}" aria-label="${x.name}" aria-current="${k === i}"></button>`).join('')}</div>
+    </div>
+    <div class="sheet__f">${p
+      ? `<button class="btn" data-a="open:${p.id}">${esc(p.name)} · ${money(p.price)}</button>`
+      : `<button class="btn" data-a="go:catalog">Смотреть в каталоге</button>`}</div>`;
+}
+
+/* Снимки цвета тянем заранее: по касанию кружка (палец ещё не отпущен) и
+   соседние цвета — как только шторка открылась. */
+const hcsWarmed = {};
+function hcsWarm(i){
+  HOME_TONES[(i + HOME_TONES.length) % HOME_TONES.length].shots.forEach(s => {
+    if(hcsWarmed[s[0]]) return;
+    hcsWarmed[s[0]] = true;
+    new Image().src = `/onboarding/${s[0]}.jpg`;
+  });
+}
+function hcsReveal(box){
+  box.querySelectorAll('.hcs__ph img').forEach(im => {
+    if(im.complete && im.naturalWidth) im.classList.add('on');
+    else im.addEventListener('load', () => im.classList.add('on'), {once:true});
+  });
+}
+
+function sheetHomeColor(i){
+  hcsIdx = (i + HOME_TONES.length) % HOME_TONES.length;
+  openOv(`<div class="scrim"></div><div class="sheet hcs" role="dialog" aria-modal="true" aria-label="Цвет ${HOME_TONES[hcsIdx].name}">${hcsInner(hcsIdx)}</div>`);
+  const box = ov.querySelector('.hcs');
+  if(box) hcsReveal(box);
+  hcsWarm(hcsIdx + 1); hcsWarm(hcsIdx - 1);
+}
+
+/* Смена цвета внутри открытой шторки — на месте, без повторного выезда. */
+function hcsShow(i){
+  const box = ov.querySelector('.hcs');
+  if(!box) return sheetHomeColor(i);
+  hcsIdx = (i + HOME_TONES.length) % HOME_TONES.length;
+  box.setAttribute('aria-label', 'Цвет ' + HOME_TONES[hcsIdx].name);
+  box.innerHTML = hcsInner(hcsIdx);
+  hcsReveal(box);
+  hcsWarm(hcsIdx + 1); hcsWarm(hcsIdx - 1);
+}
+
+document.addEventListener('click', e => {
+  const open = e.target.closest('[data-hc]');
+  if(open){ sheetHomeColor(+open.dataset.hc); return; }
+  const sw = e.target.closest('[data-hcs]');
+  if(sw) hcsShow(+sw.dataset.hcs);
+});
+document.addEventListener('pointerdown', e => {
+  const open = e.target.closest('[data-hc]');
+  if(open) hcsWarm(+open.dataset.hc);
+}, {passive:true});
+/* Свайп вбок по снимкам — соседний цвет, как в знакомстве. Слушаем документ,
+   а не #ov: этот код выполняется раньше, чем объявлен ov. */
+(() => {
+  let x0 = 0, y0 = 0, on = false;
+  document.addEventListener('touchstart', e => {
+    on = !!e.target.closest('.hcs__pics') && e.touches.length === 1;
+    if(on){ x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }
+  }, {passive:true});
+  document.addEventListener('touchend', e => {
+    if(!on) return;
+    on = false;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if(Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.3) hcsShow(hcsIdx + (dx < 0 ? 1 : -1));
+  }, {passive:true});
+})();
 
 
 /* ==========================================================
