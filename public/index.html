@@ -5194,7 +5194,7 @@ async function pvzSearchCity(force){
     pvzView.me = null;
     pvzView.byGeo = false;
     pvzView.geo = 'idle';
-    await pvzLoadPoints(q);
+    await pvzLoadPoints();
   }catch(e){
     if(req !== pvzView.req) return;
     pvzSetError(e.message || 'Ошибка поиска города СДЭК');
@@ -5261,7 +5261,30 @@ function pvzLocate(force){
   );
 }
 
-async function pvzLoadPoints(q){
+/* Чем фильтровать сами пункты внутри города.
+   Город уже выбран по коду, и сырой запрос тут только мешает: по «екб» или
+   «г. Екатеринбург» ни один адрес не совпадёт, и список окажется пустым при
+   найденном городе — ровно это и видел покупатель. Фильтруем, только если
+   человек дописал к городу что-то своё: улицу или номер дома. */
+function pvzPointFilter(){
+  /* Всё после запятой — область или регион, к адресу пункта отношения не
+     имеет: «Екатеринбург, Свердловская обл.» фильтровать по «свердловская»
+     значит остаться без единого пункта. */
+  const q = pvzNorm(String(pvzView.q || '').split(',')[0]);
+  const city = pvzNorm((pvzView.city && pvzView.city.city) || '');
+  if(!q) return '';
+  if(!city) return q;
+  if(!q.includes(city)) return '';          /* город узнан по сокращению или опечатке */
+  const rest = q.replace(city, ' ').replace(/(г|гор|город|пос|с|д|ст|обл|область|край|район)/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  return rest.length >= 3 ? rest : '';
+}
+function pvzNorm(s){
+  return String(s || '').toLowerCase().replace(/ё/g, 'е')
+    .replace(/[^a-zа-я0-9\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
+async function pvzLoadPoints(){
   if(!window.LC) return pvzSetError('API сайта недоступен');
   if(!pvzView.city && !pvzView.byGeo) return pvzSetError('Сначала выберите город');
   const req = ++pvzView.req;
@@ -5273,11 +5296,26 @@ async function pvzLoadPoints(q){
       city_code: pvzView.byGeo ? '' : (pvzView.city && pvzView.city.code),
       lat: pvzView.me && pvzView.me.lat,
       lng: pvzView.me && pvzView.me.lng,
-      q: q || '',
+      q: pvzPointFilter(),
       limit: 120
     });
     if(req !== pvzView.req) return;
-    pvzView.points = (raw || []).map(pvzNormalizePoint);
+    let list = raw || [];
+    /* Фильтр съел всё, а в городе пункты есть — значит человек дописал к
+       городу что-то, чего нет в адресах. Показываем весь город, это лучше
+       пустого экрана. */
+    if(!list.length && pvzPointFilter()){
+      const again = await LC.cdekPoints({
+        city_code: pvzView.byGeo ? '' : (pvzView.city && pvzView.city.code),
+        lat: pvzView.me && pvzView.me.lat,
+        lng: pvzView.me && pvzView.me.lng,
+        q: '',
+        limit: 120
+      });
+      if(req !== pvzView.req) return;
+      list = again || [];
+    }
+    pvzView.points = list.map(pvzNormalizePoint);
     if(pvzView.me){
       pvzView.points = pvzView.points.map(p => ({
         ...p,
@@ -12262,10 +12300,10 @@ document.addEventListener('click', e => {
          что рядом с нами. */
       pvzView.byGeo = false;
       pvzView.city = (pvzView.cities || []).find(c => String(c.code) === String(decodeURIComponent(a))) || null;
-      pvzLoadPoints(pvzView.q);
+      pvzLoadPoints();
       break;
     case 'pvzgeo':
-      if(pvzView.me){ pvzView.me = null; pvzView.geo = 'idle'; pvzView.byGeo = false; pvzPaint(); pvzLoadPoints(pvzView.q); }
+      if(pvzView.me){ pvzView.me = null; pvzView.geo = 'idle'; pvzView.byGeo = false; pvzPaint(); pvzLoadPoints(); }
       else pvzLocate(true);
       break;
     case 'pvzmore': pvzView.all = true; pvzPaint(); pvzDrawMap(); break;

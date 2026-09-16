@@ -255,6 +255,16 @@ function searchCities(q, { lat, lng } = {}) {
         .filter((c) => looksLikeCity(needle, c.city))
         .sort((a, b) => b.points - a.points);
     }
+    /* «Екатеринбург Красный» — человек дописал улицу к городу. Город ищем по
+       первому слову, улицу потом отфильтрует сама витрина. */
+    if (!list.length && needle.includes(' ')) {
+      const first = needle.split(' ')[0];
+      if (first.length >= 3) {
+        list = cities()
+          .filter((c) => norm(c.city).startsWith(first))
+          .sort((a, b) => rank(norm(a.city), first) - rank(norm(b.city), first) || b.points - a.points);
+      }
+    }
   } else if (hasGeo) {
     const me = { lat: +lat, lng: +lng };
     list = list
