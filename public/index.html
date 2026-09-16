@@ -15878,8 +15878,25 @@ bootFromServer().catch((err) => {
     return true;
   }
 
+  /* Не с первого визита. Раньше полоса выезжала через 2,5 с после первого же
+     захода и закрывала главную — человек ещё не понял, что за магазин, а его
+     уже просят поставить значок. Теперь: со второго визита (визит — новая
+     вкладка или новый запуск) и не раньше чем через 20 с на сайте. Счётчик
+     в localStorage; нет хранилища (приватный режим) — не предлагаем вовсе. */
+  var VISITS_KEY = "lc_visits";
+  var visits = 1;
+  try{
+    visits = +(localStorage.getItem(VISITS_KEY) || 0);
+    if(!sessionStorage.getItem("lc_visit_on")){
+      visits += 1;
+      localStorage.setItem(VISITS_KEY, String(visits));
+      sessionStorage.setItem("lc_visit_on", "1");
+    }
+  }catch(e){ visits = 1; }
+  var OFFER_DELAY = 20000;
+
   function offerInstall(){
-    if(standalone || !dueNow() || !canInstall()) return;
+    if(standalone || visits < 2 || !dueNow() || !canInstall()) return;
     /* Показали — значит на сегодня хватит, чем бы человек ни ответил. */
     snooze(1);
     if(deferred){
@@ -15898,10 +15915,9 @@ bootFromServer().catch((err) => {
   window.addEventListener("beforeinstallprompt", function(e){
     e.preventDefault();          /* своё окно вместо стандартного браузерного */
     deferred = e;
-    /* Не в первую секунду: пусть человек сперва увидит, что за магазин. */
-    setTimeout(offerInstall, 2500);
+    setTimeout(offerInstall, OFFER_DELAY);
   });
-  if(iosSafari) setTimeout(offerInstall, 3500);
+  if(iosSafari) setTimeout(offerInstall, OFFER_DELAY);
 
   window.addEventListener("appinstalled", function(){
     deferred = null; hideBar(); closeAppModal();
