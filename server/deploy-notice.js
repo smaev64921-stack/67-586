@@ -13,10 +13,12 @@
  *   Не номер коммита: на хостинге разворачивается собранная папка, .git там
  *   может и не быть.
  *
- * Кому пишем. Всем админам бота плюс тем, кто связал Telegram со своим
- * админским аккаунтом на сайте — их находим по почте в таблице users.
- * Список складываем, а не выбираем один: у владельца бывает и бот-админ,
- * и обычный вход по почте, и заранее не угадать, что из этого настроено.
+ * Кому пишем. По умолчанию — только владельцу: первому chat id из списка
+ * админов бота. Раньше писали всем админам бота и всем админам сайта с
+ * привязанным Telegram — выкат касается одного человека, того, кто его
+ * запустил, и остальным это лишний шум.
+ * Адресата можно задать явно: DEPLOY_NOTICE_TO=123456789 (через запятую
+ * можно несколько). Пусто или «0» — не писать никому.
  */
 const crypto = require('crypto');
 const fs = require('fs');
@@ -68,30 +70,26 @@ function writeStored(data) {
   }
 }
 
-/** Chat id всех, кому уместно сообщить о выкате. */
+/** Chat id тех, кому сообщаем о выкате. */
 function recipients() {
-  const ids = new Set();
-
-  try {
-    const { getOwnerChatIds } = require('./tg-owner');
-    getOwnerChatIds().forEach((id) => ids.add(String(id)));
-  } catch (_) {}
-
-  /* Админы сайта: ищем по почте, как и просили. Связка «почта ↔ Telegram»
-     появляется, когда человек привязал бота в своём профиле. */
-  try {
-    const { db } = require('./db');
-    const { findLinkByUser } = require('./tg-users');
-    const rows = db.prepare("SELECT id, email FROM users WHERE role = 'admin'").all();
-    for (const r of rows) {
-      const link = findLinkByUser(r.id, r.email);
-      if (link && link.chatId) ids.add(String(link.chatId));
-    }
-  } catch (_) {
-    /* нет таблицы или связок — обойдёмся админами бота */
+  /* Явный адресат из окружения — сильнее всего остального. «0» или «-» —
+     осознанный отказ от уведомлений. */
+  const raw = String(process.env.DEPLOY_NOTICE_TO || '').trim();
+  if (raw) {
+    if (/^(0|-|off|no|нет)$/i.test(raw)) return [];
+    const only = raw.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /^-?\d+$/.test(x));
+    if (only.length) return only;
   }
 
-  return [...ids];
+  /* Иначе — владелец: первый chat id в списке админов бота. Он же получает
+     заказы, и это тот, кто выкат и запускает. */
+  try {
+    const { getOwnerChatIds } = require('./tg-owner');
+    const ids = getOwnerChatIds().map(String).filter(Boolean);
+    if (ids.length) return [ids[0]];
+  } catch (_) {}
+
+  return [];
 }
 
 function messageText(stamp, url) {
