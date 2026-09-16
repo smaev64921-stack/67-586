@@ -812,6 +812,17 @@ s{color:var(--muted2)}
 .col:hover{border-color:var(--muted)}
 .col:active{transform:scale(.94)}
 .col[aria-pressed="true"]{border-color:var(--ink);border-width:2px;padding:2px}
+/* «Другие цвета» на странице товара: кружок цвета и название — это ссылки
+   на соседние товары, поэтому с подписью, а не голые кружки, как выбор цвета. */
+.ocols{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+.ocol{
+  display:flex;align-items:center;gap:8px;padding:6px 13px 6px 6px;
+  border:1.5px solid var(--line2);border-radius:var(--r-pill);background:var(--card);
+  font-size:13px;font-weight:600;color:var(--ink);transition:border-color var(--dur) var(--ease), transform .16s var(--ease)
+}
+.ocol i{width:24px;height:24px;border-radius:var(--r-pill);flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.ocol:hover{border-color:var(--ink)}
+.ocol:active{transform:scale(.96)}
 
 .qsize__b:hover{border-color:var(--ink)}
 .qsize__b:active{transform:scale(.96)}
@@ -7043,6 +7054,23 @@ function paintQty(){
   if(!hide) box.innerHTML = qtyRowHTML(p);
 }
 
+/* «Другие цвета»: остальные вещи той же категории в продаже — кружком их
+   цвета и названием; нажали — открылась та вещь. Каждая футболка в
+   каталоге одного цвета, поэтому второй цвет — это другой товар, и без
+   этой строки до него добирались только через каталог. Товары без цвета
+   (или уже распроданные) не показываем. */
+function otherColorsHTML(p){
+  const others = PRODUCTS.filter(x => x.on && x.id !== p.id && x.cat === p.cat && !soldOut(x) &&
+    (x.colors || []).some(c => c && c.hex));
+  if(!others.length) return '';
+  return `<p class="pd__lab">Другие цвета</p>
+    <div class="ocols">${others.map(x => {
+      const c = x.colors.find(c => c && c.hex);
+      return `<button class="ocol" data-a="open:${x.id}" aria-label="${esc(x.name)}">
+        <i style="background:${esc(c.hex)}"></i><span>${esc(c.name)}</span></button>`;
+    }).join('')}</div>`;
+}
+
 function scrProduct(){
   const p = byId(S.productId);
   if(!p) return '<p class="none">Товар не найден</p>';
@@ -7091,6 +7119,7 @@ function scrProduct(){
       <div class="cols">${colors.map(c => `<button class="col" data-a="color:${encodeURIComponent(c.hex)}"
           aria-pressed="${S.color === c.hex}" aria-label="${esc(c.name)}" title="${esc(c.name)}">
           <i style="background:${esc(c.hex)}"></i></button>`).join('')}</div>` : ''}
+      ${otherColorsHTML(p)}
 
       ${sizes.length ? `<p class="pd__lab">Размер</p>
       <div class="sizes">${sizes.map(s => `<button class="size" data-a="size:${s}"
