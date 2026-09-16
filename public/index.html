@@ -897,18 +897,18 @@ s{color:var(--muted2)}
 .col i{display:block;width:100%;height:100%;border-radius:var(--r-pill);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
 .col:hover{border-color:var(--muted)}
 .col:active{transform:scale(.94)}
+.col{transition:border-color var(--dur) var(--ease), border-width .18s var(--ease),
+  padding .18s var(--ease), transform .16s var(--ease)}
 .col[aria-pressed="true"]{border-color:var(--ink);border-width:2px;padding:2px}
-/* «Другие цвета» на странице товара: кружок цвета и название — это ссылки
-   на соседние товары, поэтому с подписью, а не голые кружки, как выбор цвета. */
-.ocols{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
-.ocol{
-  display:flex;align-items:center;gap:8px;padding:6px 13px 6px 6px;
-  border:1.5px solid var(--line2);border-radius:var(--r-pill);background:var(--card);
-  font-size:13px;font-weight:600;color:var(--ink);transition:border-color var(--dur) var(--ease), transform .16s var(--ease)
+/* Смена цвета = другой товар. Если браузер не умеет перетекать сам,
+   карточка проявляется этой анимацией — вместо рывка на всю страницу. */
+.pd.is-swap .pd__hero,.pd.is-swap .pd__body{animation:swapIn .34s var(--ease) both}
+@keyframes swapIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+/* Перетекание страницы при смене цвета: чуть медленнее браузерного по
+   умолчанию, чтобы движение читалось. */
+@media (prefers-reduced-motion:no-preference){
+  ::view-transition-old(root),::view-transition-new(root){animation-duration:.3s}
 }
-.ocol i{width:24px;height:24px;border-radius:var(--r-pill);flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
-.ocol:hover{border-color:var(--ink)}
-.ocol:active{transform:scale(.96)}
 
 .qsize__b:hover{border-color:var(--ink)}
 .qsize__b:active{transform:scale(.96)}
@@ -5626,6 +5626,24 @@ const SIZELESS_CATS = ['Аксессуары'];
 const catsOf = g => [...new Set(PRODUCTS.filter(p => p.on && p.gender === g).map(p => p.cat))];
 /* Подписи пола. Порядок ключей — порядок вкладок на витрине: унисекс первым. */
 const GENDER_LAB = {u:'Унисекс', w:'Женское', m:'Мужское'};
+
+/* ===== ЦВЕТА КОЛЛЕКЦИИ =====
+   Пять цветов знакомства и их имена — одно место на весь магазин. В каталоге
+   цвет товара называет админ («Mokko», «Молочная»), поэтому узнаём цвет по
+   re, а показываем всегда имя отсюда: покупатель видит те же слова, что на
+   знакомстве и на главной. shots — снимки для шторки «Выбери свой цвет». */
+const TONES = [
+  {name:'Чёрный',  a:'#000000', b:'#e2e2e2', re:/ч[её]рн|black/i,            shots:[['look-16','Она','спереди'],['look-23','Он','спереди']]},
+  {name:'Шоколад', a:'#33201a', b:'#d9c6ba', re:/mokko|мокко|шокол|коричн/i, shots:[['look-22','Она','спереди'],['look-18','Он','спереди']]},
+  {name:'Красный', a:'#b00d16', b:'#ff9ea2', re:/красн|red/i,                shots:[['look-20','Она','спереди'],['look-11','Она','сзади']]},
+  {name:'Голубой', a:'#5ea2dd', b:'#eaf4fd', re:/голуб|blue/i,               shots:[['look-19','Она','спереди'],['look-10','Она','сзади']]},
+  {name:'Белый',   a:'#cfcfcf', b:'#ffffff', re:/молоч|бел|white/i,          shots:[['look-02','Он','спереди'],['look-12','Он','сбоку']]}
+];
+const toneVars = t => `--a:${t.a};--b:${t.b}`;
+const toneOf = name => TONES.find(t => t.re.test(String(name || ''))) || null;
+/* Имя цвета для покупателя: наше, если цвет узнали, иначе как назвал админ. */
+const toneNameOf = name => (toneOf(name) || {}).name || String(name || '');
+const toneIdx = name => { const t = toneOf(name); return t ? TONES.indexOf(t) : 99; };
 const SIZES = ['XS','S','M','L','XL','XXL'];
 const SORTS = [
   {k:'pop',   t:'По популярности'},
@@ -7140,21 +7158,33 @@ function paintQty(){
   if(!hide) box.innerHTML = qtyRowHTML(p);
 }
 
-/* «Другие цвета»: остальные вещи той же категории в продаже — кружком их
-   цвета и названием; нажали — открылась та вещь. Каждая футболка в
-   каталоге одного цвета, поэтому второй цвет — это другой товар, и без
-   этой строки до него добирались только через каталог. Товары без цвета
-   (или уже распроданные) не показываем. */
-function otherColorsHTML(p){
-  const others = PRODUCTS.filter(x => x.on && x.id !== p.id && x.cat === p.cat && !soldOut(x) &&
-    (x.colors || []).some(c => c && c.hex));
-  if(!others.length) return '';
-  return `<p class="pd__lab">Другие цвета</p>
-    <div class="ocols">${others.map(x => {
+/* ===== ЦВЕТ ТОВАРА ОДНОЙ СТРОКОЙ =====
+   Кружки цвета самой вещи и кружки её собратьев других цветов стоят вместе:
+   для покупателя это один выбор, а двумя блоками он занимал пол-экрана.
+   Соседей берём той же категории И ТОГО ЖЕ ПОЛА: с мужского оверсайза
+   нажатие на чёрный уводило в женскую футболку — так быть не должно.
+   Имена цветов — общие, из TONES, а не как товар назвал админ. */
+function colorRowHTML(p){
+  const own = (p.colors || []).filter(c => c && c.hex).map(c => ({
+    hex: c.hex, name: toneNameOf(c.name), own: true, cur: S.color === c.hex
+  }));
+  const mates = PRODUCTS.filter(x => x.on && x.id !== p.id && x.cat === p.cat &&
+      x.gender === p.gender && !soldOut(x) && (x.colors || []).some(c => c && c.hex))
+    .map(x => {
       const c = x.colors.find(c => c && c.hex);
-      return `<button class="ocol" data-a="open:${x.id}" aria-label="${esc(x.name)}">
-        <i style="background:${esc(c.hex)}"></i><span>${esc(c.name)}</span></button>`;
-    }).join('')}</div>`;
+      return { hex: c.hex, name: toneNameOf(c.name), id: x.id, prod: x.name };
+    });
+  const all = own.concat(mates).sort((a, b) => toneIdx(a.name) - toneIdx(b.name));
+  if(!all.length) return '';
+  const cur = own.find(c => c.cur) || own[0];
+  return `<p class="pd__lab">Цвет${cur ? ` · <b>${esc(cur.name)}</b>` : ''}</p>
+    <div class="cols">${all.map(c => c.own
+      ? `<button class="col" data-a="color:${encodeURIComponent(c.hex)}"
+          aria-pressed="${!!c.cur}" aria-label="${esc(c.name)}" title="${esc(c.name)}">
+          <i style="background:${esc(c.hex)}"></i></button>`
+      : `<button class="col" data-a="pcolor:${c.id}"
+          aria-pressed="false" aria-label="${esc(c.name)} — ${esc(c.prod)}" title="${esc(c.name)}">
+          <i style="background:${esc(c.hex)}"></i></button>`).join('')}</div>`;
 }
 
 function scrProduct(){
@@ -7201,11 +7231,7 @@ function scrProduct(){
       <p class="pd__price">${money(p.price)}${p.old ? ` <s>${money(p.old)}</s>` : ''}</p>
       ${rvInlineHTML(p)}
 
-      ${colors.length ? `<p class="pd__lab">Цвет${cur ? ` · <b>${esc(cur.name)}</b>` : ''}</p>
-      <div class="cols">${colors.map(c => `<button class="col" data-a="color:${encodeURIComponent(c.hex)}"
-          aria-pressed="${S.color === c.hex}" aria-label="${esc(c.name)}" title="${esc(c.name)}">
-          <i style="background:${esc(c.hex)}"></i></button>`).join('')}</div>` : ''}
-      ${otherColorsHTML(p)}
+      ${colorRowHTML(p)}
 
       ${sizes.length ? `<p class="pd__lab">Размер</p>
       <div class="sizes">${sizes.map(s => `<button class="size" data-a="size:${s}"
@@ -8499,14 +8525,7 @@ function scrHome(){
    цвета в каталоге по названию её цвета: у товаров цвета заданы админом,
    и «Mokko» там — это наш «Шоколад». Мужской съёмки в красном и голубом
    нет, женской в белом тоже — там два ракурса одного человека. */
-const HOME_TONES = [
-  {name:'Чёрный',  a:'#000000', b:'#e2e2e2', re:/ч[её]рн|black/i,           shots:[['look-16','Она','спереди'],['look-23','Он','спереди']]},
-  {name:'Шоколад', a:'#33201a', b:'#d9c6ba', re:/mokko|мокко|шокол|коричн/i, shots:[['look-22','Она','спереди'],['look-18','Он','спереди']]},
-  {name:'Красный', a:'#b00d16', b:'#ff9ea2', re:/красн|red/i,                shots:[['look-20','Она','спереди'],['look-11','Она','сзади']]},
-  {name:'Голубой', a:'#5ea2dd', b:'#eaf4fd', re:/голуб|blue/i,               shots:[['look-19','Она','спереди'],['look-10','Она','сзади']]},
-  {name:'Белый',   a:'#cfcfcf', b:'#ffffff', re:/молоч|бел|white/i,          shots:[['look-02','Он','спереди'],['look-12','Он','сбоку']]}
-];
-const toneVars = t => `--a:${t.a};--b:${t.b}`;
+const HOME_TONES = TONES;
 
 /* Футболка этого цвета из каталога: в продаже и с таким названием цвета. */
 function toneProduct(t){
@@ -9952,6 +9971,34 @@ const SCREENS = {
 };
 
 let _paintKey = '';
+/* Мягкая смена товара (цвет рядом стоящей футболки). Браузер умеет
+   перетекать между состояниями сам (View Transitions) — если не умеет,
+   проявляем новую карточку своей анимацией. Прокрутка остаётся на месте:
+   палец стоит на кружках цвета, и уезжать наверх им незачем. */
+function swapProduct(id){
+  const y = window.scrollY;
+  const apply = () => {
+    S.productId = id; S.galIdx = 0;
+    S.size = firstSize(byId(id));
+    S.qty = 1;
+    render(true);
+    window.scrollTo(0, y);
+    persistPlace();
+  };
+  let reduce = false;
+  try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+  if(reduce){ apply(); return; }
+  if(document.startViewTransition){
+    document.startViewTransition(apply);
+    return;
+  }
+  apply();
+  const pd = document.querySelector('.pd');
+  if(pd){
+    pd.classList.remove('is-swap'); void pd.offsetWidth; pd.classList.add('is-swap');
+  }
+}
+
 function render(keepScroll){
   const y = window.scrollY;
   const s = SCREENS[S.screen] || SCREENS.catalog;
@@ -12297,6 +12344,14 @@ document.addEventListener('click', e => {
       S.color = decodeURIComponent(el.dataset.a.slice(6));
       saveUser();
       render(true);
+      break;
+    }
+    /* Соседний цвет — это другой товар. Меняем его мягко: без прыжка наверх
+       и без общей анимации экрана, страница перетекает на месте. */
+    case 'pcolor': {
+      const next = byId(+a);
+      if(!next || next.id === S.productId) break;
+      swapProduct(next.id);
       break;
     }
     case 'size':
