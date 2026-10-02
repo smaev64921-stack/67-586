@@ -262,11 +262,32 @@ async function createPayment({
 
 async function getPayment(paymentId) {
   if (!configured() || !paymentId) return null;
+  /* Тайм-аут: без него зависший API держал бы минутный обход оплат часами. */
   const res = await fetch(`https://api.yookassa.ru/v3/payments/${encodeURIComponent(paymentId)}`, {
-    headers: { Authorization: authHeader() }
+    headers: { Authorization: authHeader() },
+    signal: AbortSignal.timeout(10000)
   });
   if (!res.ok) return null;
   return res.json();
+}
+
+/* Как getPayment, но отличает «такого платежа нет» (404) от «ЮKassa не
+   ответила» (сеть, тайм-аут, 5xx). Обходу оплат это важно: один битый
+   платёж не должен выглядеть как недоступная ЮKassa и стопорить проверку
+   остальных. state: 'ok' | 'not_found' | 'unavailable'. */
+async function lookupPayment(paymentId) {
+  if (!configured() || !paymentId) return { state: 'unavailable', payment: null };
+  try {
+    const res = await fetch(`https://api.yookassa.ru/v3/payments/${encodeURIComponent(paymentId)}`, {
+      headers: { Authorization: authHeader() },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (res.ok) return { state: 'ok', payment: await res.json() };
+    if (res.status === 404) return { state: 'not_found', payment: null };
+    return { state: 'unavailable', payment: null };
+  } catch (_) {
+    return { state: 'unavailable', payment: null };
+  }
 }
 
 async function cancelPayment(paymentId) {
@@ -279,7 +300,8 @@ async function cancelPayment(paymentId) {
         'Idempotence-Key': randomUUID(),
         'Content-Type': 'application/json'
       },
-      body: '{}'
+      body: '{}',
+      signal: AbortSignal.timeout(10000)
     });
     if (!res.ok) return null;
     return res.json();
@@ -292,6 +314,7 @@ module.exports = {
   configured,
   createPayment,
   getPayment,
+  lookupPayment,
   cancelPayment,
   moneyStr,
   receiptPhone,

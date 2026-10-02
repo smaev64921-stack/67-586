@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { db } = require('./db');
 const { getProduct, checkStock, deductStock, restoreStock } = require('./products');
-const { createPayment, configured, getPayment, cancelPayment } = require('./yookassa');
+const { createPayment, configured, getPayment, lookupPayment, cancelPayment } = require('./yookassa');
 
 /* Сколько ждём оплату. Меньше — быстрее возвращается остаток на склад
    и меньше висит «мёртвых» заказов. Столько же показывает таймер на
@@ -45,13 +45,14 @@ function expireUnpaidOrder(row) {
     WHERE id = ? AND status = 'Ожидает оплаты' AND pay_status != 'paid' AND pay_status != 'manual'
   `).run(row.id);
   if (!info.changes) return false;
-  if (row.stock_reserved) {
+  /* Склад возвращаем вместе со снятием отметки «товар списан» — одним
+     «сравнить и записать». Иначе поздняя оплата (markPaid) решила бы, что
+     товар уже списан, и остаток так и остался бы завышен. */
+  const rel = db.prepare('UPDATE orders SET stock_reserved = 0 WHERE id = ? AND stock_reserved = 1').run(row.id);
+  if (rel.changes === 1) {
     let items = [];
     try { items = JSON.parse(row.items_json || '[]'); } catch (_) {}
     try { restoreStock(items); } catch (e) { console.warn('expire restore stock', e.message); }
-    /* Склад вернули — снимаем и отметку. Иначе поздняя оплата (markPaid)
-       решила бы, что товар уже списан, и остаток так и остался бы завышен. */
-    try { db.prepare('UPDATE orders SET stock_reserved = 0 WHERE id = ?').run(row.id); } catch (_) {}
   }
   if (row.yookassa_id) {
     cancelPayment(row.yookassa_id).catch(() => {});
@@ -96,44 +97,89 @@ const PAY_LATE_HOURS = 3;
 const PAY_LATE_EVERY_MS = 5 * 60 * 1000;
 let payLateLast = 0;
 
+/* Вопрос к ЮKassa: { state: 'ok' | 'not_found' | 'unavailable', payment }. */
 async function askPayment(paymentId) {
-  try { return await getPayment(paymentId); } catch (_) { return null; }
+  try { return await lookupPayment(paymentId); } catch (_) { return { state: 'unavailable', payment: null }; }
+}
+
+/* Платёж прошёл и не возвращён. После возврата ЮKassa оставляет статус
+   succeeded и лишь добавляет refunded_amount — такой платёж не должен
+   поднимать заказ в работу. */
+function paymentRefunded(p) {
+  return !!(p && p.refunded_amount && parseFloat(p.refunded_amount.value) > 0);
+}
+function paymentSettled(p, order) {
+  return !!p && p.status === 'succeeded' && !paymentRefunded(p) && amountsMatch(p, order);
+}
+
+/* Просроченный заказ с платежом и ответ ЮKassa по нему: оплачен — в работу,
+   ответила «не оплачен» — отмена с возвратом склада. 'paid' | 'expired' | ''. */
+function settleOverdueRow(row, p) {
+  if (paymentSettled(p, row)) { markPaid(row, p.id); return 'paid'; }
+  const cur = db.prepare('SELECT * FROM orders WHERE id = ?').get(row.id);
+  return expireUnpaidOrder(cur) ? 'expired' : '';
+}
+
+function overdue(row) {
+  const created = orderCreatedMs(row);
+  return !!created && Date.now() - created >= PAY_WAIT_MS;
+}
+
+/* Таймер на витрине дошёл до нуля, и страница спросила заказ — решаем сразу,
+   не дожидаясь минутного обхода: покупатель должен увидеть вещи снова в
+   каталоге, как и раньше. ЮKassa не ответила — пусть решит обход. */
+async function settleOverdueOrder(num) {
+  const row = db.prepare('SELECT * FROM orders WHERE num = ?').get(String(num || ''));
+  if (!row || !awaitingPayRow(row) || !row.yookassa_id || !configured() || !overdue(row)) return;
+  const a = await askPayment(row.yookassa_id);
+  if (a.state !== 'unavailable') settleOverdueRow(row, a.payment);
 }
 
 async function expireUnpaidOrdersChecked() {
   if (!configured()) return { expired: expireUnpaidOrders(), paid: 0 };
   let expired = 0;
   let paid = 0;
+  /* ЮКасса не ответила — до конца обхода её больше не дёргаем: при зависшем
+     API каждый вопрос ждал бы тайм-аута, и обход растягивался бы на часы. */
+  let down = false;
   const rows = db.prepare(`
     SELECT * FROM orders
     WHERE status = 'Ожидает оплаты' AND pay_status != 'paid' AND pay_status != 'manual'
   `).all();
   for (const row of rows) {
-    const age = Date.now() - orderCreatedMs(row);
-    if (!orderCreatedMs(row) || age < PAY_WAIT_MS) continue;
+    if (!overdue(row)) continue;
     if (row.yookassa_id) {
-      const p = await askPayment(row.yookassa_id);
-      if (p && p.status === 'succeeded' && amountsMatch(p, row)) {
-        markPaid(row, p.id);
-        paid += 1;
+      const a = down ? { state: 'unavailable', payment: null } : await askPayment(row.yookassa_id);
+      if (a.state === 'unavailable') {
+        down = true;
+        const age = Date.now() - orderCreatedMs(row);
+        if (age < PAY_WAIT_MS + PAY_ASK_GRACE_MS) continue;
+      } else {
+        /* not_found — платежа нет, значит и не оплачен: обычная отмена */
+        const r = settleOverdueRow(row, a.payment);
+        if (r === 'paid') paid += 1;
+        if (r === 'expired') expired += 1;
         continue;
       }
-      if (!p && age < PAY_WAIT_MS + PAY_ASK_GRACE_MS) continue;
     }
     if (expireUnpaidOrder(row)) expired += 1;
   }
 
-  if (Date.now() - payLateLast >= PAY_LATE_EVERY_MS) {
+  /* Поздние оплаты. Окно — от создания заказа (отменяется он на 10–25-й
+     минуте), а не от updated_at: правка заметки в отменённом заказе не
+     должна продлевать досмотр. */
+  if (!down && Date.now() - payLateLast >= PAY_LATE_EVERY_MS) {
     payLateLast = Date.now();
     const late = db.prepare(`
       SELECT * FROM orders
       WHERE pay_status = 'expired' AND status = 'Отменён' AND yookassa_id != ''
-        AND updated_at >= datetime('now', ?)
-    `).all(`-${PAY_LATE_HOURS} hours`);
+        AND created_at >= datetime('now', ?)
+    `).all(`-${PAY_LATE_HOURS * 60 + 25} minutes`);
     for (const row of late) {
-      const p = await askPayment(row.yookassa_id);
-      if (p && p.status === 'succeeded' && amountsMatch(p, row)) {
-        markPaid(row, p.id);
+      const a = await askPayment(row.yookassa_id);
+      if (a.state === 'unavailable') break;
+      if (paymentSettled(a.payment, row)) {
+        markPaid(row, a.payment.id);
         paid += 1;
       }
     }
@@ -891,12 +937,14 @@ function markPaid(order, paymentId) {
     return rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id));
   }
 
+  /* Склад — по свежей строке, а не по той, что вызывающий прочёл до запроса
+     к ЮKassa: за это время минутный обход мог отменить заказ и вернуть
+     товар. Флаг ставим «сравнить и записать»: списывает тот, кто его поднял. */
+  const fresh = db.prepare('SELECT items_json FROM orders WHERE id = ?').get(order.id) || order;
   let items = [];
-  try { items = JSON.parse(order.items_json || '[]'); } catch (_) {}
-  if (!order.stock_reserved) {
-    deductStock(items);
-    try { db.prepare('UPDATE orders SET stock_reserved = 1 WHERE id = ?').run(order.id); } catch (_) {}
-  }
+  try { items = JSON.parse(fresh.items_json || '[]'); } catch (_) {}
+  const take = db.prepare('UPDATE orders SET stock_reserved = 1 WHERE id = ? AND stock_reserved = 0').run(order.id);
+  if (take.changes === 1) deductStock(items);
 
   if (order.promo_code) {
     const cms = getCms();
@@ -972,6 +1020,10 @@ async function handleWebhook(event) {
     return { ok: false, error: 'order_mismatch' };
   }
 
+  if (payment.status === 'succeeded' && paymentRefunded(payment)) {
+    /* Деньги уже вернули — заказ в работу не поднимаем. */
+    return { ok: true };
+  }
   if (payment.status === 'succeeded') {
     if (!amountsMatch(payment, order)) {
       console.warn('yookassa webhook: amount mismatch', {
@@ -1003,12 +1055,13 @@ async function syncPaymentStatus(num) {
   if (!order) return null;
   if (order.pay_status === 'paid') return rowToOrder(order);
   if (!order.yookassa_id) return rowToOrder(order);
-  const payment = await getPayment(order.yookassa_id);
+  /* askPayment: ЮKassa не ответила — отдаём заказ как есть, а не роняем запрос */
+  const payment = (await askPayment(order.yookassa_id)).payment;
   if (payment && payment.status === 'succeeded') {
-    if (amountsMatch(payment, order)) {
+    if (paymentSettled(payment, order)) {
       return markPaid(order, payment.id);
     }
-    console.warn('yookassa sync: amount mismatch', order.num, payment.amount, order.price);
+    console.warn('yookassa sync: amount mismatch or refunded', order.num, payment.amount, order.price);
   }
   return rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id));
 }
@@ -1018,6 +1071,7 @@ async function syncPaymentStatus(num) {
  * истекший/отменённый платёж — новый, succeeded — помечаем оплаченным.
  */
 async function ensurePayment(num, user, accessToken, publicUrl) {
+  await settleOverdueOrder(num);
   const row = db.prepare('SELECT * FROM orders WHERE num = ?').get(String(num || ''));
   if (!row) throw Object.assign(new Error('Заказ не найден'), { status: 404 });
   const order = rowToOrder(row);
@@ -1041,6 +1095,9 @@ async function ensurePayment(num, user, accessToken, publicUrl) {
   if (row.yookassa_id) {
     const payment = await getPayment(row.yookassa_id);
     if (payment && payment.status === 'succeeded') {
+      if (paymentRefunded(payment)) {
+        throw Object.assign(new Error('Оплата по этому заказу возвращена'), { status: 409 });
+      }
       if (!amountsMatch(payment, row)) {
         throw Object.assign(new Error('Сумма оплаты не совпадает с заказом'), { status: 409 });
       }
@@ -1354,6 +1411,7 @@ module.exports = {
   canAccessOrder,
   expireUnpaidOrders,
   expireUnpaidOrdersChecked,
+  settleOverdueOrder,
   syncCdekOrderStatuses,
   configured
 };

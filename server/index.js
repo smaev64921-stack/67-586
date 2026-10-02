@@ -26,7 +26,7 @@ const {
   listOrdersForUser, listAllOrders, getOrderByNum, updateOrderAdmin,
   cancelOrderBuyer, requestReturnBuyer,
   claimOrdersForUser, getCms, saveCms, toPublicOrder, canAccessOrder,
-  expireUnpaidOrders, expireUnpaidOrdersChecked, syncCdekOrderStatuses
+  expireUnpaidOrders, expireUnpaidOrdersChecked, settleOverdueOrder, syncCdekOrderStatuses
 } = require('./orders');
 const yookassa = require('./yookassa');
 const { sanitizeCms, scrubCmsInput, tryonServerConfigured } = require('./cms-safe');
@@ -1031,8 +1031,17 @@ app.get('/api/orders/:num', authOptional, async (req, res) => {
   }
 
   const isAdmin = !!(req.user && req.user.role === 'admin');
-  if (req.query.sync === '1' || order.payStatus === 'pending') {
-    order = (await syncPaymentStatus(order.num)) || order;
+  /* Ошибка ЮKassa не должна вешать запрос: отдаём заказ как есть. */
+  try {
+    /* таймер на витрине дошёл до нуля — решаем по заказу сразу (вещи снова
+       в каталоге или заказ оплачен), не дожидаясь минутного обхода */
+    await settleOverdueOrder(order.num);
+    order = getOrderByNum(num) || order;
+    if (req.query.sync === '1' || order.payStatus === 'pending') {
+      order = (await syncPaymentStatus(order.num)) || order;
+    }
+  } catch (e) {
+    console.warn('order sync:', e.message);
   }
   res.json({ order: media.orderToPublic(toPublicOrder(order, { admin: isAdmin })) });
 });

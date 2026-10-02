@@ -98,6 +98,12 @@ migrate();
 /* Мягкие миграции для уже существующих БД */
 try { db.exec('ALTER TABLE orders ADD COLUMN access_token TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE orders ADD COLUMN stock_reserved INTEGER NOT NULL DEFAULT 0'); } catch (_) {}
+/* До 2026-10-03 отмена по таймеру возвращала товар на склад, но оставляла
+   stock_reserved = 1, и поздняя оплата потом не списывала товар. Все такие
+   заказы склад уже вернули — снимаем отметку. Повторять безопасно. */
+try {
+  db.exec("UPDATE orders SET stock_reserved = 0 WHERE pay_status = 'expired' AND status = 'Отменён' AND stock_reserved = 1");
+} catch (_) {}
 try { db.exec('ALTER TABLE products ADD COLUMN size_chart TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
 try { db.exec("ALTER TABLE products ADD COLUMN colors_json TEXT NOT NULL DEFAULT '[]'"); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN middle_name TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
