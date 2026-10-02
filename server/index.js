@@ -53,6 +53,8 @@ const media = require('./media');
 const { jsonCompression, serveTextFile } = require('./compress');
 
 seedIfEmpty();
+/* Подготовленные партии фото товаров (server/photo-swap/) — один раз. */
+require('./photo-swap').runPhotoSwaps();
 
 /* Старые «Ожидает оплаты» без ЮKassa — это не оплата, а принятый заказ */
 (() => {

@@ -921,13 +921,13 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
     <div class="look__pics look__pics--duo">
       <div class="duo">
         <div class="duo__ph duo__ph--hi" style="--ar:852/1280">
-          <img src="/onboarding/look-12.jpg" alt="Белая футболка сбоку, руки в карманах" loading="lazy" decoding="async">
+          <img src="/onboarding/look-12c.jpg" alt="Белая футболка сбоку, руки в карманах" loading="lazy" decoding="async">
         </div>
         <div class="duo__ph duo__ph--lo" style="--ar:1/1">
           <img src="/onboarding/look-15.jpg" alt="Полотно белой футболки оттянуто пальцами" loading="lazy" decoding="async">
         </div>
         <div class="duo__ph duo__ph--top">
-          <img src="/onboarding/look-18.jpg" alt="Тот же парень в шоколадной футболке" loading="lazy" decoding="async" style="--op:center 14%">
+          <img src="/onboarding/look-18c.jpg" alt="Тот же парень в шоколадной футболке" loading="lazy" decoding="async" style="--op:center 14%">
         </div>
       </div>
     </div>
@@ -947,10 +947,10 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
     <div class="look__pics look__pics--duo">
       <div class="duo">
         <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
-          <img src="/onboarding/look-16.jpg" alt="Чёрная женская футболка, вид спереди" loading="lazy" decoding="async">
+          <img src="/onboarding/look-16c.jpg" alt="Чёрная женская футболка, вид спереди" loading="lazy" decoding="async">
         </div>
         <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-          <img src="/onboarding/look-17.jpg" alt="Та же футболка в профиль" loading="lazy" decoding="async" style="--op:34% 12%">
+          <img src="/onboarding/look-17c.jpg" alt="Та же футболка в профиль" loading="lazy" decoding="async" style="--op:34% 12%">
         </div>
       </div>
     </div>
@@ -996,13 +996,13 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
     <div class="look__pics look__pics--fan">
       <div class="fan">
         <div class="fan__ph fan__ph--l">
-          <img src="/onboarding/look-19.jpg" alt="Голубая футболка спереди" loading="lazy" decoding="async">
+          <img src="/onboarding/look-19c.jpg" alt="Голубая футболка спереди" loading="lazy" decoding="async">
         </div>
         <div class="fan__ph fan__ph--mid">
-          <img src="/onboarding/look-05.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
+          <img src="/onboarding/look-05c.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
         </div>
         <div class="fan__ph fan__ph--r">
-          <img src="/onboarding/look-10.jpg" alt="Голубая футболка сзади" loading="lazy" decoding="async">
+          <img src="/onboarding/look-10c.jpg" alt="Голубая футболка сзади" loading="lazy" decoding="async">
         </div>
       </div>
     </div>
@@ -1022,13 +1022,13 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
     <div class="look__pics look__pics--duo">
       <div class="duo duo--mirror">
         <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
-          <img src="/onboarding/look-03.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
+          <img src="/onboarding/look-03c.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
         </div>
         <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-          <img src="/onboarding/look-20.jpg" alt="Красная футболка спереди, руки в карманах" loading="lazy" decoding="async" style="--op:center 8%">
+          <img src="/onboarding/look-20c.jpg" alt="Красная футболка спереди, руки в карманах" loading="lazy" decoding="async" style="--op:center 8%">
         </div>
         <div class="duo__ph duo__ph--top">
-          <img src="/onboarding/look-21.jpg" alt="Красная футболка, взгляд через плечо" loading="lazy" decoding="async" style="--op:center 10%">
+          <img src="/onboarding/look-21c.jpg" alt="Красная футболка, взгляд через плечо" loading="lazy" decoding="async" style="--op:center 10%">
         </div>
       </div>
     </div>
@@ -1108,7 +1108,7 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
      и фон за кнопкой не стоит ни одного лишнего килобайта. */
   var wall = document.getElementById('wall');
   if(wall){
-    var shots = ['look-14','look-15','look-16','look-05','look-03'];
+    var shots = ['look-14','look-15','look-16c','look-05c','look-03c'];
     for(var pass = 0; pass < 3; pass++){   /* 5 снимков x 3 = 15 клеток сетки */
       shots.forEach(function(n){
         var im = document.createElement('img');
@@ -1276,11 +1276,11 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
      там два ракурса одного человека. Появятся снимки — допишите их сюда.
      Оттенок — лёгкая подсветка шторки сверху, под цвет. */
   var TONES = [
-    { tint:'rgba(0,0,0,.10)',        shots:[['look-16','Она','спереди'], ['look-23','Он','спереди']] },
-    { tint:'rgba(74,49,40,.20)',     shots:[['look-22','Она','спереди'], ['look-18','Он','спереди']] },
-    { tint:'rgba(216,30,40,.15)',    shots:[['look-20','Она','спереди'], ['look-11','Она','сзади']] },
-    { tint:'rgba(94,162,221,.24)',   shots:[['look-19','Она','спереди'], ['look-10','Она','сзади']] },
-    { tint:'rgba(255,255,255,.95)',  shots:[['look-02','Он','спереди'],  ['look-12','Он','сбоку']] }
+    { tint:'rgba(0,0,0,.10)',        shots:[['look-16c','Она','спереди'], ['look-23','Он','спереди']] },
+    { tint:'rgba(74,49,40,.20)',     shots:[['look-22c','Она','спереди'], ['look-18c','Он','спереди']] },
+    { tint:'rgba(216,30,40,.15)',    shots:[['look-20c','Она','спереди'], ['look-11c','Она','сзади']] },
+    { tint:'rgba(94,162,221,.24)',   shots:[['look-19c','Она','спереди'], ['look-10c','Она','сзади']] },
+    { tint:'rgba(255,255,255,.95)',  shots:[['look-02c','Он','спереди'],  ['look-12c','Он','сбоку']] }
   ];
 
   var card = sheet.querySelector('.sheet__card');
