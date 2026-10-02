@@ -26,7 +26,7 @@ const {
   listOrdersForUser, listAllOrders, getOrderByNum, updateOrderAdmin,
   cancelOrderBuyer, requestReturnBuyer,
   claimOrdersForUser, getCms, saveCms, toPublicOrder, canAccessOrder,
-  expireUnpaidOrders, syncCdekOrderStatuses
+  expireUnpaidOrders, expireUnpaidOrdersChecked, syncCdekOrderStatuses
 } = require('./orders');
 const yookassa = require('./yookassa');
 const { sanitizeCms, scrubCmsInput, tryonServerConfigured } = require('./cms-safe');
@@ -1274,8 +1274,17 @@ app.listen(PORT, '0.0.0.0', () => {
       .catch((e) => console.error(e));
   }
   let lastCdekSync = 0;
+  /* Неоплаченные — с вопросом к ЮKassa (см. expireUnpaidOrdersChecked).
+     Запросы к ней идут по сети, поэтому следующий обход не стартует,
+     пока не закончился предыдущий. */
+  let payTickBusy = false;
   const tick = () => {
-    try { expireUnpaidOrders(); } catch (e) { console.warn('expire unpaid:', e.message); }
+    if (!payTickBusy) {
+      payTickBusy = true;
+      expireUnpaidOrdersChecked()
+        .catch((e) => console.warn('expire unpaid:', e.message))
+        .finally(() => { payTickBusy = false; });
+    }
     if (!cdek.configured()) return;
     if (Date.now() - lastCdekSync < 5 * 60 * 1000) return;
     lastCdekSync = Date.now();

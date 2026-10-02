@@ -49,6 +49,9 @@ function expireUnpaidOrder(row) {
     let items = [];
     try { items = JSON.parse(row.items_json || '[]'); } catch (_) {}
     try { restoreStock(items); } catch (e) { console.warn('expire restore stock', e.message); }
+    /* Склад вернули — снимаем и отметку. Иначе поздняя оплата (markPaid)
+       решила бы, что товар уже списан, и остаток так и остался бы завышен. */
+    try { db.prepare('UPDATE orders SET stock_reserved = 0 WHERE id = ?').run(row.id); } catch (_) {}
   }
   if (row.yookassa_id) {
     cancelPayment(row.yookassa_id).catch(() => {});
@@ -56,6 +59,11 @@ function expireUnpaidOrder(row) {
   return true;
 }
 
+/* Заказ с платежом ЮKassa по таймеру отменяет только минутный обход
+   (expireUnpaidOrdersChecked): он сперва спрашивает ЮKassa, не оплачен ли
+   заказ. Остальные места, где чистится просрочка, такие заказы не трогают —
+   иначе оплаченный заказ, о котором не дошло уведомление, отменился бы
+   раньше, чем его успели проверить. */
 function expireUnpaidOrders() {
   const rows = db.prepare(`
     SELECT * FROM orders
@@ -63,9 +71,75 @@ function expireUnpaidOrders() {
   `).all();
   let n = 0;
   for (const row of rows) {
+    if (row.yookassa_id && configured()) continue;
     if (expireUnpaidOrder(row)) n += 1;
   }
   return n;
+}
+
+/* Минутный обход неоплаченных — с вопросом к ЮKassa.
+
+   Узнавать об оплате только из уведомлений ЮKassa ненадёжно: адрес
+   уведомлений задан в её кабинете и может указывать на старый домен,
+   сервер перезапускается при каждом выкате, а покупатель после оплаты
+   часто закрывает вкладку и на сайт не возвращается. Тогда оплаченный
+   заказ через 10 минут уходил в «Отменён», а деньги оставались списанными.
+
+   Поэтому перед отменой по таймеру спрашиваем ЮKassa сами: оплачен —
+   заказ идёт в работу. ЮKassa не ответила — ждём следующей минуты, но не
+   дольше PAY_ASK_GRACE_MS, чтобы её сбой не держал остаток на складе вечно.
+   И ещё PAY_LATE_HOURS досматриваем отменённые по таймеру: оплату, которую
+   покупатель довёл до конца уже после десяти минут, markPaid поднимет
+   обратно в работу. */
+const PAY_ASK_GRACE_MS = 15 * 60 * 1000;
+const PAY_LATE_HOURS = 3;
+const PAY_LATE_EVERY_MS = 5 * 60 * 1000;
+let payLateLast = 0;
+
+async function askPayment(paymentId) {
+  try { return await getPayment(paymentId); } catch (_) { return null; }
+}
+
+async function expireUnpaidOrdersChecked() {
+  if (!configured()) return { expired: expireUnpaidOrders(), paid: 0 };
+  let expired = 0;
+  let paid = 0;
+  const rows = db.prepare(`
+    SELECT * FROM orders
+    WHERE status = 'Ожидает оплаты' AND pay_status != 'paid' AND pay_status != 'manual'
+  `).all();
+  for (const row of rows) {
+    const age = Date.now() - orderCreatedMs(row);
+    if (!orderCreatedMs(row) || age < PAY_WAIT_MS) continue;
+    if (row.yookassa_id) {
+      const p = await askPayment(row.yookassa_id);
+      if (p && p.status === 'succeeded' && amountsMatch(p, row)) {
+        markPaid(row, p.id);
+        paid += 1;
+        continue;
+      }
+      if (!p && age < PAY_WAIT_MS + PAY_ASK_GRACE_MS) continue;
+    }
+    if (expireUnpaidOrder(row)) expired += 1;
+  }
+
+  if (Date.now() - payLateLast >= PAY_LATE_EVERY_MS) {
+    payLateLast = Date.now();
+    const late = db.prepare(`
+      SELECT * FROM orders
+      WHERE pay_status = 'expired' AND status = 'Отменён' AND yookassa_id != ''
+        AND updated_at >= datetime('now', ?)
+    `).all(`-${PAY_LATE_HOURS} hours`);
+    for (const row of late) {
+      const p = await askPayment(row.yookassa_id);
+      if (p && p.status === 'succeeded' && amountsMatch(p, row)) {
+        markPaid(row, p.id);
+        paid += 1;
+      }
+    }
+  }
+  if (paid) console.log(`[PAY] оплату нашли сами, без уведомления ЮKassa: ${paid}`);
+  return { expired, paid };
 }
 
 function nextOrderNum() {
@@ -1279,6 +1353,7 @@ module.exports = {
   toPublicOrder,
   canAccessOrder,
   expireUnpaidOrders,
+  expireUnpaidOrdersChecked,
   syncCdekOrderStatuses,
   configured
 };
