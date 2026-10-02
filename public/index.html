@@ -409,6 +409,9 @@ s{color:var(--muted2)}
 .scr.quiet img{
   animation:none !important
 }
+/* Фото оборвалось и ждёт повтора (IMG_RETRY) — вместо значка битой картинки
+   и названия товара поверх фона пусто; дозагрузилось — проявляется. */
+img[data-broken]{opacity:0 !important}   /* важное: иначе победит заливка imgIn */
 
 /* отклик на нажатие */
 .btn{transition:transform .16s var(--ease), opacity var(--dur) var(--ease), background .28s var(--ease)}
@@ -6501,6 +6504,18 @@ function pruneForeignOrders(){
 const money = n => Number(n).toLocaleString('ru-RU') + '\u00a0₽';
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const byId = id => PRODUCTS.find(p => +p.id === +id);
+/* Фото позиции заказа. Сервер отдаёт снимок по адресу заказа
+   (/media/o/<№>/<хеш>), хотя у товара тот же файл лежит по /media/p/<id>/<хеш>
+   и уже в кэше у каталога. Товар всё ещё держит этот снимок — берём адрес
+   товара: одна загрузка на витрину и все заказы. Фото сменили — хеш не
+   совпадёт, остаётся снимок заказа. */
+function orderImg(it){
+  const src = (it && it.img) || '';
+  const tail = src.startsWith('/media/o/') ? src.slice(src.lastIndexOf('/')) : '';
+  const p = tail && byId(it.id);
+  if(!p) return src;
+  return [p.img, ...(p.gal || [])].find(u => typeof u === 'string' && u.endsWith(tail)) || src;
+}
 const cartCount = () => S.cart.reduce((s,i) => s + i.qty, 0);
 /* Цвет по умолчанию — первый из палитры товара. */
 const defColor = p => (p && Array.isArray(p.colors) && p.colors[0] ? p.colors[0].hex : '');
@@ -7911,7 +7926,7 @@ function scrOrders(){
   ${list.length ? list.map(o => `
     <div class="ord">
       <div class="ord__top">
-        <img class="ord__i" src="${o.items[0].img}" alt="" loading="lazy" decoding="async">
+        <img class="ord__i" src="${orderImg(o.items[0])}" alt="" loading="lazy" decoding="async">
         <div class="ord__b">
           <div class="ord__h"><p class="ord__n">${o.items[0].name}</p>
             <span class="ord__num">Заказ №${o.num}<br>от ${o.date}</span></div>
@@ -10938,6 +10953,70 @@ function tgAdminStaleDialog(msg){
 }
 
 /* ==========================================================
+   ФОТО НА ПЛОХОЙ СВЯЗИ
+   Оборвался запрос картинки (сменилась сеть, упало соединение, прокси
+   ответил 502) — браузер сам её НИКОГДА не перезапросит. Такая <img>
+   остаётся белым квадратом, пока экран не перерисуют, а та же фотография,
+   нарисованная позже в другом месте, грузится заново и видна. Отсюда
+   «здесь фото есть, а там нет». Повторяем сами: с паузой и разбросом,
+   не больше четырёх раз; когда связь вернулась — ещё один круг.
+   ========================================================== */
+const IMG_RETRY = (() => {
+  const WAIT = [1500, 4000, 9000, 20000];
+  /* только наши фото; data:/blob: (превью в админке, примерка) повторять незачем */
+  const ours = s => /^\/(media|home|onboarding)\//.test(s || '');
+  /* тот же адрес заново = новый запрос: неудачную загрузку браузер не кэширует */
+  const again = (im, s) => {
+    if(!im.isConnected || im.getAttribute('src') !== s) return;
+    im.removeAttribute('src');
+    im.setAttribute('src', s);
+  };
+  /* ошибка картинки не всплывает — ловим на погружении */
+  document.addEventListener('error', e => {
+    const im = e.target;
+    if(!(im instanceof HTMLImageElement)) return;
+    const s = im.getAttribute('src');
+    if(!ours(s)) return;
+    im.dataset.broken = '1';
+    const n = +(im.dataset.retry || 0);
+    if(n >= WAIT.length) return;              /* дальше — когда вернётся связь */
+    im.dataset.retry = n + 1;
+    /* разброс: два десятка карточек, упавших разом, не ломятся одной пачкой */
+    setTimeout(() => { if(im.dataset.broken) again(im, s); },
+      WAIT[n] * (0.7 + Math.random() * 0.6));
+  }, true);
+  /* фото загрузилось где-то ещё — оно уже в кэше: будим его неудачные копии */
+  document.addEventListener('load', e => {
+    const im = e.target;
+    if(!(im instanceof HTMLImageElement)) return;
+    if(im.dataset.broken){ delete im.dataset.broken; delete im.dataset.retry; delete im.dataset.sweeps; }
+    const s = im.getAttribute('src');
+    if(!ours(s)) return;
+    document.querySelectorAll('img[data-broken]').forEach(o => {
+      if(o.getAttribute('src') !== s) return;
+      delete o.dataset.broken; delete o.dataset.retry;   /* снова упадёт — обработчик выше поставит заново */
+      again(o, s);
+    });
+  }, true);
+  let last = 0;
+  function sweep(){
+    if(Date.now() - last < 3000) return;       /* online и set('ok') приходят парой */
+    last = Date.now();
+    let k = 0;
+    document.querySelectorAll('img[data-broken]').forEach(im => {
+      const n = +(im.dataset.sweeps || 0);
+      if(n >= 3) return;                       /* фото удалили с сервера (404) — не долбим вечно */
+      im.dataset.sweeps = n + 1;
+      delete im.dataset.retry;
+      const s = im.getAttribute('src');
+      setTimeout(() => { if(im.dataset.broken) again(im, s); }, 150 * k++);
+    });
+  }
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) sweep(); });
+  return { sweep };
+})();
+
+/* ==========================================================
    СОСТОЯНИЕ СВЯЗИ
    Сайт продолжает работать на уже загруженных данных: полоса только
    объясняет, что происходит, и сама исчезает, когда связь вернулась.
@@ -11068,6 +11147,8 @@ const NET = (() => {
       if(was === 'offline' || was === 'slow'){
         paint('back');
         backTimer = setTimeout(() => paint(null), 2600);
+        /* «фото догрузятся позже» — вот здесь они и догружаются */
+        IMG_RETRY.sweep();
       } else paint(null);
       return;
     }
@@ -11092,6 +11173,7 @@ const NET = (() => {
   window.addEventListener('online', () => {
     fails = 0; slow = 0;
     set('ok');
+    IMG_RETRY.sweep();
     /* сеть вернулась — сразу подтягиваем свежие данные, не ждём тика */
     try{ if(window.__lcPullLive) window.__lcPullLive(); }catch(_){}
   });
@@ -13224,7 +13306,7 @@ function analytics(){
   const map = {};
   all.forEach(o => (o.items||[]).forEach(it => {
     const k = it.name;
-    if(!map[k]) map[k] = {name:k, img:it.img, qty:0, sum:0};
+    if(!map[k]) map[k] = {name:k, img:orderImg(it), qty:0, sum:0};
     map[k].qty += it.qty||1;
     map[k].sum += (it.price||0)*(it.qty||1);
   }));
@@ -13453,7 +13535,7 @@ function viewOrders(){
   const list = ADMIN_ORDERS.filter(o => adOrdFilter==='all' || o.status===adOrdFilter);
   const rows = list.length ? list.map(o => `
     <button class="ad__row ad__row--click" data-ordview="${o.num}">
-      <img class="ad__th" src="${esc((o.items&&o.items[0]&&o.items[0].img)||'')}" alt="">
+      <img class="ad__th" src="${esc(orderImg(o.items && o.items[0]))}" alt="" loading="lazy" decoding="async">
       <div class="ad__i">
         <span class="ad__n">№${esc(o.num)} · ${esc(o.customerName||'Гость')}</span>
         <span class="ad__m">${esc(o.date)} · ${(o.items||[]).length} поз. · ${esc(o.email||'без email')}</span>
