@@ -2108,6 +2108,13 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 @keyframes fdlOut{to{opacity:0;transform:translateY(12px) scale(.6)}}
 @keyframes fdlXOut{to{transform:rotate(90deg) scale(.9)}}
 @keyframes fdlFadeOut{from{opacity:1}to{opacity:0}}
+/* Телефон боком: пять кружков столбиком выше экрана. Ширины же с запасом —
+   кладём их в ряд рядом с крестиком, подписи прячем (имя — в aria-label). */
+@media (max-height:420px){
+  .fdl{flex-direction:row;align-items:center}
+  .fdl__list{flex-direction:row;align-items:center;padding-right:0}
+  .fdl__l{display:none}
+}
 @media (prefers-reduced-motion:reduce){
   .fdl__i,.fdl__x,.fdl.is-out .fdl__i,.fdl.is-out .fdl__x{animation-duration:.001s;animation-delay:0s}
 }
@@ -10999,20 +11006,27 @@ const IMG_RETRY = (() => {
     });
   }, true);
   let last = 0;
-  function sweep(){
+  /* force — связь правда вернулась: полный круг всем, без счёта. Иначе
+     (возврат во вкладку) — не больше трёх кругов на фото: удалённое с
+     сервера (404) не долбим вечно. */
+  function sweep(force){
     if(Date.now() - last < 3000) return;       /* online и set('ok') приходят парой */
     last = Date.now();
     let k = 0;
     document.querySelectorAll('img[data-broken]').forEach(im => {
       const n = +(im.dataset.sweeps || 0);
-      if(n >= 3) return;                       /* фото удалили с сервера (404) — не долбим вечно */
-      im.dataset.sweeps = n + 1;
+      if(!force && n >= 3) return;
+      im.dataset.sweeps = force ? 1 : n + 1;
       delete im.dataset.retry;
       const s = im.getAttribute('src');
       setTimeout(() => { if(im.dataset.broken) again(im, s); }, 150 * k++);
     });
   }
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) sweep(); });
+  /* без сети круг только сжёг бы попытки — фото так и остались бы пустыми,
+     когда связь вернётся */
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden && navigator.onLine && !NET.offline()) sweep();
+  });
   return { sweep };
 })();
 
@@ -11057,12 +11071,11 @@ const NET = (() => {
       return;
     }
     const v = VIEW[next];
-    /* Плашку как раз смахивали — новая весть приезжает заново, а не
-       застревает там, куда её унёс палец. */
-    const flung = el.classList.contains('is-fling');
-    if(flung){ el.style.transform = ''; el.style.opacity = ''; }
     /* плашка уже на экране — меняем только содержимое, заново не выезжает */
-    const shown = el.classList.contains('is-on') && !flung;
+    const shown = el.classList.contains('is-on') && !el.classList.contains('is-fling');
+    /* Выезжает заново — без следов пальца: её могли смахнуть или тянуть,
+       пока она сама уезжала, и тогда новая весть встала бы сбоку и бледной. */
+    if(!shown){ el.style.transform = ''; el.style.opacity = ''; }
     el.hidden = false;
     el.className = 'net ' + v.cls + (shown ? ' is-on' : '') +
       (shown && el.classList.contains('is-drag') ? ' is-drag' : '');
@@ -11108,7 +11121,8 @@ const NET = (() => {
       el.classList.add('is-drag');
     });
     el.addEventListener('pointermove', e => {
-      if(e.pointerId !== id) return;
+      /* плашку уже убрали (сама уехала и спряталась) — палец её больше не двигает */
+      if(e.pointerId !== id || !el.classList.contains('is-drag')) return;
       dx = e.clientX - sx; dy = e.clientY - sy;
       if(!axis && Math.hypot(dx, dy) > 6) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
       if(!axis) return;
@@ -11121,6 +11135,7 @@ const NET = (() => {
     const end = e => {
       if(e.pointerId !== id) return;
       id = null;
+      if(el.hidden){ el.style.transform = ''; el.style.opacity = ''; return; }
       const dt = Math.max(1, performance.now() - t0);
       const vx = dx / dt, vy = dy / dt;          /* пикселей в миллисекунду */
       if(e.type === 'pointerup'){
@@ -11135,6 +11150,12 @@ const NET = (() => {
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
+    /* Касанием убрали плашку — гасим касание, иначе телефон дошлёт «клик»
+       тому, что под ней (плашка уже прозрачна для нажатий), и откроется
+       карточка или фильтр. pointerup и fling идут раньше touchend. */
+    el.addEventListener('touchend', e => {
+      if(el.classList.contains('is-fling') && e.cancelable) e.preventDefault();
+    }, {passive:false});
   }
 
   function set(next){
@@ -11148,7 +11169,7 @@ const NET = (() => {
         paint('back');
         backTimer = setTimeout(() => paint(null), 2600);
         /* «фото догрузятся позже» — вот здесь они и догружаются */
-        IMG_RETRY.sweep();
+        IMG_RETRY.sweep(true);
       } else paint(null);
       return;
     }
@@ -11173,7 +11194,7 @@ const NET = (() => {
   window.addEventListener('online', () => {
     fails = 0; slow = 0;
     set('ok');
-    IMG_RETRY.sweep();
+    IMG_RETRY.sweep(true);
     /* сеть вернулась — сразу подтягиваем свежие данные, не ждём тика */
     try{ if(window.__lcPullLive) window.__lcPullLive(); }catch(_){}
   });
@@ -11730,11 +11751,11 @@ function fabDial(){
     const inner = `<span class="fdl__l">${esc(s.t)}</span><span class="fdl__b">${socIcon(s.k)}</span>`;
     const st = `style="--i:${n - 1 - i}"`;
     if(s.k === 'telegram' && telegramReady()){
-      return `<button class="fdl__i" type="button" data-a="support_open" ${st}>${inner}</button>`;
+      return `<button class="fdl__i" type="button" data-a="support_open" aria-label="${esc(s.t)}" ${st}>${inner}</button>`;
     }
     const u = socialUrl(s.k);
     return u
-      ? `<a class="fdl__i" href="${esc(u)}" target="_blank" rel="noopener noreferrer" ${st}>${inner}</a>`
+      ? `<a class="fdl__i" href="${esc(u)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(s.t)}" ${st}>${inner}</a>`
       : `<button class="fdl__i" type="button" data-a="soon:${s.k}" ${st}
            aria-label="${esc(s.t)} — скоро">${inner}</button>`;
   }).join('');
@@ -11754,7 +11775,9 @@ function fabDial(){
     leaving = true;
     box.classList.add('is-out');
     if(scrim) scrim.classList.add('is-out');
-    setTimeout(() => { if(ov.contains(box)) closeOv(); }, 240);
+    /* закрыли с задержкой — запасную запись истории для «Назад» сверяем
+       сами, иначе первое «Назад» после меню ничего не делает */
+    setTimeout(() => { if(ov.contains(box)){ closeOv(); syncBack(); } }, 240);
   };
   scrim && scrim.addEventListener('click', leave);
   box.querySelector('[data-fdl-x]')?.addEventListener('click', leave);
