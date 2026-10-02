@@ -2148,6 +2148,56 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 }
 .fab:hover{transform:translateY(-3px)}
 
+/* ===================== «НАПИСАТЬ НАМ»: СОЦСЕТИ ИЗ КНОПКИ =====================
+   Нажали на кружок справа снизу — из него вверх веером выезжают те же
+   соцсети, что внизу шторки: тот же порядок, тот же графитовый кружок и
+   белый знак. Крестик встаёт ровно на место кнопки, поэтому кажется, что
+   это она сама повернулась. Ближний к кнопке кружок выезжает первым. */
+.fdl__scrim{
+  position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.42);
+  animation:fade var(--dur) forwards
+}
+.fdl{
+  position:fixed;right:16px;bottom:calc(var(--tab-h) + 30px);z-index:101;
+  display:flex;flex-direction:column;align-items:flex-end;gap:12px;
+  pointer-events:none
+}
+.fdl__list{display:flex;flex-direction:column;align-items:flex-end;gap:10px;padding-right:4px}
+.fdl__i{
+  display:flex;align-items:center;gap:10px;pointer-events:auto;
+  animation:fdlIn .34s cubic-bezier(.34,1.4,.5,1) both;
+  animation-delay:calc(var(--i) * 40ms)
+}
+.fdl__l{
+  padding:7px 12px;border-radius:var(--r-pill);background:var(--card);color:var(--ink);
+  font-size:13px;font-weight:650;line-height:1.2;white-space:nowrap;box-shadow:var(--sh-2)
+}
+.fdl__b{
+  width:44px;height:44px;border-radius:50%;flex:none;background:var(--ink-soft);
+  display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-2);
+  transition:background var(--dur) var(--ease), transform var(--dur) var(--ease)
+}
+.fdl__b svg{width:23px;height:23px;fill:#fff;display:block}
+.fdl__i:hover .fdl__b{background:var(--ink);transform:translateY(-2px)}
+.fdl__i:active .fdl__b{transform:scale(.94)}
+.fdl__x{
+  width:52px;height:52px;border-radius:var(--r-pill);background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-2);
+  pointer-events:auto;animation:fdlX .3s var(--ease) both
+}
+@keyframes fdlIn{from{opacity:0;transform:translateY(14px) scale(.6)}to{opacity:1;transform:none}}
+@keyframes fdlX{from{transform:rotate(-90deg) scale(.86)}to{transform:none}}
+/* уход: кружки ныряют обратно в кнопку, дальний — первым */
+.fdl.is-out .fdl__i{animation:fdlOut .2s var(--ease) both;animation-delay:calc((4 - var(--i)) * 25ms)}
+.fdl.is-out .fdl__x{animation:fdlXOut .22s var(--ease) both}
+.fdl__scrim.is-out{animation:fdlFadeOut .22s var(--ease) forwards}
+@keyframes fdlOut{to{opacity:0;transform:translateY(12px) scale(.6)}}
+@keyframes fdlXOut{to{transform:rotate(90deg) scale(.9)}}
+@keyframes fdlFadeOut{from{opacity:1}to{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .fdl__i,.fdl__x,.fdl.is-out .fdl__i,.fdl.is-out .fdl__x{animation-duration:.001s;animation-delay:0s}
+}
+
 .toast{
   position:fixed;left:50%;bottom:calc(var(--tab-h) + 34px);transform:translateX(-50%);z-index:300;
   background:var(--ink);color:#fff;padding:13px 20px;border-radius:var(--r-md);font-size:13.5px;
@@ -2161,14 +2211,16 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
    Поэтому z-index выше всех слоёв (админка 200, шторки 101, тост 300). */
 .net{
   position:fixed;top:var(--net-top);left:50%;z-index:500;
-  width:min(440px, calc(100% - 24px));
-  display:flex;align-items:center;gap:10px;
-  padding:11px 13px;border-radius:var(--r-xl);
-  font-size:12.5px;font-weight:600;line-height:1.4;
+  /* по длине фразы, а не во всю ширину: короткая весть — короткая плашка */
+  width:max-content;max-width:min(400px, calc(100% - 24px));
+  display:flex;align-items:center;gap:9px;
+  padding:8px 15px 8px 8px;border-radius:20px;
+  font-size:12.5px;font-weight:600;line-height:1.35;
   color:#fff;background:var(--ink);box-shadow:var(--sh-3);
   overflow:hidden;
-  /* плашка только сообщает: нажатия должны проходить сквозь неё к контенту */
-  pointer-events:none;
+  /* Плашку смахивают пальцем — вверх или в сторону. touch-action: палец
+     тянет плашку, а не прокручивает страницу под ней. */
+  touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;
   /* спрятана — уехала за верхний край; приезд и уход идут одним переходом */
   transform:translate(-50%,calc(-100% - 28px));
   opacity:0;
@@ -2176,12 +2228,19 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
   will-change:transform,opacity
 }
 .net.is-on{transform:translate(-50%,0);opacity:1}
+/* пока выезжает или уже уходит — нажатия проходят сквозь неё к контенту */
+.net:not(.is-on){pointer-events:none}
+/* тянут — едет за пальцем без задержки; отпустили — пружинит на место
+   тем же переходом, что и приезжала */
+.net.is-drag{transition:none;cursor:grabbing}
+/* смахнули — улетает туда, куда тянули, быстрее, чем приезжала */
+.net.is-fling{transition:transform .3s cubic-bezier(.3,.7,.4,1), opacity .26s var(--ease);pointer-events:none}
 .net[hidden]{display:none}
 /* у админки своя верхняя полоса — плашка встаёт ровно под неё */
 body.adm-on{--net-top:calc(env(safe-area-inset-top) + 82px)}
 /* значок в кружке: состояние читается с одного взгляда, ещё до текста */
 .net__ic{
-  flex:none;width:26px;height:26px;border-radius:var(--r-pill);
+  flex:none;width:24px;height:24px;border-radius:var(--r-pill);
   display:grid;place-items:center;background:rgba(255,255,255,.18)
 }
 .net__ic .ic{width:15px;height:15px;stroke-width:2}
@@ -2203,7 +2262,7 @@ body.adm-on{--net-top:calc(env(safe-area-inset-top) + 82px)}
 .net--slow{background:#8a5a12}
 .net--back{background:#146b3a}
 @media (prefers-reduced-motion:reduce){
-  .net{transition-duration:.001s}
+  .net,.net.is-fling{transition-duration:.001s}
   .net__t{animation:none}
   .net__bar::after,.net--back .net__bar::after{animation:none;left:0;width:100%}
 }
@@ -3328,7 +3387,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   .pd__body{grid-column:2;grid-row:1 / span 2;max-width:none}
   .pd__extra{max-width:760px;margin:8px auto 0;border-radius:var(--r-lg)}
   .sheet{max-width:560px;border-radius:var(--r-lg);bottom:auto;top:50%;transform:translateY(-50%);animation:fadeIn .24s var(--ease)}
-  .fab{right:32px}
+  .fab,.fdl{right:32px}
   .ad__g2{grid-template-columns:1fr 1fr}
   .ft__inner{padding:48px 32px 28px}
   .ft__top{flex-direction:row;align-items:flex-end;justify-content:space-between}
@@ -8419,7 +8478,7 @@ function heroHTML(list, id, banner){
 }
 
 /* ---- 4 блока над «Новинками» (правятся в админке → Главная) ---- */
-const USP_ICONS = ['star','shield','truck','refresh','gift','clock','check','box','tag','flame','sup','pin','camera','card'];
+const USP_ICONS = ['star','shield','truck','refresh','gift','clock','check','box','tag','flame','sup','pin','camera','card','lock'];
 function uspItems(){
   const base = defaultCms().usp.items;
   const raw = (typeof CMS !== 'undefined' && CMS.usp && Array.isArray(CMS.usp.items)) ? CMS.usp.items : base;
@@ -11138,31 +11197,43 @@ const NET = (() => {
   let backTimer = 0;
   let hideTimer = 0;
 
+  /* Коротко, в одну строку на телефоне: длинную фразу на ходу не дочитывают,
+     а плашка на полэкрана закрывала шапку каталога. */
   const VIEW = {
-    offline: {cls:'net--off',  ic:'info', t:'Нет соединения. Показываем то, что уже загружено — как только сеть вернётся, продолжим.'},
-    slow:    {cls:'net--slow', ic:'info', t:'Медленное соединение. Страница работает, фото догрузятся позже.'},
-    back:    {cls:'net--back', ic:'check', t:'Связь восстановлена.'}
+    offline: {cls:'net--off',  ic:'info', t:'Нет соединения — показываем сохранённое'},
+    slow:    {cls:'net--slow', ic:'info', t:'Слабая сеть — фото догрузятся позже'},
+    back:    {cls:'net--back', ic:'check', t:'Связь восстановлена'}
   };
+
+  /* убрать совсем: и с экрана, и следы пальца */
+  function reset(el){
+    el.hidden = true; el.className = 'net'; el.innerHTML = '';
+    el.style.transform = ''; el.style.opacity = '';
+  }
 
   function paint(next){
     const el = box();
     if(!el) return;
     clearTimeout(hideTimer);
+    armSwipe(el);
     if(!next){
       if(el.hidden) return;
       /* уезжает тем же переходом, что и приезжала: прячем только после него */
       el.classList.remove('is-on');
       document.body.classList.remove('has-net');
-      hideTimer = setTimeout(() => {
-        el.hidden = true; el.className = 'net'; el.innerHTML = '';
-      }, 520);
+      hideTimer = setTimeout(() => reset(el), 520);
       return;
     }
     const v = VIEW[next];
+    /* Плашку как раз смахивали — новая весть приезжает заново, а не
+       застревает там, куда её унёс палец. */
+    const flung = el.classList.contains('is-fling');
+    if(flung){ el.style.transform = ''; el.style.opacity = ''; }
     /* плашка уже на экране — меняем только содержимое, заново не выезжает */
-    const shown = el.classList.contains('is-on');
+    const shown = el.classList.contains('is-on') && !flung;
     el.hidden = false;
-    el.className = 'net ' + v.cls + (shown ? ' is-on' : '');
+    el.className = 'net ' + v.cls + (shown ? ' is-on' : '') +
+      (shown && el.classList.contains('is-drag') ? ' is-drag' : '');
     el.innerHTML = `<span class="net__ic">${svg(v.ic,'ic ic--sm')}</span>` +
       `<span class="net__t">${v.t}</span><span class="net__bar"></span>`;
     document.body.classList.add('has-net');
@@ -11170,6 +11241,68 @@ const NET = (() => {
        иначе перехода не будет. requestAnimationFrame тут не годится — во
        вкладке на фоне кадры не рисуются, и плашка так и не выехала бы. */
     if(!shown){ void el.offsetWidth; el.classList.add('is-on'); }
+  }
+
+  /* Смахнули — улетает туда, куда тянули, и не возвращается, пока
+     состояние связи не сменится: та же весть второй раз не нужна. */
+  function fling(dir){
+    const el = box();
+    if(!el || el.hidden) return;
+    clearTimeout(backTimer);
+    clearTimeout(hideTimer);
+    el.classList.remove('is-drag');
+    el.classList.add('is-fling');
+    el.style.transform = dir === 'up'
+      ? 'translate(-50%, calc(-100% - var(--net-top) - 20px))'
+      : `translate(calc(-50% ${dir === 'right' ? '+' : '-'} 100vw), 0)`;
+    el.style.opacity = '0';
+    document.body.classList.remove('has-net');
+    hideTimer = setTimeout(() => reset(el), 320);
+  }
+
+  /* Палец тянет плашку вверх или вбок. Отпустили недалеко и медленно —
+     пружинит на место; дальше порога или резким движением — улетает.
+     Простое касание тоже убирает её: «понял». */
+  let swipeArmed = false;
+  function armSwipe(el){
+    if(swipeArmed) return;
+    swipeArmed = true;
+    let id = null, sx = 0, sy = 0, dx = 0, dy = 0, t0 = 0, axis = '';
+    el.addEventListener('pointerdown', e => {
+      if(!el.classList.contains('is-on') || el.classList.contains('is-fling')) return;
+      id = e.pointerId; sx = e.clientX; sy = e.clientY;
+      dx = dy = 0; axis = ''; t0 = performance.now();
+      try{ el.setPointerCapture(id); }catch(_){}
+      el.classList.add('is-drag');
+    });
+    el.addEventListener('pointermove', e => {
+      if(e.pointerId !== id) return;
+      dx = e.clientX - sx; dy = e.clientY - sy;
+      if(!axis && Math.hypot(dx, dy) > 6) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if(!axis) return;
+      /* вниз не пускаем — только тугая упругость, чтобы было видно, что держишь */
+      const x = axis === 'x' ? dx : 0;
+      const y = axis === 'y' ? (dy < 0 ? dy : dy / 5) : 0;
+      el.style.transform = `translate(calc(-50% + ${x}px), ${y}px)`;
+      el.style.opacity = String(Math.max(.3, 1 - Math.abs(x) / 280 - Math.max(0, -y) / 100));
+    });
+    const end = e => {
+      if(e.pointerId !== id) return;
+      id = null;
+      const dt = Math.max(1, performance.now() - t0);
+      const vx = dx / dt, vy = dy / dt;          /* пикселей в миллисекунду */
+      if(e.type === 'pointerup'){
+        if(!axis) return fling('up');
+        if(axis === 'x' && (Math.abs(dx) > 80 || (Math.abs(vx) > .5 && Math.abs(dx) > 24))){
+          return fling(dx > 0 ? 'right' : 'left');
+        }
+        if(axis === 'y' && (dy < -28 || (vy < -.4 && dy < -10))) return fling('up');
+      }
+      el.classList.remove('is-drag');
+      el.style.transform = ''; el.style.opacity = '';
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
   }
 
   function set(next){
@@ -11752,6 +11885,48 @@ function modalChat(){
       <button data-a="info:privacy" style="text-decoration:underline;font-weight:600">политикой конфиденциальности</button>.</p></div>`);
 }
 
+/* Кружок «Написать нам» справа снизу. Показывает те же соцсети, что внизу
+   шторки (SOCIALS), и ведёт себя так же: есть ссылка — открываем, нет —
+   честное «скоро». Только Telegram здесь ведёт не в бота вообще, а сразу
+   в диалог поддержки: человек нажал «написать», а не «подписаться». */
+function fabDial(){
+  const n = SOCIALS.length;
+  const rows = SOCIALS.map((s, i) => {
+    const inner = `<span class="fdl__l">${esc(s.t)}</span><span class="fdl__b">${socIcon(s.k)}</span>`;
+    const st = `style="--i:${n - 1 - i}"`;
+    if(s.k === 'telegram' && telegramReady()){
+      return `<button class="fdl__i" type="button" data-a="support_open" ${st}>${inner}</button>`;
+    }
+    const u = socialUrl(s.k);
+    return u
+      ? `<a class="fdl__i" href="${esc(u)}" target="_blank" rel="noopener noreferrer" ${st}>${inner}</a>`
+      : `<button class="fdl__i" type="button" data-a="soon:${s.k}" ${st}
+           aria-label="${esc(s.t)} — скоро">${inner}</button>`;
+  }).join('');
+  openOv(`<div class="fdl__scrim"></div>
+    <div class="fdl notranslate" role="dialog" aria-modal="true" aria-label="Написать нам" translate="no">
+      <div class="fdl__list">${rows}</div>
+      <button class="fdl__x" type="button" data-fdl-x aria-label="Закрыть">${svg('x')}</button>
+    </div>`);
+  const box = ov.querySelector('.fdl');
+  const scrim = ov.querySelector('.fdl__scrim');
+  if(!box) return;
+  /* Закрываем с обратной анимацией: кружки ныряют в кнопку, потом слой
+     снимаем. Escape и «Назад» закрывают мгновенно — как любое окно. */
+  let leaving = false;
+  const leave = () => {
+    if(leaving) return;
+    leaving = true;
+    box.classList.add('is-out');
+    if(scrim) scrim.classList.add('is-out');
+    setTimeout(() => { if(ov.contains(box)) closeOv(); }, 240);
+  };
+  scrim && scrim.addEventListener('click', leave);
+  box.querySelector('[data-fdl-x]')?.addEventListener('click', leave);
+  /* ссылка ушла в новую вкладку — за ней меню уже не нужно */
+  box.querySelectorAll('a.fdl__i').forEach(a => a.addEventListener('click', () => setTimeout(leave, 120)));
+}
+
 /* ==========================================================
    ФОРМА АВТОРИЗАЦИИ (телефон + OTP / Telegram)
    ========================================================== */
@@ -12264,7 +12439,9 @@ document.addEventListener('click', e => {
     case 'sort': sheetSort(); break;
     case 'search': modalSearch(); break;
     case 'menu': sheetMenu(); break;
-    case 'chat': modalChat(); break;
+    /* кружок справа снизу раскрывает соцсети; остальные «Написать нам» —
+       окно поддержки, как раньше */
+    case 'chat': el.classList.contains('fab') ? fabDial() : modalChat(); break;
     case 'appinstall': if(window.lcApp) lcApp.open(); break;
     case 'support_open':
       closeOv();
@@ -13159,7 +13336,7 @@ function defaultCms(){
     about: {blocks: []},
     /* Четыре плашки над «Новинками». Правятся в админке → Главная. */
     usp:{on:true, items:[
-      {ic:'star',    l1:'Новинки',  l2:'каждую неделю'},
+      {ic:'lock',    l1:'Безопасная', l2:'оплата'},
       {ic:'shield',  l1:'Премиум',  l2:'качество'},
       {ic:'truck',   l1:'Быстрая',  l2:'доставка'},
       {ic:'refresh', l1:'Лёгкий',   l2:'возврат'}
@@ -13171,13 +13348,21 @@ function defaultCms(){
 }
 /* Плашки преимуществ: чего нет в сохранённом CMS — берём из умолчаний,
    иначе после старого сохранения главная осталась бы без блоков. */
+/* «Новинки каждую неделю» владелец попросил убрать, а в CMS прода она
+   записана явно. Меняем на нынешнее умолчание только эту стоковую плашку
+   слово в слово — свою, вписанную руками, не трогаем. */
+const USP_RETIRED = 'Новинки|каждую неделю';
 function uspMerge(base, saved){
   const b = base || {on:true, items:[]};
   if(!saved || typeof saved !== 'object') return {on:b.on !== false, items:b.items.slice()};
   const items = Array.isArray(saved.items) && saved.items.length ? saved.items : b.items;
   return {
     on: saved.on !== false,
-    items: items.slice(0, 4).map((x, i) => Object.assign({}, b.items[i] || b.items[0], x || {}))
+    items: items.slice(0, 4).map((x, i) => {
+      const d = b.items[i] || b.items[0];
+      if(x && `${x.l1}|${x.l2}` === USP_RETIRED) return Object.assign({}, d);
+      return Object.assign({}, d, x || {});
+    })
   };
 }
 function loadCms(){
