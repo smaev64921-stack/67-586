@@ -16,24 +16,30 @@
 <!-- Отдельный файл, а не сам логотип: iOS кладёт иконку на сплошную подложку,
      и чёрный знак по прозрачному фону там просто исчезал. -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" as="image" href="/onboarding/look-14.jpg" fetchpriority="high">
-<!-- Греем только текстовый шрифт: на первом экране антиквы нет ни в одном слове.
-     crossorigin обязателен даже для своего домена, иначе браузер скачает файл дважды. -->
+<link rel="preload" as="image" href="/onboarding/ob-hero-dasha-blue.jpg" fetchpriority="high">
+<!-- Греем оба русских шрифта: подпись на заставке набрана антиквой, всё
+     мелкое — Onest. crossorigin обязателен даже для своего домена, иначе
+     браузер скачает файл дважды. -->
 <link rel="preload" as="font" type="font/woff2" href="/fonts/onest-var-cyrillic.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="/fonts/prata-400-cyrillic.woff2" crossorigin>
 
 <!-- ==================================================================
      ЗНАКОМСТВО С МАГАЗИНОМ  ·  /onboarding.html
 
      Показывается при каждом входе на сайт или запуске приложения. Человек
-     листает сам: один разворот — одна мысль и один снимок. Текст и фото
-     появляются, когда разворот входит в экран.
+     листает сам: заставка и семь экранов, на каждом — одна мысль, крупные
+     снимки во всю ширину и короткий текст. Последний экран зовёт в каталог.
 
      Фон светлый нарочно: студийные снимки сняты на светло-сером, и на
      тёмной странице они выглядели бы наклейками.
 
-     Всё держится на IntersectionObserver и CSS-переходах — никаких
-     библиотек и никакого пересчёта на каждый кадр прокрутки, иначе
-     на телефоне это дёргалось бы и грело батарею.
+     Снимки — только одиночные (совместных нет нигде) и обрезаны по низу
+     футболки: продаём футболки, а не джинсы. Новые файлы — ob-*.jpg;
+     старые look-*.jpg не перезаписываем, их держит кэш на неделю.
+
+     Появление экранов — IntersectionObserver и CSS-переходы. Прокрутку
+     слушает только сцена заставки, и на каждый кадр она пишет два числа;
+     всё, что требует замеров, посчитано заранее. Никаких библиотек.
      ================================================================== -->
 
 <style>
@@ -75,7 +81,6 @@
   --soft:#4a4a4a;
   --muted:#8f8f8f;
   --line:#e2e2e2;
-  --ghost:#dedede;
   --f-display:'Prata',Georgia,'Times New Roman',serif;
   --f-text:'Onest',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
   --ease:cubic-bezier(.4,0,.2,1);
@@ -99,6 +104,25 @@ a{color:inherit;text-decoration:none}
 img{display:block;max-width:100%}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 
+/* Сетка экранов. Поля и высоты шапки и подвала — переменными: от них считаются
+   и экраны, и место знака, и куда встаёт полоса прогресса.
+   Правое поле текста шире левого: справа над снимками стоит полоса прогресса,
+   и текст под неё не заходит. */
+:root{
+  --gut:20px;--txt-r:44px;
+  --hdr:calc(env(safe-area-inset-top) + 64px);
+  --nav:calc(env(safe-area-inset-bottom) + 76px);
+  --t:clamp(32px,10.2vw,44px);
+  --t-hero:clamp(28px,8.6vw,40px);
+  --t-fin:clamp(36px,11.8vw,56px);
+  --line-2:#d9d9d9;
+  --ph:#e4e4e4;
+  /* Значения «без скрипта»: сцена сразу в конечном виде — знак наверху,
+     снимок во всю ширину, текст виден. Скрипт перепишет их, если сцена жива. */
+  --p:1;--e:1;--ps:1;--px:0px;--py:0px;--mx:0px;--my:0px;--ms:1;--rise:0px;
+  --bx:22.6px;--by:calc(env(safe-area-inset-top) + 17px);--bh:30px
+}
+
 /* ---------- прокрутка с остановкой на каждом экране ----------
    Одного сильного движения больше не хватает, чтобы пролистать всё насквозь:
    браузер останавливает на каждом развороте. Ключевая часть — scroll-snap-stop,
@@ -111,537 +135,554 @@ img{display:block;max-width:100%}
   .snap{scroll-snap-align:start;scroll-snap-stop:always}
 }
 
-/* ---------- прогресс прокрутки ---------- */
-/* Растягиваем полосу через scaleX, а не через width: ширина заставляла бы
-   браузер пересчитывать раскладку на каждом кадре прокрутки. */
-.bar{
-  position:fixed;left:0;top:0;height:2px;z-index:50;
-  background:var(--ink);width:100%;
-  transform:scaleX(0);transform-origin:0 50%;
-  transition:transform .12s linear
-}
-
-/* ---------- «пропустить» ---------- */
-.skip{
-  position:fixed;z-index:40;
-  top:calc(14px + env(safe-area-inset-top));right:14px;
-  padding:9px 16px;border-radius:999px;
-  background:rgba(255,255,255,.8);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border:1px solid var(--line);
-  font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--soft);
-  transition:opacity .45s var(--ease), transform .45s var(--out), color .2s var(--ease)
-}
-.skip:hover{color:var(--ink)}
-.skip.is-gone{opacity:0;transform:translateY(-14px);pointer-events:none}
-
-/* ================= ЗАСТАВКА ================= */
-.intro{
-  min-height:100svh;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:24px;padding:80px 24px 120px;position:relative;text-align:center
-}
-.intro__mark{
-  width:auto;height:clamp(92px,19vh,160px);
-  opacity:0;transform:translateY(24px) scale(.94);
-  animation:markIn 1.1s var(--out) .1s forwards
-}
-@keyframes markIn{to{opacity:1;transform:none}}
-
-/* Подпись набирается по словам — разметку этим не засоряем, слова ставит скрипт.
-   Название бренда отдельной строкой не пишем: оно уже нарисовано внутри знака. */
-.intro__sub{
-  display:flex;flex-wrap:wrap;justify-content:center;gap:0 .32em;
-  max-width:22ch;font-size:clamp(15px,4.4vw,17px);font-weight:400;line-height:1.55;
-  color:var(--soft)
-}
-.intro__sub span{opacity:0;transform:translateY(15px);animation:wordIn .7s var(--out) forwards}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes markIn{from{opacity:0;transform:translateY(24px) scale(.94)}to{opacity:1;transform:none}}
 @keyframes wordIn{to{opacity:1;transform:none}}
 
-@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+/* ================= ЗНАК =================
+   Один на всю страницу: на заставке он крупный посередине, при прокрутке
+   уменьшается и встаёт наверх (на телефоне — в левый угол, на планшете —
+   по центру шапки) — и дальше так и стоит на всех экранах. Раньше знак повторялся на каждом развороте, и шесть одинаковых
+   логотипов подряд читались как шаблон.
+   Вёрстка — в крупном размере, дальше знак только уменьшается через
+   transform: картинка не растягивается и остаётся резкой.
+   Положение и размер считает скрипт (measure) и кладёт в --bx/--by/--bh,
+   сдвиг до шапки — в --mx/--my/--ms; --e — пройденная доля сцены. */
+.brand{
+  position:fixed;z-index:45;pointer-events:none;
+  left:var(--bx);top:var(--by);height:var(--bh);width:auto;
+  transform-origin:0 0;
+  transform:translate(calc(var(--mx) * var(--e)),calc(var(--my) * var(--e))) scale(calc(1 + (var(--ms) - 1) * var(--e)))
+}
+/* Появление — у картинки внутри, а не у обёртки: transform обёртки занят
+   движением в шапку, и одна анимация сбивала бы другую. */
+.brand img{position:relative;height:100%;width:auto;animation:markIn 1.1s var(--out) .1s both}
+/* Телефон: снимки идут от верхнего края, и знак встаёт на матовый кружок —
+   пару к «Пропустить» справа. Без подложки чёрный знак ложился на волосы
+   тех, кто стоит у края кадра. Обёртка уменьшена через transform, поэтому
+   размеры подложки делим на --ms: в шапке выходит ровно 40 px. */
+@media (max-width:767px){
+  .brand::before{
+    content:'';position:absolute;
+    inset:calc(-5px / var(--ms)) calc(-10.625px / var(--ms));
+    border-radius:calc(20px / var(--ms));
+    background:rgba(255,255,255,.86);
+    -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
+    box-shadow:0 0 0 calc(1px / var(--ms)) rgba(11,11,11,.12), 0 calc(4px / var(--ms)) calc(14px / var(--ms)) rgba(0,0,0,.06);
+    opacity:clamp(0, (var(--e) - .6) * 2.5, 1)
+  }
+}
+.is-scrub .brand,.is-scrub .hero__ph{will-change:transform}
 
-/* «Листайте» — на заставке и внизу каждого разворота: одна и та же подсказка
-   на всех экранах держит серию вместе и не даёт застрять посередине. */
-.hint{
-  display:flex;flex-direction:column;align-items:center;gap:11px;
-  font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)
+/* ---------- «пропустить» ----------
+   Раньше была мелкой серой надписью, и её не находили. Теперь — заметная
+   кнопка с матовой подложкой: читается и на снимке, и на светлом фоне.
+   Касание ловится на 4 px шире видимой кнопки — итого 48 px в высоту. */
+.skip{
+  position:fixed;z-index:46;
+  top:calc(env(safe-area-inset-top) + 12px);right:var(--skip-r,12px);
+  display:inline-flex;align-items:center;gap:6px;
+  height:40px;padding:0 16px 0 18px;border-radius:999px;
+  background:rgba(255,255,255,.86);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
+  border:1px solid rgba(11,11,11,.12);box-shadow:0 4px 14px rgba(0,0,0,.06);
+  font-size:14px;font-weight:600;line-height:1;color:var(--ink);
+  transition:opacity .45s var(--ease), transform .45s var(--out), background .2s var(--ease)
 }
-.hint__line{width:1px;height:46px;background:var(--ghost);position:relative;overflow:hidden}
-/* Бегунок едет через transform, а не через top: top сдвигал бы раскладку на
-   каждом кадре, а крутятся подсказки без остановки. */
-.hint__line::after{
-  content:'';position:absolute;left:0;top:0;width:1px;height:100%;
-  background:linear-gradient(transparent,var(--ink));
-  transform:translateY(-100%);
-  animation:runDown 1.9s var(--ease) infinite
-}
-@keyframes runDown{to{transform:translateY(100%)}}
-
-.intro__go{
-  position:absolute;left:0;right:0;bottom:calc(30px + env(safe-area-inset-bottom));
-  opacity:0;animation:fadeUp .8s var(--out) 1.9s forwards
-}
-
-/* ================= РАЗВОРОТЫ ================= */
-.look{min-height:100svh;display:flex;align-items:center;padding:64px 20px}
-.look__in{
-  width:100%;max-width:940px;margin:0 auto;
-  display:grid;gap:28px;align-items:center;grid-template-columns:1fr
-}
-@media(min-width:820px){
-  .look__in{grid-template-columns:1fr 1fr;gap:60px}
-  .look[data-flip] .look__ph{order:2}
+.skip::after{content:'';position:absolute;inset:-4px}
+.skip svg{width:14px;height:14px;flex:none;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.skip:hover{background:#fff}
+.skip:active{transform:scale(.96)}
+.skip.is-gone{
+  opacity:0;transform:translateY(-14px);pointer-events:none;visibility:hidden;
+  transition:opacity .45s var(--ease), transform .45s var(--out), visibility 0s .45s
 }
 
-/* кадр раскрывается сверху вниз, снимок внутри чуть отъезжает —
-   как будто камера наконец успокоилась */
-.look__ph{
-  position:relative;overflow:hidden;background:#eaeaea;
-  aspect-ratio:4/5;max-height:44svh;width:100%;
-  clip-path:inset(0 0 100% 0);
-  transition:clip-path 1.05s var(--out)
+/* ---------- полоса прогресса ----------
+   Номер экрана и семь точек, текущая вытянута в черту. На телефоне и
+   планшете — внизу слева, на одной высоте с кружком «Листайте»: там
+   только поле страницы, и полоса не ложится ни на снимки, ни на текст.
+   На компьютере — столбиком в левом поле, где тоже нет снимков.
+   Проявляется, когда заставка почти перешла в первый экран (--p), и
+   прячется на заставке, в финале (там своя кнопка) и под шторкой.
+   Спрятанная — ещё и visibility:hidden: иначе семь невидимых кнопок
+   оставались бы в порядке Tab и в читалке. */
+.rail{
+  position:fixed;z-index:44;left:16px;bottom:calc(env(safe-area-inset-bottom) + 32px);
+  height:24px;display:flex;align-items:center;
+  opacity:clamp(0, (var(--p) - .7) * 3.4, 1);
+  transition:opacity .35s var(--ease), visibility 0s
 }
-.look__ph img{
-  width:100%;height:100%;object-fit:cover;object-position:center 12%;
-  transform:scale(1.12);transition:transform 1.5s var(--out)
+.rail.is-hide{opacity:0;visibility:hidden;transition:opacity .35s var(--ease), visibility 0s .35s}
+html.is-locked .rail{opacity:0}
+.rail.is-dead{pointer-events:none}
+.rail__n{
+  margin-right:6px;
+  font-size:10px;font-weight:600;letter-spacing:.08em;line-height:1;white-space:nowrap;
+  font-variant-numeric:tabular-nums;color:var(--ink)
 }
-.look.is-in .look__ph{clip-path:inset(0 0 0 0)}
-.look.is-in .look__ph img{transform:scale(1)}
+.rail__n b{font-weight:600}
+.rail__d{width:9px;height:24px;display:grid;place-items:center;transition:width .35s var(--out)}
+.rail__d::before{
+  content:'';width:4px;height:4px;border-radius:2px;background:rgba(11,11,11,.22);
+  transition:width .35s var(--out), height .35s var(--out), background .35s var(--ease)
+}
+.rail__d.is-past::before{background:rgba(11,11,11,.45)}
+.rail__d[aria-current]{width:22px}
+.rail__d[aria-current]::before{width:16px;background:var(--ink)}
+.rail__d:focus-visible{outline-offset:-2px}
 
-/* На широком экране текст стоит рядом с кадром, а не под ним, — значит кадру
-   можно отдать больше высоты, иначе портретный снимок обрезался бы в квадрат.
-   Правило стоит ниже базового нарочно: приоритет у них одинаковый, решает порядок. */
-@media(min-width:820px){ .look__ph{max-height:74svh} }
+/* ================= ТИПОГРАФИКА ЭКРАНОВ ================= */
+/* Рубрика: номер, волосяная линия, название. Класс не .k: так названы
+   шторки знака LC в блоке ниже, и общее правило задело бы и их. */
+.kick{
+  display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  font-size:11px;line-height:1;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2)
+}
+.kick b{color:var(--ink);font-weight:600}
+.kick i{flex:none;width:40px;height:1px;background:var(--line-2)}
+/* Заголовок целиком чёрным: серая вторая строка на дешёвом экране
+   растворялась, а крупная антиква и так держит иерархию. */
+.t{
+  font-family:var(--f-display);font-weight:400;
+  font-size:var(--t);line-height:1.08;letter-spacing:-.01em;margin-bottom:12px;
+  text-wrap:balance
+}
+.d{font-size:15px;line-height:1.6;color:var(--soft);max-width:34ch}
 
-.look__txt > *{
-  opacity:0;transform:translateY(24px);
+/* ================= ЭКРАН =================
+   Сверху поле под знак, снизу «Листайте», между ними — снимки и текст.
+   Снимки забирают всё, что осталось от текста (flex:1), поэтому пустой
+   полосы нет ни на высоком телефоне, ни на низком: формула с подобранными
+   пикселями на разном тексте ошибалась бы то в одну, то в другую сторону. */
+.scr{
+  position:relative;
+  min-height:100vh;min-height:100svh;
+  display:flex;flex-direction:column;padding-top:var(--hdr)
+}
+.scr__txt{margin-top:auto;padding:16px var(--txt-r) 0 var(--gut)}
+
+/* Телефон: снимки — от самого верха, знак и «Пропустить» стоят поверх
+   них, как в утверждённом макете. Сплошная полоса шапки отнимала у снимков
+   64 px на каждом экране. Экран палитры начинается с текста — ему поле
+   под знаком нужно. */
+@media (max-width:767px){
+  .scr:not(.pal){padding-top:0}
+  .scene .scene__stage{padding-top:0}
+}
+
+/* «Листайте»: кружок со стрелкой. Касание — следующий экран. Стрелка
+   покачивается только на текущем экране: шесть одновременно качающихся
+   стрелок греют телефон и ничего не добавляют. */
+.scr__nav{
+  position:relative;z-index:3;flex:none;align-self:center;
+  height:var(--nav);padding:10px 24px env(safe-area-inset-bottom);
+  display:flex;flex-direction:column;align-items:center;gap:6px
+}
+.scr__nav b{
+  width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  border:1px solid rgba(11,11,11,.18);background:rgba(255,255,255,.55);
+  transition:background .2s var(--ease), transform .2s var(--out)
+}
+.scr__nav:hover b{background:#fff}
+.scr__nav:active b{transform:scale(.94)}
+.scr__nav svg{width:16px;height:16px;stroke:var(--ink);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.scr__nav span{
+  font-size:10.5px;font-weight:600;line-height:1.2;letter-spacing:.22em;padding-left:.22em;
+  text-transform:uppercase;color:var(--ink-2)
+}
+.is-cur .scr__nav svg{animation:bob 2.2s ease-in-out infinite alternate}
+@keyframes bob{to{transform:translateY(3px)}}
+
+/* Текст входит снизу по строкам. Только на экранах с [data-look]: текст
+   первого экрана ведёт прокрутка сцены. */
+[data-look] .scr__txt > *{
+  opacity:0;transform:translateY(20px);
   transition:opacity .85s var(--out), transform .85s var(--out)
 }
-.look.is-in .look__txt > *{opacity:1;transform:none}
-.look.is-in .look__txt > *:nth-child(1){transition-delay:.16s}
-.look.is-in .look__txt > *:nth-child(2){transition-delay:.28s}
-.look.is-in .look__txt > *:nth-child(3){transition-delay:.4s}
+.is-in .scr__txt > *{opacity:1;transform:none}
+.is-in .scr__txt > :nth-child(1){transition-delay:.15s}
+.is-in .scr__txt > :nth-child(2){transition-delay:.27s}
+.is-in .scr__txt > :nth-child(3){transition-delay:.39s}
+.is-in .scr__txt > :nth-child(4){transition-delay:.51s}
 
-.look__k{
-  display:flex;align-items:center;gap:10px;margin-bottom:16px;
-  font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)
+/* ================= ПАРА СНИМКОВ =================
+   Два равных кадра встык во всю ширину экрана, под каждым — подпись с
+   цветом. Никаких маленьких вставок: на прошлой версии мелкий второй кадр
+   спрашивали «а это для кого?».
+   Снимки обрезаны по низу футболки, поэтому край у кадра жёсткий, без
+   растушёвки: низ снимка — это и есть товар. */
+.pair{flex:1 1 0;min-height:220px;display:flex;gap:2px}
+.ph{margin:0;flex:1 1 0;min-width:0;display:flex;flex-direction:column;position:relative}
+.ph__f{
+  flex:1 1 0;min-height:0;position:relative;overflow:hidden;background:var(--ph);
+  clip-path:inset(0 0 100% 0);transition:clip-path 1.05s var(--out)
 }
-.look__k b{color:var(--ink);font-weight:600}
-.look__k i{flex:1;height:1px;background:var(--line);max-width:70px}
-.look__t{
-  font-family:var(--f-display);font-weight:400;
-  font-size:clamp(30px,7.6vw,48px);line-height:1.12;
-  letter-spacing:-.008em;margin-bottom:16px
+.ph__f img,.band img,.hero__ph img,.tone__ph img,.fin__strip img{
+  position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;
+  object-fit:cover;object-position:var(--op,50% 0)
 }
-.look__t em{font-style:normal;display:block;color:var(--ink-2)}
-.look__d{font-size:clamp(14.5px,3.9vw,15.5px);line-height:1.6;color:var(--soft);max-width:36ch}
+.ph__f img{transform:scale(1.08);transition:transform 1.5s var(--out)}
+/* Низ кадра — край футболки. Картинка на 4% выше рамки и прижата к верху:
+   полоска джинсов под краем остаётся за рамкой. Кроме «Ткани» — там внизу
+   руки, оттягивающие край. */
+.scr:not(.scr--fab) .ph__f img,.tone__ph img{height:104%}
+.is-in .ph__f{clip-path:inset(0 0 0 0)}
+.is-in .ph__f img{transform:none}
+/* Второй кадр — на долю секунды позже: одновременно два кадра читались бы
+   как одна картинка, разрезанная пополам. */
+.ph--2 .ph__f,.ph--2 .ph__f img{transition-delay:.12s}
+/* Ткань: правый кадр поднимается снизу — навстречу левому. */
+.scr--fab .ph--2 .ph__f{clip-path:inset(100% 0 0 0)}
+.scr--fab.is-in .ph--2 .ph__f{clip-path:inset(0 0 0 0)}
 
-/* Второй разворот сделан по эскизу владельца: номер стоит прямо в заголовке,
-   заголовок в одну строку, отдельной строки-рубрики нет. Текст там вдвое
-   длиннее прочих — рубрика, вторая строка заголовка и узкий абзац вместе
-   съели бы у снимков сотню пикселей высоты.
-   Номер набран как цифра в рубрике у соседей — мелко и жирно, — чтобы
-   нумерация по-прежнему читалась одной системой. */
-/* nowrap: на экранах уже 353 px «и» оставалось висеть в конце первой строки,
-   а «ощущения» уезжало под номер. Так перенос идёт целиком перед «и ощущения». */
-.look__t--row em{display:inline;white-space:nowrap}
-.look__n{
-  font-family:var(--f-text);font-size:11px;font-weight:600;letter-spacing:.2em;
-  vertical-align:top;position:relative;top:.9em;margin-right:14px;color:var(--ink)
+/* Подпись цвета — матовой плашкой на самом снимке, а не строкой под ним:
+   две строки мелких серых капителей подряд (подпись и рубрика) читались
+   как служебная сноска и отнимали у снимков 32 px. */
+.cap{
+  position:absolute;left:10px;bottom:10px;z-index:1;max-width:calc(100% - 20px);
+  display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden;
+  padding:7px 11px 7px 9px;border-radius:999px;
+  background:rgba(255,255,255,.8);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  font-size:10px;line-height:1;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);
+  opacity:0;transition:opacity .6s var(--ease) .55s
 }
-.look__d--wide{max-width:42ch}
-/* Рядом с кадром колонка узкая, и заголовок в строку всё равно переломится —
-   пусть ломается как у соседей: вторая часть серым с новой строки. */
-@media(min-width:820px){ .look__t--row em{display:block} }
+.is-in .cap{opacity:1}
+.cap i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
 
-/* Первый разворот — двое спина к спине, снимок квадратный. В общей рамке 4/5
-   у правого парня срезало бы рукав: пара занимает почти всю ширину кадра. */
-.look--sq .look__ph{aspect-ratio:1/1}
-
-/* ================= ЗНАК И «ЛИСТАЙТЕ» НА КАЖДОМ РАЗВОРОТЕ =================
-   Сверху знак, снизу подсказка — как на заставке, и так на всех шести
-   разворотах: листаешь серию, а не отдельные экраны. Оба стоят в потоке, а
-   не поверх: на низком экране абсолютные наползли бы на снимок.
-
-   Снимкам на телефоне достаётся вся высота, что осталась от знака, текста
-   и подсказки. Считает её сам браузер: обёртка .look__pics растягивается
-   на свободное место и служит контейнером размеров, а кадры внутри берут
-   ширину от её высоты (единицы cqh). Раньше высота под снимки задавалась
-   формулой с подобранными пикселями — на шести разных разворотах с разным
-   текстом она ошибалась то в одну, то в другую сторону.
-   Выше своего естественного размера обёртка не растёт: на высоком экране
-   лишнее место уходит поровну над и под блоком «снимки + текст».
-   Меньше 190 px снимки не ужимаем: пусть лучше разворот чуть подрастёт, чем
-   фото превратится в марку. */
-.look--lead{
-  flex-direction:column;justify-content:space-between;gap:16px;
-  padding:calc(12px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom))
-}
-.look--lead .look__in{gap:22px}
-.lead__mark{
-  flex:none;width:auto;height:clamp(44px,7.5svh,72px);
-  opacity:0;transform:translateY(-10px);
-  transition:opacity .9s var(--out), transform .9s var(--out)
-}
-.is-in > .lead__mark{opacity:1;transform:none}
-.look--lead > .hint,.pal--lead > .hint{flex:none;opacity:0;transition:opacity .9s var(--ease) .9s}
-.is-in > .hint{opacity:1}
-
-/* На широком экране обёртки как будто нет: кадры — прямо ячейка сетки. */
-.look__pics{display:contents}
-
-@media (max-width:819.98px){
-  /* stretch обязателен: от сетки тут остаётся align-items:center, а у
-     контейнера размеров своей ширины нет — по центру он схлопнулся бы в ноль. */
-  .look--lead .look__in{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;align-items:stretch}
-  .look__pics{
-    display:flex;align-items:flex-end;
-    flex:1 1 0;min-height:190px;container-type:size
-  }
-  /* Потолок обёртки — естественная высота кадров во всю колонку:
-     квадрат — сама ширина, тройка — 0,9615 ширины + линия, веер — 0,72. */
-  .look__pics--sq{max-height:calc(100vw - 40px)}
-  .look__pics--duo{max-height:calc((100vw - 40px) * .9615 + 13px)}
-  .look__pics--fan{max-height:calc((100vw - 40px) * .72 + 13px)}
-  /* Первая строка каждого правила — запас для браузеров без cqh (Safari до
-     16): там обёртка не контейнер, и кадры держатся за высоту экрана. */
-  .look__pics > .look__ph{max-height:40svh;max-height:100cqh}
-  .look__pics > .duo{max-width:min(100%, 34svh);max-width:min(100%, calc((100cqh - 13px) * 1.04))}
-  .look__pics > .fan{max-width:min(100%, 50svh);max-width:min(100%, calc((100cqh - 13px) * 1.389))}
+/* ================= СЦЕНА: ЗАСТАВКА → ПЕРВЫЙ ЭКРАН =================
+   Заставка больше не пустая: знак, подпись, строка о магазине и снимок в
+   рамке. Листнули — знак уменьшается и уезжает в шапку, подпись уходит
+   следом за ним, а снимок из рамки вырастает во весь экран, и под ним
+   проявляется текст первого экрана. Всё это — одна сцена на два экрана:
+   ступень (stage) прилипает к верху, пока прокрутка проходит первые
+   100svh, а движение ведёт одна переменная --p (0…1) — доля пройденного.
+   Прилипание к двум точкам (.scene__pt) доводит сцену до конца само:
+   одного взмаха хватает, чтобы целиком перейти от заставки к экрану.
+   Без скрипта и при «уменьшить движение» сцена — один обычный экран в
+   конечном виде (значения --p и --e по умолчанию — единицы). */
+.scene{position:relative;height:100vh;height:100svh}
+html.has-stage .scene{height:200vh;height:200svh}
+.scene__pt{position:absolute;left:0;right:0;top:0;display:block;height:100vh;height:100svh;pointer-events:none}
+.scene__pt--b{display:none}
+html.has-stage .scene__pt--b{display:block;top:100vh;top:100svh}
+.scene__stage{
+  position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;
+  display:flex;flex-direction:column;padding-top:var(--hdr)
 }
 
-/* Невысокий или узкий телефон: забираем воздух у подсказки, а не у снимков. */
-@media (max-height:700px), (max-width:369px){
-  .look--lead{gap:12px}
-  .look--lead .hint{gap:8px}
-  .look--lead .hint__line{height:30px}
+.cover{
+  position:absolute;left:0;top:0;right:0;bottom:0;z-index:2;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding-top:var(--cv-top,calc(env(safe-area-inset-top) + 190px));padding-bottom:var(--nav);
+  /* Уходит за первую треть пути: снимок растёт поверх уже пустого места,
+     а не поверх полупрозрачной подписи. */
+  opacity:clamp(0, 1 - var(--p) * 3.5, 1);
+  transform:translateY(calc(var(--rise) * var(--e)))
+}
+/* Без сцены подпись не нужна глазам (первый экран и так открыт), но
+   остаётся заголовком страницы для читалки. */
+html:not(.has-stage) .cover{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%)}
+/* Подпись набирается по словам — разметку этим не засоряем, слова ставит скрипт.
+   Название бренда отдельной строкой не пишем: оно уже нарисовано внутри знака. */
+.cover h1{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:0 .28em;padding:0 var(--gut);
+  font-family:var(--f-display);font-weight:400;font-size:19px;line-height:1.3;color:var(--ink)
+}
+.cover h1 span{opacity:0;transform:translateY(15px);animation:wordIn .7s var(--out) forwards}
+.cover h1 .br{flex-basis:100%;height:0}
+.cover__trust{
+  margin-top:14px;padding:0 var(--gut);
+  font-size:10.5px;line-height:1.5;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2);
+  opacity:0;animation:fadeIn .8s var(--ease) .9s forwards
+}
+/* Пустое место под рамку: в нём скрипт рисует уменьшенный снимок первого
+   экрана — тот же самый, а не второй файл. */
+.cover__win{flex:1 1 0;align-self:stretch;min-height:0;margin:24px 24px 16px}
+/* Узкий телефон: строка о магазине и подписи под снимками иначе не влезали
+   в одну строку — ужимаем разрядку, а не кегль. */
+@media (max-width:379px){
+  .cover__trust{letter-spacing:.1em}
+  .cap{letter-spacing:.08em}
 }
 
-/* ================= РАЗВОРОТ НА ДВА КАДРА =================
-   Одна вещь двумя снимками. Класс один на обе пары, меняется только начинка.
-
-   Кадры НЕ стоят встык. Встык они физически не могут быть крупными: на
-   телефоне вся колонка 350 px, пополам — по 170, и разворот читается как два
-   превью, случайно попавших между двумя полноценными экранами. Поэтому
-   меньший кадр заезжает на больший: 64% + 52% − 16% нахлёста = ровно 100%
-   ширины, и высокий кадр получается 291 px вместо 180 — не мельче соседей.
-
-   Высокий кадр берёт пропорции самого файла (--ar), поэтому вертикали не
-   режутся вовсе. Меньший всегда квадрат: туда идёт горизонтальный снимок,
-   который в вертикальной рамке потерял бы руки по краям (они на 33% и 71%
-   ширины), — в квадрате видно 67% ширины, руки внутри с запасом. */
-/* Высоту тут диктует ширина (высокий кадр = 0,64 x ширина x 1,5 = 0,96 её),
-   поэтому потолок задаётся ширине — в блоке «Знак и «Листайте» на каждом
-   развороте», от высоты, что осталась под снимки. */
-.duo{
-  position:relative;display:flex;align-items:flex-end;
-  width:100%;margin-right:auto;padding-bottom:13px
+.hero__ph{
+  flex:1 1 0;min-height:200px;margin:0;position:relative;z-index:3;overflow:hidden;background:var(--ph);
+  transform-origin:50% 0;
+  transform:translate(calc(var(--px) * (1 - var(--e))),calc(var(--py) * (1 - var(--e)))) scale(calc(var(--ps) + (1 - var(--ps)) * var(--e)));
+  animation:phIn 1.3s var(--out) .9s both
 }
-/* Линия набора, на которой стоят оба кадра: прочерчивается слева направо.
-   Через scaleX, а не width, — ширину браузер пересчитывал бы каждый кадр. */
-.duo::after{
-  content:'';position:absolute;left:0;right:0;bottom:0;height:1px;
-  background:var(--line);
-  transform:scaleX(0);transform-origin:0 50%;
-  transition:transform .9s var(--out) .1s
+@keyframes phIn{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+.hero__ph img{transform:scale(calc(1.06 - .06 * var(--e)))}
+.hero__txt{
+  position:relative;z-index:1;padding-right:var(--gut);
+  opacity:clamp(0, (var(--p) - .55) * 2.5, 1);
+  transform:translateY(calc((1 - var(--p)) * 28px))
 }
-.look.is-in .duo::after{transform:scaleX(1)}
-
-.duo__ph{
-  position:relative;overflow:hidden;background:#eaeaea;flex:none;
-  aspect-ratio:var(--ar,2/3);
-  clip-path:inset(0 0 100% 0);
-  transition:clip-path 1.05s var(--out)
-}
-.duo__ph img{
-  width:100%;height:100%;object-fit:cover;object-position:var(--op,center 12%);
-  transform:scale(1.12);transition:transform 1.5s var(--out)
-}
-.look.is-in .duo__ph{clip-path:inset(0 0 0 0)}
-.look.is-in .duo__ph img{transform:scale(1)}
-
-.duo__ph--hi{width:64%}
-/* Поле цвета страницы по двум ведущим краям — без него верхний снимок
-   слипся бы с нижним в одно пятно. Именно border, а не тень: clip-path
-   обрезает всё, что выходит за рамку, и тень до экрана бы не дожила. */
-.duo__ph--lo{
-  width:52%;margin-left:-16%;
-  border-left:7px solid var(--bg);border-top:7px solid var(--bg);
-  /* Вторая склейка идёт поперёк первой и с задержкой: одновременно и в одну
-     сторону два кадра читались бы как одна картинка, разрезанная пополам. */
-  clip-path:inset(0 100% 0 0);
-  transition-delay:.18s
-}
-.look.is-in .duo__ph--lo{clip-path:inset(0 0 0 0)}
-.look.is-in .duo__ph--lo img{transition-delay:.18s}
-
-/* Третий кадр — в пустой угол над малым. Высокий и квадрат оставляли там
-   дыру как раз под снимок: 36% ширины на 44% высоты. Кадр заходит на высокий
-   на 4% — та же склейка внахлёст, что у квадрата, — и стоит ровно на верхней
-   кромке квадрата, так что три кадра складываются в один блок.
-   Пропорция — цифрой: высокий кадр 2:3 при ширине 64% высотой 0,9615 ширины
-   блока, квадрат — 0,52, значит угол высотой 0,4415. Отсюда 40 / 44,15. */
-.duo__ph--top{
-  position:absolute;top:0;right:0;
-  width:40%;aspect-ratio:40/44.15;
-  border-left:7px solid var(--bg);
-  /* Третья склейка — снизу вверх, будто кадр выдвинули из-за квадрата. */
-  clip-path:inset(100% 0 0 0);
-  transition-delay:.34s
-}
-.look.is-in .duo__ph--top{clip-path:inset(0 0 0 0)}
-.look.is-in .duo__ph--top img{transition-delay:.34s}
-
-/* Зеркальная тройка: высокий кадр справа, малые слева. Два разворота с
-   тройкой подряд в одну сторону читались бы как повтор одного макета. */
-.duo--mirror{flex-direction:row-reverse}
-.duo--mirror::after{transform-origin:100% 50%}
-.duo--mirror .duo__ph--lo{
-  margin-left:0;margin-right:-16%;
-  border-left:0;border-right:7px solid var(--bg);
-  clip-path:inset(0 0 0 100%)
-}
-.duo--mirror .duo__ph--top{right:auto;left:0;border-left:0;border-right:7px solid var(--bg)}
-
-@media(min-width:820px){
-  /* Рядом с текстом колонка и так узкая — потолок по высоте больше не нужен,
-     ширину ограничивает сама колонка. data-flip уводит пару вправо, ровно как
-     это уже сделано для одиночного кадра. */
-  .duo{max-width:100%;padding-bottom:16px}
-  .look[data-flip] .duo{order:2}
-  /* На каждом развороте знак и подсказка отнимают у экрана около 230 px. */
-  .look--lead .look__in{gap:60px}
-  .look--lead .look__ph{max-height:calc(100svh - 230px)}
-  .look--lead .duo{max-width:min(100%, calc((100svh - 230px) * 1.04))}
-}
-
-/* ================= ВЕЕР: ТРИ РАКУРСА =================
-   «Спереди, сзади и вполоборота» — буквально: три снимка рядом, как на
-   поворотном столе. Средний крупнее и лежит сверху, крайние заходят под него
-   на 4% ширины веера — это 13% их собственной ширины, ровно полоса стены за
-   локтем. На 8% под средним пропадали рукава: 30 + 48 + 30 − 8 = 100.
-   Крайние выезжают из-под среднего: каждый раскрывается от внутреннего края
-   наружу и заодно отъезжает на место — веер раскрывается, а не мигает. */
-/* В высоту веер — 0,72 своей ширины; потолок ширине ставит тот же блок, что
-   и паре кадров. */
-.fan{
-  position:relative;display:flex;align-items:flex-end;justify-content:center;
-  width:100%;padding-bottom:13px;margin-right:auto
-}
-.fan::after{
-  content:'';position:absolute;left:0;right:0;bottom:0;height:1px;
-  background:var(--line);
-  transform:scaleX(0);transform-origin:50% 50%;
-  transition:transform .9s var(--out) .1s
-}
-.look.is-in .fan::after{transform:scaleX(1)}
-
-.fan__ph{
-  position:relative;overflow:hidden;background:#eaeaea;flex:none;
-  aspect-ratio:2/3;width:30%;
-  transition:clip-path 1.05s var(--out), transform 1.05s var(--out)
-}
-.fan__ph img{
-  width:100%;height:100%;object-fit:cover;object-position:var(--op,center 12%);
-  transform:scale(1.12);transition:transform 1.5s var(--out)
-}
-.look.is-in .fan__ph img{transform:scale(1)}
-.fan__ph--mid{
-  width:48%;margin:0 -4%;z-index:1;
-  /* Поля цвета страницы по бокам — иначе средний слипся бы с крайними. */
-  border-left:7px solid var(--bg);border-right:7px solid var(--bg);
-  clip-path:inset(0 0 100% 0)
-}
-.fan__ph--l{clip-path:inset(0 0 0 100%);transform:translateX(22%);transition-delay:.22s}
-.fan__ph--r{clip-path:inset(0 100% 0 0);transform:translateX(-22%);transition-delay:.3s}
-.look.is-in .fan__ph{clip-path:inset(0 0 0 0);transform:none}
-.look.is-in .fan__ph--l img{transition-delay:.22s}
-.look.is-in .fan__ph--r img{transition-delay:.3s}
-
-@media(min-width:820px){
-  .fan{max-width:100%;padding-bottom:16px}
-  .look[data-flip] .fan{order:2}
-  /* Три кадра в половине колонки выходили мельче одиночного снимка, который
-     тут стоял раньше. Отдаём вееру колонку пошире — текст короткий, ему
-     и трети с лишним хватает. */
-  .look--fan .look__in{grid-template-columns:1.4fr 1fr}
-}
+.hero__txt .t{font-size:var(--t-hero)}
+.scene .scr__nav{opacity:0;animation:fadeIn .8s var(--ease) 1.6s forwards}
 
 /* ================= ПАЛИТРА =================
-   Одна цельная полоса вместо кружков: слева чёрный, справа белый, между ними
-   остальные цвета. Каждый цвет держит ровную площадку в середине своей доли, а
-   переходы — только на стыках. Так полоса читается как растяжка, но при этом
-   видно, что цветов ровно пять, а не бесконечный спектр. */
-.pal{
-  min-height:100svh;display:flex;flex-direction:column;justify-content:center;
-  gap:38px;padding:64px 0
+   Кнопки-цвета — это сами снимки: пять узких полос во всю ширину, на
+   каждой человек в этом цвете, под ней кружок с растяжкой цвета и
+   название. Нажали — «Цвет вживую» открывает этот цвет. */
+.pal .scr__txt{margin-top:0;padding-top:12px}
+.pal__row{position:relative;flex:1 1 0;min-height:220px;display:flex;gap:2px;margin-top:20px}
+.tone{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;text-align:center}
+.tone:focus-visible{outline-offset:-2px}
+.tone__ph{
+  flex:1 1 0;min-height:0;position:relative;overflow:hidden;background:var(--ph);
+  clip-path:inset(100% 0 0 0);transition:clip-path 1s var(--out)
 }
-.pal__in{width:100%;max-width:940px;margin:0 auto;padding:0 20px}
-.pal__k{
-  display:flex;align-items:center;gap:10px;margin-bottom:16px;
-  font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
-  opacity:0;transform:translateY(20px);transition:all .8s var(--out) .12s
-}
-.pal__k b{color:var(--ink);font-weight:600}
-.pal__k i{flex:1;height:1px;background:var(--line);max-width:70px}
-.pal__t{
-  font-family:var(--f-display);font-weight:400;
-  font-size:clamp(30px,7.6vw,48px);line-height:1.12;
-  letter-spacing:-.008em;margin-bottom:16px;
-  opacity:0;transform:translateY(22px);transition:all .85s var(--out) .22s
-}
-.pal__t em{font-style:normal;display:block;color:var(--ink-2)}
-.pal__d{
-  font-size:clamp(14.5px,3.9vw,15.5px);line-height:1.6;color:var(--soft);max-width:38ch;
-  opacity:0;transform:translateY(22px);transition:all .85s var(--out) .32s
-}
-.pal.is-in .pal__k,
-.pal.is-in .pal__t,
-.pal.is-in .pal__d{opacity:1;transform:none}
-
-/* Кнопки те же, что и были, но кружок внутри — не заливка, а растяжка:
-   слева цвет в полную силу, справа выбелен. Кружки крупнее прежних, иначе на
-   восемнадцати пикселях растяжку попросту не разглядеть. */
-.pal__row{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
-.tone{
-  display:flex;align-items:center;gap:13px;padding:11px 22px 11px 11px;
-  border:1px solid var(--line);border-radius:999px;background:#fff;
-  font-size:14px;font-weight:600;
-  opacity:0;transform:translateY(18px) scale(.95);
-  transition:opacity .6s var(--out), transform .6s var(--out)
-}
-.pal.is-in .tone{opacity:1;transform:none}
-.pal.is-in .tone:nth-child(1){transition-delay:.42s}
-.pal.is-in .tone:nth-child(2){transition-delay:.5s}
-.pal.is-in .tone:nth-child(3){transition-delay:.58s}
-.pal.is-in .tone:nth-child(4){transition-delay:.66s}
-.pal.is-in .tone:nth-child(5){transition-delay:.74s}
+.tone__ph img{transition:transform .5s var(--out)}
+.pal.is-in .tone__ph{clip-path:inset(0 0 0 0)}
+.pal.is-in .tone:nth-child(1) .tone__ph{transition-delay:.35s}
+.pal.is-in .tone:nth-child(2) .tone__ph{transition-delay:.42s}
+.pal.is-in .tone:nth-child(3) .tone__ph{transition-delay:.49s}
+.pal.is-in .tone:nth-child(4) .tone__ph{transition-delay:.56s}
+.pal.is-in .tone:nth-child(5) .tone__ph{transition-delay:.63s}
+.tone:active .tone__ph img{transform:scale(.97)}
+@media (hover:hover){ .tone:hover .tone__ph img{transform:scale(1.04)} }
+/* Кружок наполовину на снимке, наполовину под ним — с белым кольцом, чтобы
+   читался и на чёрной футболке, и на белой. */
 .tone i{
-  width:34px;height:34px;border-radius:50%;flex:none;
+  position:absolute;z-index:1;left:50%;top:calc(100% - 34px);
+  width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;
   background:linear-gradient(90deg,var(--a) 0%,var(--b) 100%);
-  /* Светлый край растяжки иначе растворился бы в белой кнопке — кольцо держит форму. */
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)
+  box-shadow:0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.2);
+  opacity:0;transition:opacity .5s var(--ease)
+}
+.pal.is-in .tone i{opacity:1;transition-delay:.9s}
+.tone__l{
+  flex:none;height:34px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;
+  font-size:10px;line-height:1;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);
+  white-space:nowrap
 }
 
-/* ================= БЕГУЩАЯ СТРОКА ================= */
-.tick{overflow:hidden;padding:24px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-/* Тридцать секунд на круг заметно тянули внимание на себя — а на этом
-   экране смотреть надо на кнопки с цветами. Шестьдесят: движение есть,
-   спорить с палитрой перестало. Ушла с экрана — останавливаем совсем:
-   крутить незаметную анимацию значит просто греть телефон. Останавливаем
-   классом на родителе, а не отсутствием класса на самой строке: если
-   наблюдатель почему-то не заведётся, строка поедет, а не замрёт на
-   полуслове. */
-.tick__row{display:flex;width:max-content;animation:tick 60s linear infinite}
-.tick.is-away .tick__row{animation-play-state:paused}
-.tick__row span{
-  font-family:var(--f-display);font-weight:400;
-  font-size:clamp(34px,8.4vw,66px);letter-spacing:.02em;
-  padding:0 .2em;color:var(--ink);white-space:nowrap
+/* ================= ДОСТАВКА ================= */
+.band{
+  flex:1 1 0;min-height:140px;max-height:320px;margin:0;position:relative;overflow:hidden;background:var(--ph);
+  clip-path:inset(0 0 100% 0);transition:clip-path 1.05s var(--out)
 }
-.tick__row span:nth-child(even){color:transparent;-webkit-text-stroke:.7px var(--ghost)}
-@keyframes tick{to{transform:translateX(-50%)}}
+.band img{transform:scale(1.08);transition:transform 1.5s var(--out)}
+.is-in .band{clip-path:inset(0 0 0 0)}
+.is-in .band img{transform:none}
+.rows{margin:6px 0 0;padding:0;list-style:none}
+.scr__txt > .rows{opacity:1;transform:none}
+.row{
+  display:flex;align-items:center;gap:14px;min-height:72px;padding:10px 0;border-top:1px solid var(--line);
+  opacity:0;transform:translateY(14px);transition:opacity .7s var(--out), transform .7s var(--out)
+}
+.is-in .row{opacity:1;transform:none}
+.is-in .row:nth-child(1){transition-delay:.4s}
+.is-in .row:nth-child(2){transition-delay:.5s}
+.is-in .row:nth-child(3){transition-delay:.6s}
+.row__ic{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line-2);display:grid;place-items:center;background:rgba(255,255,255,.5)}
+.row__ic svg{width:18px;height:18px;stroke:var(--ink);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.row b{display:block;font-size:15px;line-height:1.3;font-weight:600;margin-bottom:2px}
+.row div > span{display:block;font-size:13.5px;line-height:1.4;color:var(--soft)}
+.note{margin-top:14px;font-size:13px;line-height:1.5;color:var(--ink-2);max-width:40ch}
+/* Низкий экран: сноска уступает место снимку — Лёшу не прячем. */
+@media (max-height:720px){ .scr--dlv .note{display:none} }
+@media (max-height:760px){ .row{min-height:60px;padding:6px 0} }
 
-/* Палитра со знаком и «Листайте», как остальные развороты. Знак и подсказка
-   отталкиваются от краёв автоматическими отступами, и палитра с бегущей
-   строкой держатся вместе посередине. Чтобы всё это влезло в экран,
-   поджимаем воздух: зазоры, поля строки, кегль строки. */
-.pal--lead{
-  justify-content:flex-start;gap:16px;
-  padding:calc(12px + env(safe-area-inset-top)) 0 calc(20px + env(safe-area-inset-bottom))
-}
-.pal--lead > .lead__mark{align-self:center;margin-bottom:auto}
-.pal--lead > .hint{align-self:center;margin-top:auto}
-.pal--lead .pal__row{margin-top:22px}
-.pal--lead .tick{padding:14px 0}
-.pal--lead .tick__row span{font-size:clamp(28px,7vw,56px)}
-/* Невысокий экран: кнопки-цвета компактнее — три их ряда были самой высокой
-   частью разворота. Порог 740, а не 700, как у разворотов со снимками: те
-   тянутся под экран сами, а палитре тянуться нечем, и без ужатия ей нужно
-   720–730 px — телефоны высотой 701–740 оставались бы без экрана в запасе.
-   Зазор 12 px — здесь, а не в общем правиле выше: безусловное .pal--lead
-   идёт позже и перебивало его. */
-@media (max-height:740px), (max-width:369px){
-  .pal--lead{gap:12px;padding-top:calc(10px + env(safe-area-inset-top));padding-bottom:calc(16px + env(safe-area-inset-bottom))}
-  .pal--lead .hint{gap:8px}
-  .pal--lead .hint__line{height:30px}
-  .pal--lead .pal__row{gap:10px;margin-top:18px}
-  .pal--lead .tone{padding:8px 18px 8px 8px;gap:11px}
-  .pal--lead .tone i{width:30px;height:30px}
-  .pal--lead .tick{padding:10px 0}
-}
-/* Совсем низкий экран — строка тоньше и мельче. */
-@media (max-height:660px){
-  .pal--lead .tick{padding:6px 0}
-  .pal--lead .tick__row span{font-size:24px}
-}
-/* Самые маленькие телефоны (уже 350 px и ниже 640): подсказка там в две
-   строки, и без этих пикселей разворот вылезал на 7 px. */
-@media (max-height:640px) and (max-width:349px){
-  .pal--lead{gap:10px}
-  .pal--lead .pal__row{margin-top:14px}
-}
-
-/* ================= ФИНАЛ ================= */
+/* ================= ФИНАЛ =================
+   Призыв купить: крупный заголовок, короткий текст, чёрная кнопка, под ней
+   все пять цветов на людях и три обещания магазина. «Пропустить» и полоса
+   прогресса здесь прячутся — кнопка одна. */
 .fin{
-  min-height:100svh;display:flex;align-items:center;justify-content:center;
-  padding:80px 24px calc(56px + env(safe-area-inset-bottom));
-  text-align:center;position:relative;overflow:hidden
+  position:relative;min-height:100vh;min-height:100svh;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding-top:calc(var(--hdr) + 6px)
 }
-/* мозаика позади — из тех же снимков, что уже пролистали: лишних байтов не тянем */
-.fin__wall{
-  position:absolute;inset:-2%;z-index:0;
-  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(5,1fr);gap:5px;
-  opacity:0;transform:scale(1.1);
-  transition:opacity 1.5s var(--ease), transform 1.7s var(--out)
-}
-/* Ряды задаём явно: иначе они выросли бы по высоте самих снимков и мозаика
-   либо не дотянулась бы до низа экрана, либо вылезла за него.
-   Клеток ровно 15 — пять снимков, выложенных трижды. Мельче нельзя: крупные
-   плитки читаются как отдельные фото и спорят с текстом поверх них. */
-@media(min-width:700px){
-  .fin__wall{grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(3,1fr)}
-}
-.fin.is-in .fin__wall{opacity:.2;transform:none}
-.fin__wall img{width:100%;height:100%;object-fit:cover;filter:grayscale(1)}
-.fin__veil{
-  position:absolute;inset:0;z-index:1;
-  background:radial-gradient(ellipse at center, rgba(244,244,244,.88) 10%, rgba(244,244,244,.55) 100%)
-}
-.fin__in{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px}
-.fin__mark{height:70px;width:auto;opacity:0;transform:translateY(18px);transition:all 1s var(--out) .1s}
-.fin.is-in .fin__mark{opacity:1;transform:none}
 .fin__t{
+  padding:0 var(--gut);
   font-family:var(--f-display);font-weight:400;
-  font-size:clamp(30px,7.6vw,48px);letter-spacing:-.008em;line-height:1.12;
-  opacity:0;transform:translateY(22px);transition:all .9s var(--out) .26s
+  font-size:var(--t-fin);line-height:1.04;letter-spacing:-.01em;
+  opacity:0;transform:translateY(22px);transition:opacity .9s var(--out) .1s, transform .9s var(--out) .1s
 }
-.fin.is-in .fin__t{opacity:1;transform:none}
 .fin__d{
-  font-size:clamp(14.5px,3.9vw,15.5px);line-height:1.6;color:var(--soft);max-width:32ch;
-  opacity:0;transform:translateY(22px);transition:all .9s var(--out) .38s
+  margin-top:14px;max-width:min(320px, calc(100% - 40px));
+  font-size:15px;line-height:1.6;color:var(--soft);
+  opacity:0;transform:translateY(22px);transition:opacity .9s var(--out) .2s, transform .9s var(--out) .2s
 }
-.fin.is-in .fin__d{opacity:1;transform:none}
+.fin.is-in .fin__t,.fin.is-in .fin__d{opacity:1;transform:none}
 
 .cta{
+  position:relative;overflow:hidden;flex:none;
   display:inline-flex;align-items:center;justify-content:center;gap:12px;
-  margin-top:10px;padding:19px 34px;min-width:min(340px,86vw);
+  margin-top:22px;height:56px;width:min(350px, calc(100% - 40px));
   background:var(--ink);color:#fff;
-  font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  font-size:12px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
   opacity:0;transform:translateY(24px);
-  transition:opacity .9s var(--out) .52s, transform .9s var(--out) .52s,
-             background .25s var(--ease), letter-spacing .25s var(--ease)
+  transition:opacity .9s var(--out) .32s, transform .9s var(--out) .32s, background .25s var(--ease)
 }
 .fin.is-in .cta{opacity:1;transform:none}
-.cta:hover{background:#262626;letter-spacing:.2em}
-.cta:active{transform:scale(.985)}
+.cta:hover{background:#262626}
+.fin .cta:active{transform:scale(.985);transition-delay:0s}
 .cta svg{
   width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;
   stroke-linecap:round;stroke-linejoin:round;transition:transform .25s var(--out)
 }
 .cta:hover svg{transform:translateX(5px)}
+/* Один блик по кнопке, когда финал уже собрался, — взгляд сам идёт к ней.
+   Один раз: мигающая кнопка раздражала бы. */
+.cta::after{
+  content:'';position:absolute;top:0;bottom:0;left:-40%;width:34%;pointer-events:none;
+  background:linear-gradient(100deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.24) 50%,rgba(255,255,255,0) 100%);
+  transform:translateX(0) skewX(-18deg);opacity:0
+}
+.fin.is-in .cta::after{animation:shine .9s var(--ease) 1.6s both}
+@keyframes shine{from{opacity:1;transform:translateX(0) skewX(-18deg)}to{opacity:1;transform:translateX(480%) skewX(-18deg)}}
 
-.fin__note{font-size:11.5px;color:var(--muted);opacity:0;transition:opacity .9s var(--ease) .78s}
-.fin.is-in .fin__note{opacity:1}
+/* Пять цветов на людях — только одиночные снимки, все уже в кэше. */
+.fin__strip{flex:1 1 0;min-height:150px;width:100%;margin-top:20px;display:flex;gap:2px}
+.fin__strip span{
+  flex:1 1 0;min-width:0;position:relative;overflow:hidden;background:var(--ph);
+  clip-path:inset(100% 0 0 0);transition:clip-path 1s var(--out)
+}
+.fin__strip img{transform:scale(1.1);transition:transform 1.4s var(--out)}
+/* Телефон: пять полосок по 76 px — лица с ноготь. Два кадра сверху, три
+   снизу — та же высота, а люди вдвое крупнее. */
+@media (max-width:767px){
+  .fin__strip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+  .fin__strip span:nth-child(-n+2){grid-column:span 3}
+  .fin__strip span:nth-child(n+3){grid-column:span 2}
+}
+.fin.is-in .fin__strip span{clip-path:inset(0 0 0 0)}
+.fin.is-in .fin__strip img{transform:none}
+.fin.is-in .fin__strip span:nth-child(1),.fin.is-in .fin__strip span:nth-child(1) img{transition-delay:.45s}
+.fin.is-in .fin__strip span:nth-child(2),.fin.is-in .fin__strip span:nth-child(2) img{transition-delay:.52s}
+.fin.is-in .fin__strip span:nth-child(3),.fin.is-in .fin__strip span:nth-child(3) img{transition-delay:.59s}
+.fin.is-in .fin__strip span:nth-child(4),.fin.is-in .fin__strip span:nth-child(4) img{transition-delay:.66s}
+.fin.is-in .fin__strip span:nth-child(5),.fin.is-in .fin__strip span:nth-child(5) img{transition-delay:.73s}
+
+.fin__usp{
+  width:100%;margin:0;list-style:none;
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  border-top:1px solid var(--line);padding:14px 8px calc(16px + env(safe-area-inset-bottom));
+  opacity:0;transition:opacity .8s var(--ease) .7s
+}
+.fin.is-in .fin__usp{opacity:1}
+.fin__usp li{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  font-size:10px;line-height:1.35;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)
+}
+.fin__usp svg{width:22px;height:22px;stroke:var(--ink);stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* ================= ПЛАНШЕТ =================
+   Та же раскладка, что на телефоне, только крупнее. */
+@media (min-width:768px){
+  :root{
+    --gut:40px;--txt-r:72px;--t:56px;--t-hero:52px;--t-fin:72px;
+    --hdr:calc(env(safe-area-inset-top) + 72px);--bh:40px;--bx:calc(50% - 12.5px)
+  }
+  .scr__txt{max-width:680px}
+  .d{font-size:17px;max-width:40ch}
+  :root{--skip-r:24px}
+  .skip{height:44px;font-size:15px}
+  .rail{left:24px}
+  .cover h1{font-size:24px}
+  .fin__d{font-size:17px;max-width:min(440px, calc(100% - 80px))}
+  .fin__usp{max-width:640px}
+  .fin__strip{max-height:48svh}
+  .band{max-height:460px}
+}
+
+/* ================= КОМПЬЮТЕР И ТЕЛЕФОН ЛЁЖА =================
+   Две колонки: текст слева, снимки справа во всю высоту экрана. Знак
+   уходит в левый верхний угол — над текстом, а не посередине снимка. */
+@media (min-width:1200px), (min-width:1024px) and (orientation:landscape), (orientation:landscape) and (max-height:500px){
+  :root{
+    --hdr:0px;--t:clamp(56px,4.6vw,80px);--t-hero:clamp(48px,4vw,64px);--t-fin:clamp(56px,5.6vw,80px);
+    --txt-l:clamp(48px,6vw,120px);--bx:40px;--by:24px;--bh:40px
+  }
+  .scr{
+    display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);grid-template-rows:minmax(0,1fr) auto;
+    height:100vh;height:100svh;padding:0
+  }
+  .scr > .pair,.scr > .band{grid-column:2;grid-row:1 / 3;min-height:0;max-height:none}
+  .scr__txt{grid-column:1;grid-row:1;align-self:center;margin:0;padding:0 64px 0 var(--txt-l);max-width:none}
+  .scr__txt .d{font-size:17px;max-width:36ch}
+  .scr__nav{grid-column:1;grid-row:2;justify-self:start;align-self:end;height:auto;padding:0 0 32px;margin-left:var(--txt-l);align-items:flex-start}
+  .scr__nav span{padding-left:0}
+  .cap{
+    left:16px;bottom:16px;padding:9px 14px 9px 12px;font-size:10.5px;letter-spacing:.16em
+  }
+  /* Полоса — столбиком в левом поле, левее колонки текста: снимков там нет. */
+  .rail{
+    left:28px;bottom:auto;top:50vh;transform:translateY(-50%);
+    width:24px;height:auto;padding:12px 0;border-radius:12px;flex-direction:column;
+    background:rgba(255,255,255,.7);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    box-shadow:0 0 0 1px rgba(11,11,11,.06)
+  }
+  .rail__n{writing-mode:vertical-rl;transform:rotate(180deg);margin:0 0 10px;letter-spacing:.14em}
+  .rail__d,.rail__d[aria-current]{width:24px;height:24px}
+  .rail__d[aria-current]::before{width:4px;height:18px}
+  /* Палитра здесь во всю ширину — полоса легла бы на первый снимок. */
+  .rail.is-pal{opacity:0;visibility:hidden;transition:opacity .35s var(--ease), visibility 0s .35s}
+
+  /* Заставка на компьютере — уже раскладка первого экрана: знак, подпись и
+     строка о магазине слева, снимок в рамке справа, там, где он потом
+     встанет во всю высоту. Прокрутка только растит рамку. */
+  .cover{
+    right:min(50vw,72svh);align-items:flex-start;text-align:left;
+    padding-left:var(--txt-l);padding-right:48px
+  }
+  .cover h1{justify-content:flex-start;padding:0;font-size:clamp(28px,2.4vw,36px);line-height:1.25}
+  .cover__trust{padding:0;margin-top:18px;font-size:11.5px}
+  .cover__win{
+    --ww:min(48svh, calc(min(50vw,72svh) - 64px));
+    position:absolute;margin:0;top:16svh;height:68svh;width:var(--ww);
+    left:calc(100% + (min(50vw,72svh) - var(--ww)) / 2)
+  }
+
+  .scene__stage{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,min(50vw,72svh));grid-template-rows:minmax(0,1fr) auto;padding:0
+  }
+  .hero__ph{grid-column:2;grid-row:1 / 3;min-height:0}
+  .hero__txt{grid-column:1;grid-row:1;align-self:center;padding:0 64px 0 var(--txt-l)}
+  .hero__txt .d{font-size:17px;max-width:36ch}
+
+  .pal{display:flex;flex-direction:column;height:auto;padding-top:88px}
+  /* Текст палитры — строкой: заголовок слева, описание справа от него,
+     иначе вся правая половина над снимками пустовала. */
+  .pal .scr__txt{
+    align-self:stretch;padding:0 64px 0 var(--txt-l);max-width:none;
+    display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);column-gap:48px;align-items:end
+  }
+  .pal .scr__txt .kick{grid-column:1;grid-row:1}
+  .pal .scr__txt .t{grid-column:1;grid-row:2;margin:0}
+  .pal .scr__txt .d{grid-column:2;grid-row:2;align-self:end;margin-bottom:6px}
+  .pal__hint{margin-left:var(--txt-l)}
+  .pal__row{min-height:260px;max-height:58svh;margin-top:28px}
+  .pal .scr__nav{align-self:center;margin:0;padding-top:12px}
+  .tone__l{font-size:11px}
+
+  .fin{padding-top:72px}
+  .fin__d{font-size:17px;max-width:440px}
+  .cta{width:360px}
+  .fin__strip{max-height:42svh;margin-top:32px}
+  /* Три обещания — не сноска: крупнее, с тонкими линиями между ними. */
+  .fin__usp{max-width:760px;border-top:0;padding:18px 0 28px}
+  .fin__usp li{font-size:12px;gap:10px}
+  .fin__usp li + li{border-left:1px solid var(--line)}
+  .fin__usp svg{width:28px;height:28px}
+}
+/* Телефон лёжа: высоты 340–430 px — всё мельче, иначе экран не влезал бы. */
+@media (orientation:landscape) and (max-height:500px){
+  :root{--t:30px;--t-hero:30px;--t-fin:36px;--txt-l:40px}
+  .scr__txt .d,.hero__txt .d{font-size:14px}
+  /* Колонка текста низкая, и по центру она подлезала под знак в углу. */
+  .scr__txt,.hero__txt{padding-right:32px;padding-top:76px;padding-bottom:12px}
+  .rail{left:8px}
+  .pal .scr__txt{padding-top:0}
+  .scr{height:auto;min-height:100vh;min-height:100svh}
+  .cover__trust{display:none}
+  .row{min-height:56px}
+  .pal{padding-top:80px}
+  .fin{padding-top:24px}
+}
 
 /* ================= УХОД В МАГАЗИН =================
    Кнопка не просто уводит на другую страницу: из неё разливается чёрный круг
@@ -752,19 +793,15 @@ img{display:block;max-width:100%}
    стрелками и свайпом вбок; закрывается шторка крестиком, тапом мимо,
    свайпом вниз, Esc и системной «Назад».
    Блок самостоятельный. Убрать его — значит удалить этот CSS, разметку
-   #sheet и скрипт «Цвет вживую» — палитра станет прежней: строку-подсказку
-   под кнопками ставит сам скрипт, а кнопки-цвета без него выглядят так же,
-   как прежние <span>. */
+   #sheet и скрипт «Цвет вживую». Палитра останется рядом снимков с
+   названиями цветов: строку-подсказку, «показать вживую» и aria-haspopup
+   кнопкам ставит сам скрипт, без него они ничего не обещают. */
 /* Оттенок фона шторки плавно перетекает из цвета в цвет. Без @property
    браузер его просто переключит — тоже не страшно. */
 @property --tint{syntax:'<color>';inherits:true;initial-value:rgba(244,244,244,0)}
 
+/* Отклик на касание и наведение — у снимка в кнопке (палитра выше). */
 .tone{cursor:pointer}
-.tone i{transition:transform .25s var(--out)}
-.tone:hover i{transform:scale(1.08)}
-/* Нажатие видно по кружку, а не по всей кнопке: у кнопки transform занят
-   появлением, и отклик на касание ждал бы её задержки. */
-.tone:active i{transform:scale(.88)}
 
 /* --- видно, что цвета нажимаются ---
    Кнопки-цвета читались как легенда к палитре, и разворот пролистывали, ни
@@ -773,23 +810,22 @@ img{display:block;max-width:100%}
    настоящее касание: сжимается и пускает кольцо. Подсказка под кнопками —
    тёмная и крупнее, а не серая сноска. */
 .pal__row{position:relative}
-.tone i{position:relative}
 .tone i::after{
   content:'';position:absolute;inset:-1px;border-radius:50%;
   border:1.5px solid var(--ink);opacity:0;pointer-events:none
 }
-/* scale, а не transform: transform у кружка занят наведением и нажатием. */
+/* scale, а не transform: так нажатие не спорит ни с чем, что двигает кружок. */
 .tone.is-demo i{animation:toneTap .8s var(--out)}
 .tone.is-demo i::after{animation:toneRing 1.1s var(--out)}
 @keyframes toneTap{0%{scale:1}28%{scale:.84}62%{scale:1.07}100%{scale:1}}
 @keyframes toneRing{0%{opacity:.6;transform:scale(1)}100%{opacity:0;transform:scale(2)}}
 
 .pal__hand{
-  position:absolute;left:0;top:0;z-index:2;width:40px;height:40px;
+  position:absolute;left:0;top:0;z-index:2;width:40px;height:40px;transform-origin:44% 88%;
   pointer-events:none;opacity:0;
   filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))
 }
-.pal__hand svg{display:block;width:100%;height:100%;overflow:visible}
+.pal__hand svg{display:block;width:100%;height:100%;overflow:visible;transform:scaleY(-1)}
 .pal__hand path{fill:none;stroke-linecap:round;stroke-linejoin:round}
 /* Белая подложка под контуром — рука читается и на чёрном кружке, и на белом. */
 .pal__hand-halo path{stroke:#fff;stroke-width:4.6}
@@ -797,7 +833,7 @@ img{display:block;max-width:100%}
 .pal__hand-ink path{stroke:var(--ink);stroke-width:1.6}
 
 .pal__hint{
-  position:relative;display:flex;align-items:center;gap:10px;margin-top:18px;
+  position:relative;display:flex;align-items:center;gap:10px;margin:14px var(--gut) 0;
   font-size:13px;font-weight:500;line-height:1.4;color:var(--ink);
   opacity:0;transition:opacity .8s var(--ease) .9s
 }
@@ -815,8 +851,8 @@ img{display:block;max-width:100%}
 }
 @keyframes ping{0%{transform:scale(1);opacity:1}70%,100%{transform:scale(3.4);opacity:0}}
 @media (prefers-reduced-motion:reduce){ .pal__hint{opacity:1} .pal__hint::after{display:none} }
-/* Подсказка добавляет развороту строку — на низком экране прижимаем её к
-   кнопкам плотнее, остальной воздух палитра уже отдала сама (.pal--lead). */
+/* Подсказка добавляет экрану строку — на низком экране прижимаем её к
+   снимкам плотнее. */
 @media (max-height:740px), (max-width:369px){ .pal__hint{margin-top:12px;gap:8px} }
 /* На 360 px строка «…покажем его вживую» не влезала на пиксель и роняла
    «вживую» на вторую строку — кегль на полпикселя меньше её держит. */
@@ -826,7 +862,7 @@ img{display:block;max-width:100%}
    прокруткой, и всё под затемнением прыгало вбок на её ширину. Скрипт
    кладёт ширину полосы в --sb, здесь её место держим полем. */
 html.is-locked{overflow:hidden;overscroll-behavior:none;padding-right:var(--sb,0px)}
-html.is-locked .skip{right:calc(14px + var(--sb,0px))}
+html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 
 .sheet{position:fixed;inset:0;z-index:90;display:flex;align-items:flex-end;justify-content:center}
 .sheet[hidden]{display:none}
@@ -954,194 +990,201 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
   .sheet__card{max-height:calc(100svh - 16px);padding-bottom:12px}
 }
 
-/* ---------- если анимации мешают ---------- */
+/* ---------- если анимации мешают ----------
+   Сцены нет вовсе (скрипт не ставит has-stage): первый экран сразу в
+   конечном виде, знак уже в шапке. Остальное — без проявлений и покачиваний. */
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.001s !important}
-  .look__ph,.duo__ph,.duo__ph--lo,.duo--mirror .duo__ph--lo,.fan__ph{clip-path:none}
-  .fan__ph{transform:none}
-  .look__ph img,.duo__ph img,.fan__ph img{transform:none}
-  .duo::after,.fan::after{transform:none}
-  .tick__row{animation:none}
-  .look__txt > *,.pal__k,.pal__t,.pal__d,.tone,.lead__mark,.look--lead .hint,.pal--lead .hint,
-  .fin__mark,.fin__t,.fin__d,.cta,.fin__note{opacity:1;transform:none}
-  .fin__wall{opacity:.2;transform:none}
+  .ph__f,.scr--fab .ph--2 .ph__f,.tone__ph,.band,.fin__strip span,.hero__ph{clip-path:none}
+  .ph__f img,.tone__ph img,.band img,.fin__strip img,.hero__ph img{transform:none}
+  .hero__ph,.cover{transform:none}
+  [data-look] .scr__txt > *,.row,.cap,.tone i,.fin__t,.fin__d,.cta,.fin__usp{opacity:1;transform:none}
+  .cta::after{display:none}
+  .is-cur .scr__nav svg{animation:none}
+  .tone:hover .tone__ph img{transform:none}
 }
 </style>
 </head>
 <body>
 
-<div class="bar" id="bar"></div>
-<button class="skip" id="skip" type="button">Пропустить</button>
+<!-- Знак, «Пропустить» и полоса прогресса — прямо в <body>: шторка «Цвет
+     вживую» делает inert всех детей body, и под ней они тоже недоступны. -->
+<div class="brand" id="brand"><img src="/logo.png?v=lc2" alt="Luxe Canvas" width="325" height="520"></div>
+<button class="skip" id="skip" type="button" aria-label="Пропустить знакомство и перейти в магазин">Пропустить<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg></button>
+<nav class="rail is-hide is-dead" id="rail" aria-label="Экраны знакомства">
+  <span class="rail__n" aria-hidden="true"><b id="railN">01</b> / 07</span>
+  <button class="rail__d" type="button" aria-label="Экран 1 из 7: Коллекция"></button>
+  <button class="rail__d" type="button" aria-label="Экран 2 из 7: Классика"></button>
+  <button class="rail__d" type="button" aria-label="Экран 3 из 7: Ткань"></button>
+  <button class="rail__d" type="button" aria-label="Экран 4 из 7: Посадка"></button>
+  <button class="rail__d" type="button" aria-label="Экран 5 из 7: Цвет"></button>
+  <button class="rail__d" type="button" aria-label="Экран 6 из 7: Сервис"></button>
+  <button class="rail__d" type="button" aria-label="Экран 7 из 7: Каталог"></button>
+</nav>
 
-<!-- ====== заставка ====== -->
-<section class="intro snap">
-  <img class="intro__mark" src="/logo.png?v=lc2" alt="Canvas" width="325" height="520">
-  <h1 class="intro__sub" id="introSub">Базовые вещи, которые носят каждый день</h1>
-  <div class="intro__go hint"><span class="hint__line"></span>Листайте</div>
-</section>
-
-<!-- ====== развороты ====== -->
-<section class="look look--sq look--lead snap" data-look>
-  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
-  <div class="look__in">
-    <div class="look__pics look__pics--sq">
-      <div class="look__ph">
-        <img src="/onboarding/look-14.jpg" alt="Двое спина к спине: чёрная и белая футболки" loading="eager" decoding="async" fetchpriority="high">
-      </div>
+<main>
+<!-- ====== заставка и первый экран: одна сцена на две точки прилипания ======
+     Снимок в рамке на заставке и снимок во весь экран — один и тот же <img>:
+     скрипт уменьшает его в рамку, прокрутка разворачивает обратно. -->
+<section class="scene" id="scene" aria-labelledby="introSub">
+  <span class="snap scene__pt" aria-hidden="true"></span><span class="snap scene__pt scene__pt--b" aria-hidden="true"></span>
+  <div class="scene__stage">
+    <div class="cover">
+      <h1 id="introSub">Базовые вещи, которые<br>носят каждый день</h1>
+      <p class="cover__trust">Футболки · пять цветов · доставка по&nbsp;России</p>
+      <div class="cover__win" aria-hidden="true"></div>
     </div>
-    <div class="look__txt">
-      <p class="look__k"><b>01</b><i></i>Коллекция</p>
-      <h2 class="look__t">Чёрное<em>и белое</em></h2>
-      <p class="look__d">Два цвета, с которых начинается гардероб. Такую футболку надеваешь не задумываясь.</p>
+    <figure class="hero__ph">
+      <img src="/onboarding/ob-hero-dasha-blue.jpg" alt="Даша в голубой футболке и солнцезащитных очках, руки скрещены" width="1200" height="1676" loading="eager" fetchpriority="high" decoding="async">
+    </figure>
+    <div class="scr__txt hero__txt">
+      <p class="kick"><b>01</b><i></i>Коллекция</p>
+      <h2 class="t">Футболка, которую надеваешь первой</h2>
+      <p class="d">Плотный хлопок, чистый крой и&nbsp;пять цветов. Основа гардероба, к&nbsp;которой подходит всё остальное.</p>
     </div>
-  </div>
-  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
-</section>
-
-<!-- Ткань тремя кадрами: белая футболка целиком и полотно вблизи, а в углу —
-     тот же парень в шоколадной. Третий кадр сразу показывает, что ткань та же
-     и в цвете, не дожидаясь палитры. -->
-<section class="look look--lead snap" data-look data-flip>
-  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
-  <div class="look__in">
-    <div class="look__pics look__pics--duo">
-      <div class="duo">
-        <div class="duo__ph duo__ph--hi" style="--ar:852/1280">
-          <img src="/onboarding/look-12c.jpg" alt="Белая футболка сбоку, руки в карманах" loading="lazy" decoding="async">
-        </div>
-        <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-          <img src="/onboarding/look-15.jpg" alt="Полотно белой футболки оттянуто пальцами" loading="lazy" decoding="async">
-        </div>
-        <div class="duo__ph duo__ph--top">
-          <img src="/onboarding/look-18c.jpg" alt="Тот же парень в шоколадной футболке" loading="lazy" decoding="async" style="--op:center 14%">
-        </div>
-      </div>
-    </div>
-    <div class="look__txt">
-      <h2 class="look__t look__t--row"><span class="look__n">02</span>Ткань <em>и ощущения</em></h2>
-      <p class="look__d look__d--wide">Наш материал — это полотно высокого класса. Вы чувствуете лишь приятные ощущения, когда ткань соприкасается с кожей. Форма сохраняется даже при длительном использовании. Никакого дискомфорта — одно удовольствие в каждом движении.</p>
-    </div>
-  </div>
-  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
-</section>
-
-<!-- Та же вещь анфас и в профиль. Профиль сдвинут по горизонтали: девушка
-     стоит правее середины кадра, и по центру квадрат срезал бы ей спину. -->
-<section class="look look--lead snap" data-look>
-  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
-  <div class="look__in">
-    <div class="look__pics look__pics--duo">
-      <div class="duo">
-        <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
-          <img src="/onboarding/look-16c.jpg" alt="Чёрная женская футболка, вид спереди" loading="lazy" decoding="async">
-        </div>
-        <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-          <img src="/onboarding/look-17c.jpg" alt="Та же футболка в профиль" loading="lazy" decoding="async" style="--op:34% 12%">
-        </div>
-      </div>
-    </div>
-    <div class="look__txt">
-      <p class="look__k"><b>03</b><i></i>Посадка</p>
-      <h2 class="look__t">Свободно<em>но не мешком</em></h2>
-      <p class="look__d">Анфас и строгий профиль подряд. Сбоку видно главное: полотно идёт от груди вниз, не касаясь фигуры.</p>
-    </div>
-  </div>
-  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
-</section>
-
-<!-- ====== палитра ====== -->
-<section class="pal pal--lead snap" data-look>
-  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
-  <div class="pal__in">
-    <p class="pal__k"><b>04</b><i></i>Цвет</p>
-    <h2 class="pal__t">Пять цветов<em>и один крой</em></h2>
-    <p class="pal__d">От чёрного до белого. Посадка во всех одинаковая: взяли чёрную — красная сядет так же.</p>
-    <div class="pal__row">
-      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#000000;--b:#e2e2e2"></i>Чёрный</button>
-      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#33201a;--b:#d9c6ba"></i>Шоколад</button>
-      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#b00d16;--b:#ff9ea2"></i>Красный</button>
-      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#5ea2dd;--b:#eaf4fd"></i>Голубой</button>
-      <button class="tone" type="button" aria-haspopup="dialog"><i style="--a:#cfcfcf;--b:#ffffff"></i>Белый</button>
-    </div>
-  </div>
-
-  <div class="tick" aria-hidden="true">
-    <div class="tick__row">
-      <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
-      <span>CANVAS</span><span>CANVAS</span><span>CANVAS</span><span>CANVAS</span>
-    </div>
-  </div>
-  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
-</section>
-
-<!-- Три ракурса ровно в том порядке, что в тексте: спереди, вполоборота
-     (крупно, посередине), сзади. -->
-<section class="look look--fan look--lead snap" data-look>
-  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
-  <div class="look__in">
-    <div class="look__pics look__pics--fan">
-      <div class="fan">
-        <div class="fan__ph fan__ph--l">
-          <img src="/onboarding/look-19c.jpg" alt="Голубая футболка спереди" loading="lazy" decoding="async">
-        </div>
-        <div class="fan__ph fan__ph--mid">
-          <img src="/onboarding/look-05c.jpg" alt="Голубая футболка вполоборота" loading="lazy" decoding="async">
-        </div>
-        <div class="fan__ph fan__ph--r">
-          <img src="/onboarding/look-10c.jpg" alt="Голубая футболка сзади" loading="lazy" decoding="async">
-        </div>
-      </div>
-    </div>
-    <div class="look__txt">
-      <p class="look__k"><b>05</b><i></i>Съёмка</p>
-      <h2 class="look__t">Видно<em>со всех сторон</em></h2>
-      <p class="look__d">Спереди, сзади и вполоборота, при одном свете — цвет на экране такой же, каким приедет.</p>
-    </div>
-  </div>
-  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
-</section>
-
-<!-- Красная тремя кадрами, зеркально второму развороту: высокий кадр справа. -->
-<section class="look look--lead snap" data-look data-flip>
-  <img class="lead__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" decoding="async">
-  <div class="look__in">
-    <div class="look__pics look__pics--duo">
-      <div class="duo duo--mirror">
-        <div class="duo__ph duo__ph--hi" style="--ar:853/1280">
-          <img src="/onboarding/look-03c.jpg" alt="Красная футболка, руки скрещены" loading="lazy" decoding="async">
-        </div>
-        <div class="duo__ph duo__ph--lo" style="--ar:1/1">
-          <img src="/onboarding/look-20c.jpg" alt="Красная футболка спереди, руки в карманах" loading="lazy" decoding="async" style="--op:center 8%">
-        </div>
-        <div class="duo__ph duo__ph--top">
-          <img src="/onboarding/look-21c.jpg" alt="Красная футболка, взгляд через плечо" loading="lazy" decoding="async" style="--op:center 10%">
-        </div>
-      </div>
-    </div>
-    <div class="look__txt">
-      <p class="look__k"><b>06</b><i></i>Доставка</p>
-      <h2 class="look__t">Заберёте<em>рядом с домом</em></h2>
-      <p class="look__d">Любой пункт выдачи СДЭК на выбор, оплата картой на сайте. Статус заказа придёт в Telegram, если подключите бота.</p>
-    </div>
-  </div>
-  <div class="hint" aria-hidden="true"><span class="hint__line"></span>Листайте</div>
-</section>
-
-<!-- ====== финал ====== -->
-<section class="fin snap" data-look>
-  <div class="fin__wall" id="wall" aria-hidden="true"></div>
-  <div class="fin__veil"></div>
-  <div class="fin__in">
-    <img class="fin__mark" src="/logo.png?v=lc2" alt="" width="325" height="520">
-    <h2 class="fin__t">Теперь выбирайте</h2>
-    <p class="fin__d">Вся коллекция — в каталоге. Размеры, цвета и наличие обновляются в реальном времени.</p>
-    <a class="cta" id="go" href="/#catalog">
-      Перейти в каталог
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg>
-    </a>
-    <p class="fin__note">Листайте наверх, чтобы посмотреть ещё раз</p>
+    <button class="scr__nav" type="button" aria-label="Листайте — следующий экран"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></b><span aria-hidden="true">Листайте</span></button>
   </div>
 </section>
+
+<!-- ====== 02: два главных цвета ======
+     Один человек в обоих цветах и с одной съёмки: фон у кадров одинаково
+     серый. Чёрный кадр Даши снят на белом и рядом с серым смотрелся
+     вырезанной наклейкой. -->
+<section class="scr snap" data-look aria-labelledby="s2t">
+  <div class="pair">
+    <figure class="ph">
+      <div class="ph__f"><img src="/onboarding/ob-leva-black.jpg" alt="Лёва в&nbsp;чёрной футболке, руки в&nbsp;карманах" width="853" height="1280" loading="eager" fetchpriority="low" decoding="async"></div>
+      <figcaption class="cap"><i style="--c:#0b0b0b"></i>Чёрный</figcaption>
+    </figure>
+    <figure class="ph ph--2">
+      <div class="ph__f"><img src="/onboarding/ob-leva-white-side.jpg" alt="Лёва в&nbsp;белой футболке, в&nbsp;профиль" width="900" height="1697" loading="eager" fetchpriority="low" decoding="async" style="--op:56% 0"></div>
+      <figcaption class="cap"><i style="--c:#fff"></i>Белый</figcaption>
+    </figure>
+  </div>
+  <div class="scr__txt">
+    <p class="kick"><b>02</b><i></i>Классика</p>
+    <h2 class="t" id="s2t">Чёрное и&nbsp;белое</h2>
+    <p class="d">Два цвета, с&nbsp;которых начинается гардероб. Подходят к&nbsp;джинсам, брюкам и&nbsp;пиджаку&nbsp;— утром думать не&nbsp;придётся.</p>
+  </div>
+  <button class="scr__nav" type="button" aria-label="Листайте — следующий экран"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></b><span aria-hidden="true">Листайте</span></button>
+</section>
+
+<!-- ====== 03: ткань — два равных крупных кадра ======
+     Раньше второй кадр был мелкой вставкой. Теперь оба во всю высоту:
+     край шоколадной оттянут вниз, белая — на груди. Белый кадр сдвинут к
+     руке (--op): щипок ткани приходится на шов между кадрами. -->
+<section class="scr scr--fab snap" data-look aria-labelledby="s3t">
+  <div class="pair">
+    <figure class="ph">
+      <div class="ph__f"><img src="/onboarding/ob-leva-choc-hem2.jpg" alt="Лёва оттягивает край шоколадной футболки" width="900" height="1368" loading="eager" fetchpriority="low" decoding="async" style="--op:42% 0"></div>
+      <figcaption class="cap"><i style="--c:#4a3128"></i>Шоколад</figcaption>
+    </figure>
+    <figure class="ph ph--2">
+      <div class="ph__f"><img src="/onboarding/ob-leva-white-pinch2.jpg" alt="Лёва оттягивает ткань белой футболки на&nbsp;груди" width="900" height="1429" loading="eager" fetchpriority="low" decoding="async" style="--op:20% 0"></div>
+      <figcaption class="cap"><i style="--c:#fff"></i>Белый</figcaption>
+    </figure>
+  </div>
+  <div class="scr__txt">
+    <p class="kick"><b>03</b><i></i>Ткань</p>
+    <h2 class="t" id="s3t">Ткань, которую<br>чувствуешь</h2>
+    <p class="d">Плотное полотно держит форму и&nbsp;не&nbsp;просвечивает&nbsp;— даже белое. После растяжения возвращается на&nbsp;место.</p>
+  </div>
+  <button class="scr__nav" type="button" aria-label="Листайте — следующий экран"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></b><span aria-hidden="true">Листайте</span></button>
+</section>
+
+<!-- ====== 04: посадка — один человек в двух кроях ======
+     Кроя два, и это честно видно: та же Даша в прямой и в оверсайз. -->
+<section class="scr snap" data-look aria-labelledby="s4t">
+  <div class="pair">
+    <figure class="ph">
+      <div class="ph__f"><img src="/onboarding/ob-dasha-red-side2.jpg" alt="Даша в&nbsp;красной футболке прямого кроя, руки скрещены" width="900" height="1333" loading="lazy" decoding="async" style="--op:52% 0"></div>
+      <figcaption class="cap"><i style="--c:#c0101a"></i>Прямой · женский</figcaption>
+    </figure>
+    <figure class="ph ph--2">
+      <div class="ph__f"><img src="/onboarding/ob-dasha-choc-side.jpg" alt="Даша в&nbsp;оверсайз-футболке цвета шоколад, в&nbsp;профиль" width="900" height="1565" loading="lazy" decoding="async" style="--op:45% 0"></div>
+      <figcaption class="cap"><i style="--c:#4a3128"></i>Оверсайз · унисекс</figcaption>
+    </figure>
+  </div>
+  <div class="scr__txt">
+    <p class="kick"><b>04</b><i></i>Посадка</p>
+    <h2 class="t" id="s4t">Прямой<br>и&nbsp;оверсайз</h2>
+    <p class="d">Прямой&nbsp;— женский крой: ровный силуэт без обтяжки. Оверсайз&nbsp;— унисекс: спущенное плечо и&nbsp;свободный объём.</p>
+  </div>
+  <button class="scr__nav" type="button" aria-label="Листайте — следующий экран"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></b><span aria-hidden="true">Листайте</span></button>
+</section>
+
+<!-- ====== 05: палитра ======
+     Кнопки-цвета — снимки. Текст кнопки — только название цвета: его берёт
+     шторка «Цвет вживую» для заголовка. Порядок кнопок = порядок TONES.
+     «показать вживую» и aria-haspopup кнопкам ставит скрипт шторки: уберут
+     шторку — не останется и обещания окна, которого больше нет. -->
+<section class="scr pal snap" data-look aria-labelledby="s5t">
+  <div class="scr__txt">
+    <p class="kick"><b>05</b><i></i>Цвет</p>
+    <h2 class="t" id="s5t">Пять цветов</h2>
+    <p class="d">Чёрный, белый, красный, голубой и&nbsp;шоколад&nbsp;— от&nbsp;спокойной базы до&nbsp;яркого акцента.</p>
+  </div>
+  <div class="pal__row">
+    <button class="tone" type="button"><span class="tone__ph"><img src="/onboarding/ob-dasha-black-front.jpg" alt="" width="853" height="1289" loading="lazy" decoding="async"></span><i style="--a:#000000;--b:#e2e2e2"></i><span class="tone__l">Чёрный</span></button>
+    <button class="tone" type="button"><span class="tone__ph"><img src="/onboarding/ob-leva-white-front.jpg" alt="" width="800" height="1299" loading="lazy" decoding="async" style="--op:32% 0"></span><i style="--a:#cfcfcf;--b:#ffffff"></i><span class="tone__l">Белый</span></button>
+    <button class="tone" type="button"><span class="tone__ph"><img src="/onboarding/ob-dasha-red-front.jpg" alt="" width="853" height="1119" loading="lazy" decoding="async"></span><i style="--a:#b00d16;--b:#ff9ea2"></i><span class="tone__l">Красный</span></button>
+    <button class="tone" type="button"><span class="tone__ph"><img src="/onboarding/look-19c.jpg" alt="" width="853" height="1280" loading="lazy" decoding="async"></span><i style="--a:#5ea2dd;--b:#eaf4fd"></i><span class="tone__l">Голубой</span></button>
+    <button class="tone" type="button"><span class="tone__ph"><img src="/onboarding/look-22c.jpg" alt="" width="853" height="1280" loading="lazy" decoding="async"></span><i style="--a:#33201a;--b:#d9c6ba"></i><span class="tone__l">Шоколад</span></button>
+  </div>
+  <button class="scr__nav" type="button" aria-label="Листайте — следующий экран"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></b><span aria-hidden="true">Листайте</span></button>
+</section>
+
+<!-- ====== 06: доставка и оплата ======
+     Лёша здесь — только портретом по грудь: он снимался в лонгсливе, а
+     магазин продаёт футболки. -->
+<section class="scr scr--dlv snap" data-look aria-labelledby="s6t">
+  <figure class="band">
+    <img src="/onboarding/ob-lesha-portrait2.jpg" alt="Лёша, портрет" width="1200" height="1113" loading="lazy" decoding="async" style="--op:50% 0">
+  </figure>
+  <div class="scr__txt">
+    <p class="kick"><b>06</b><i></i>Сервис</p>
+    <h2 class="t" id="s6t">Доставка<br>и&nbsp;оплата</h2>
+    <ul class="rows">
+      <li class="row">
+        <span class="row__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7h11v10H2zM13 10h4l3 3v4h-7z"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/></svg></span>
+        <div><b>Доставка СДЭК</b><span>В&nbsp;пункт выдачи или курьером до&nbsp;двери&nbsp;— по&nbsp;всей России.</span></div>
+      </li>
+      <li class="row">
+        <span class="row__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19"/></svg></span>
+        <div><b>Карта или СБП</b><span>Оплата онлайн через ЮKassa при оформлении заказа.</span></div>
+      </li>
+      <li class="row">
+        <span class="row__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 4.5 3.8 11.2c-1.1.4-1.1 1.1-.2 1.4l4.3 1.3 1.6 5c.2.6.1.8.7.8.4 0 .6-.2.8-.4l2.3-2.2 4.5 3.3c.8.5 1.4.2 1.6-.8L21.7 5.7c.3-1.2-.4-1.7-1.2-1.2ZM9.7 13.7l8.2-5.2c.4-.2.7 0 .4.3l-6.6 6"/></svg></span>
+        <div><b>Статус в&nbsp;Telegram</b><span>Подключите бота&nbsp;— пришлём каждый новый статус заказа.</span></div>
+      </li>
+    </ul>
+    <p class="note">Стоимость доставки видна сразу в&nbsp;корзине&nbsp;— до&nbsp;оплаты.</p>
+  </div>
+  <button class="scr__nav" type="button" aria-label="Листайте — следующий экран"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></b><span aria-hidden="true">Листайте</span></button>
+</section>
+
+<!-- ====== 07: финал — призыв в каталог ====== -->
+<section class="fin snap" data-look aria-labelledby="finT">
+  <h2 class="fin__t" id="finT">Выбирайте<br>свой цвет</h2>
+  <p class="fin__d">Стиль, комфорт и&nbsp;качество в&nbsp;деталях. Та&nbsp;самая футболка, которую захочется носить каждый день.</p>
+  <a class="cta" id="go" href="/#catalog">
+    Перейти в каталог
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg>
+  </a>
+  <div class="fin__strip" aria-hidden="true">
+    <span><img src="/onboarding/ob-fin-dasha-black.jpg" alt="" width="700" height="1265" loading="lazy" decoding="async"></span>
+    <span><img src="/onboarding/ob-fin-leva-white.jpg" alt="" width="700" height="933" loading="lazy" decoding="async"></span>
+    <span><img src="/onboarding/ob-fin-dasha-red.jpg" alt="" width="700" height="1239" loading="lazy" decoding="async"></span>
+    <span><img src="/onboarding/ob-fin-dasha-blue.jpg" alt="" width="700" height="1094" loading="lazy" decoding="async"></span>
+    <span><img src="/onboarding/ob-fin-leva-choc.jpg" alt="" width="700" height="1070" loading="lazy" decoding="async"></span>
+  </div>
+  <ul class="fin__usp">
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 5.4 5.9v5.4c0 4.1 2.8 7.8 6.6 9.1 3.8-1.3 6.6-5 6.6-9.1V5.9L12 3.2Z"/><path d="m9.3 12.1 1.9 1.9 3.5-3.9"/></svg><span>Премиальное<br>качество</span></li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7h11v10H2zM13 10h4l3 3v4h-7z"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/></svg><span>Удобная<br>доставка</span></li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 5v6h-6"/></svg><span>Лёгкий<br>возврат</span></li>
+  </ul>
+</section>
+</main>
 
 <!-- ====== цвет вживую: шторка палитры ======
      Снимки и подписи ставит скрипт «Цвет вживую» ниже — по цвету, на который
@@ -1176,45 +1219,34 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
   var HOME = '/#home';
   var HANDOFF = 'lc_enter';   /* по нему магазин узнаёт, что мы пришли отсюда */
 
-  /* --- подпись проявляется по словам --- */
+  var root = document.documentElement;
+  var reduce = false;
+  try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}
+
+  /* --- подпись проявляется по словам ---
+     Перенос строки из разметки (<br>) сохраняем: подпись должна ломаться
+     ровно после «которые», а не там, где кончится ширина. Читалке отдаём
+     целую фразу — по одному слову в отдельных блоках она читала бы слитно. */
   var sub = document.getElementById('introSub');
   if(sub){
-    var words = sub.textContent.trim().split(/\s+/);
+    var parts = [];
+    [].forEach.call(sub.childNodes, function(node){
+      if(node.nodeName === 'BR'){ parts.push(null); return; }
+      (node.textContent || '').trim().split(/\s+/).forEach(function(w){ if(w) parts.push(w); });
+    });
+    sub.setAttribute('aria-label', parts.filter(Boolean).join(' '));
     sub.textContent = '';
-    words.forEach(function(w, n){
-      var s = document.createElement('span');
-      s.textContent = w;
-      s.style.animationDelay = (0.85 + n * 0.09) + 's';
+    var wn = 0;
+    parts.forEach(function(w){
+      var s = document.createElement(w === null ? 'i' : 'span');
+      if(w === null){ s.className = 'br'; }
+      else {
+        s.textContent = w;
+        s.setAttribute('aria-hidden', 'true');
+        s.style.animationDelay = (0.85 + wn++ * 0.09) + 's';
+      }
       sub.appendChild(s);
     });
-  }
-
-  /* --- мозаика в финале ---
-     Берём только те снимки, что человек уже пролистал: они лежат в кэше,
-     и фон за кнопкой не стоит ни одного лишнего килобайта. */
-  var wall = document.getElementById('wall');
-  if(wall){
-    var shots = ['look-14','look-15','look-16c','look-05c','look-03c'];
-    for(var pass = 0; pass < 3; pass++){   /* 5 снимков x 3 = 15 клеток сетки */
-      shots.forEach(function(n){
-        var im = document.createElement('img');
-        im.src = '/onboarding/' + n + '.jpg';
-        im.alt = '';
-        im.loading = 'lazy';
-        im.decoding = 'async';
-        wall.appendChild(im);
-      });
-    }
-  }
-
-  /* Бегущая строка крутится только пока её видно. Отдельный наблюдатель,
-     а не общий: тот снимает слежку после первого показа, а этот нужен
-     постоянно — строка то уходит с экрана, то возвращается. */
-  var tickEl = document.querySelector('.tick');
-  if(tickEl && 'IntersectionObserver' in window){
-    new IntersectionObserver(function(rows){
-      tickEl.classList.toggle('is-away', !rows[0].isIntersecting);
-    }, { threshold: 0 }).observe(tickEl);
   }
 
   /* --- появление блоков ---
@@ -1235,30 +1267,206 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
     blocks.forEach(function(b){ b.classList.add('is-in'); });   // старый браузер — просто покажем
   }
 
-  /* --- полоса прогресса ---
-     Высоту страницы меряем заранее и запоминаем. Тогда на каждом кадре
-     прокрутки остаётся только запись — браузеру нечего пересчитывать,
-     и обходимся без requestAnimationFrame. Он тут был бы даже опасен:
-     в фоновой вкладке кадры не идут, и сторож «уже запланировано» завис
-     бы поднятым навсегда — полоса больше не сдвинулась бы никогда. */
-  var bar = document.getElementById('bar');
-  var skip = document.getElementById('skip');
-  var maxScroll = 0;
-
-  function onScroll(){
-    var p = maxScroll > 0 ? Math.min(1, Math.max(0, window.scrollY / maxScroll)) : 0;
-    if(bar) bar.style.transform = 'scaleX(' + p.toFixed(4) + ')';
-    /* у самого низа «Пропустить» лишняя — там уже стоит кнопка */
-    if(skip) skip.classList.toggle('is-gone', p > 0.88);
+  /* --- сцена: заставка → первый экран ---
+     Вся анимация — CSS от двух чисел: --p (пройденная доля сцены) и --e (она
+     же со сглаживанием). Скрипт на прокрутке только пишет эти два числа, а
+     всё, что требует замеров, считает заранее в measure(). Без
+     requestAnimationFrame нарочно: в фоновой вкладке кадры не идут, и сторож
+     «уже запланировано» завис бы поднятым — сцена больше не сдвинулась бы.
+     При «уменьшить движение» сцены нет: первый экран сразу в конечном виде. */
+  var scene = document.getElementById('scene');
+  var stage = scene ? scene.querySelector('.scene__stage') : null;
+  var cover = scene ? scene.querySelector('.cover') : null;
+  var win = scene ? scene.querySelector('.cover__win') : null;
+  var heroPh = scene ? scene.querySelector('.hero__ph') : null;
+  var STAGE = !!(stage && cover && win && heroPh) && !reduce;
+  if(STAGE){
+    root.classList.add('has-stage');
+    root.style.setProperty('--p', '0');
+    root.style.setProperty('--e', '0');
   }
+
+  /* Высоту «малого» экрана (svh) и вырез сверху меряем щупами: из скрипта
+     их иначе не достать, а innerHeight на телефоне скачет следом за панелью
+     браузера. */
+  function probe(css){
+    var el = document.createElement('div');
+    el.setAttribute('aria-hidden', 'true');
+    el.style.cssText = 'position:fixed;left:0;top:0;width:0;visibility:hidden;pointer-events:none;' + css;
+    document.body.appendChild(el);
+    return el;
+  }
+  var probeH = probe('height:100vh;height:100svh');
+  var probeS = probe('height:env(safe-area-inset-top)');
+
+  var SPLIT = '(min-width:1200px), (min-width:1024px) and (orientation:landscape), (orientation:landscape) and (max-height:500px)';
+  function mq(q){ try{ return matchMedia(q).matches; }catch(_){ return false; } }
+  function clamp(v, a, b){ return Math.min(b, Math.max(a, v)); }
+  function px(v){ return v.toFixed(2) + 'px'; }
+  function set(k, v){ root.style.setProperty(k, v); }
+
+  var skip = document.getElementById('skip');
+  var rail = document.getElementById('rail');
+  var railN = document.getElementById('railN');
+  var dots = rail ? [].slice.call(rail.querySelectorAll('.rail__d')) : [];
+
+  /* Точки прилипания по порядку экранов: 0 — заставка, 1 — первый экран,
+     …, 7 — финал. Без сцены заставки нет, и первая точка — сразу экран 1. */
+  var snaps = [].slice.call(document.querySelectorAll('.snap')).filter(function(el){
+    return STAGE || !el.classList.contains('scene__pt--b');
+  });
+  var base = STAGE ? 0 : 1;
+  function screenOf(i){
+    if(i < 0) return null;
+    if(i <= 1) return scene;
+    return snaps[i - base] || null;
+  }
+
+  var stops = [], stageH = 0, vh = 0, lastP = -1, cur = -1, scrub = false, dead = true;
+
   function measure(){
-    maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    var svh = probeH.offsetHeight || window.innerHeight;
+    var safeTop = probeS.offsetHeight;
+    var vw = root.clientWidth;
+    var split = mq(SPLIT), tablet = !split && vw >= 768, low = svh < 500;
+    vh = window.innerHeight;
+
+    /* Куда встаёт знак: на планшете — по центру шапки; на телефоне — в
+       левый верхний угол, напротив «Пропустить»: снимки там идут от самого
+       верха, а люди стоят посередине кадров, и знак по центру ложился бы
+       им на волосы; на компьютере — тоже в левый угол, над колонкой
+       текста. 0,3125 — половина пропорции знака (325 / 520 / 2). */
+    var dockH = (split || tablet) ? 40 : 30;
+    var dockTop = split ? 24 : safeTop + (tablet ? 16 : 17);
+    var dockLeft = split ? 40 : tablet ? vw / 2 - dockH * 0.3125 : 12 + 20 - dockH * 0.3125;
+
+    if(STAGE){
+      var m0, top0, left0;
+      if(split){
+        /* Компьютер: знак, подпись и строка о магазине — одним блоком слева,
+           по высоте посередине; снимок в рамке справа. */
+        m0 = low ? 64 : clamp(svh * 0.16, 110, 160);
+        var cs = getComputedStyle(cover);
+        left0 = parseFloat(cs.paddingLeft) || 48;
+        var h1 = cover.querySelector('h1'), tr = cover.querySelector('.cover__trust');
+        var textH = (h1 ? h1.offsetHeight : 0) + (tr && tr.offsetHeight ? tr.offsetHeight + 18 : 0);
+        top0 = Math.max(safeTop + 24, Math.round((svh - (m0 + 16 + textH)) / 2));
+      } else {
+        m0 = low ? 64 : tablet ? clamp(svh * 0.16, 140, 180) : clamp(svh * 0.14, 96, 132);
+        /* Узкий телефон: «Пропустить» почти касалась засечки знака — знак ниже. */
+        top0 = safeTop + (low ? 16 : vw < 380 ? 72 : 56);
+        left0 = vw / 2 - m0 * 0.3125;
+      }
+      set('--bh', px(m0)); set('--bx', px(left0)); set('--by', px(top0));
+      set('--ms', (dockH / m0).toFixed(4));
+      set('--mx', px(dockLeft - left0));
+      set('--my', px(dockTop - top0));
+      /* Подпись поднимается ровно настолько, насколько поднялся низ знака. */
+      set('--rise', px((dockTop + dockH) - (top0 + m0)));
+      set('--cv-top', px(top0 + m0 + 16));
+
+      /* Рамка на заставке и снимок первого экрана. Замеры — без transform
+         (offset*), поэтому их можно брать в любой момент сцены. */
+      var pl = heroPh.offsetLeft, pt = heroPh.offsetTop, pw = heroPh.offsetWidth, ph = heroPh.offsetHeight;
+      var wl = cover.offsetLeft + win.offsetLeft, wt = cover.offsetTop + win.offsetTop;
+      var ww = win.offsetWidth, wh = win.offsetHeight;
+      if(pw && ph && ww && wh){
+        set('--ps', Math.min(wh / ph, ww / pw).toFixed(4));
+        set('--px', px(wl + ww / 2 - (pl + pw / 2)));
+        set('--py', px(wt - pt));
+      }
+    } else {
+      set('--bh', px(dockH)); set('--bx', px(dockLeft)); set('--by', px(dockTop));
+    }
+
+    var y = window.scrollY;
+    stops = snaps.map(function(el, i){ return { top: Math.round(el.getBoundingClientRect().top + y), idx: base + i }; });
+    stageH = STAGE && stops[1] ? stops[1].top - stops[0].top : 0;
+    lastP = -1;
     onScroll();
   }
+
+  function onScroll(){
+    var y = window.scrollY;
+    /* Сцену давно пролистали — ничего не пишем: она и так в конечном виде. */
+    if(STAGE && stageH > 0 && !(lastP === 1 && y > stageH * 1.2)){
+      var p = Math.min(1, Math.max(0, y / stageH));
+      if(p !== lastP){
+        lastP = p;
+        var e = p * p * (3 - 2 * p);
+        set('--p', p.toFixed(4));
+        set('--e', e.toFixed(4));
+        var s = p > 0 && p < 1;
+        if(s !== scrub){ scrub = s; root.classList.toggle('is-scrub', s); }
+      }
+    }
+    var at = y + vh * 0.45, i = stops.length ? stops[0].idx : 0;
+    for(var k = 0; k < stops.length; k++){ if(stops[k].top <= at) i = stops[k].idx; }
+    if(i !== cur) setCur(i);
+    /* Точки полосы нажимаются, только когда она уже видна. */
+    var d = cur <= 0 || cur >= 7 || (STAGE && lastP < 0.9);
+    if(rail && d !== dead){ dead = d; rail.classList.toggle('is-dead', d); }
+  }
+
+  /* Текущий экран: от него зависят полоса прогресса, «Пропустить»,
+     покачивание стрелки и куда ведёт «Листайте». */
+  function setCur(i){
+    var prev = screenOf(cur), next = screenOf(i);
+    cur = i;
+    /* В финале «Пропустить» лишняя — там уже стоит кнопка. */
+    if(skip) skip.classList.toggle('is-gone', i >= 7);
+    if(rail){
+      rail.classList.toggle('is-hide', i <= 0 || i >= 7);
+      /* На компьютере палитра во всю ширину — там полоса прячется (CSS). */
+      rail.classList.toggle('is-pal', i === 5);
+      if(railN) railN.textContent = '0' + Math.max(1, Math.min(7, i));
+      dots.forEach(function(dot, k){
+        dot.classList.toggle('is-past', k + 1 < i);
+        if(k + 1 === i) dot.setAttribute('aria-current', 'step'); else dot.removeAttribute('aria-current');
+      });
+    }
+    if(prev && prev !== next) prev.classList.remove('is-cur');
+    if(next) next.classList.add('is-cur');
+  }
+
+  function goTo(i){
+    for(var k = 0; k < stops.length; k++){
+      if(stops[k].idx === i){
+        window.scrollTo({ top: stops[k].top, behavior: reduce ? 'auto' : 'smooth' });
+        return;
+      }
+    }
+  }
+  [].forEach.call(document.querySelectorAll('.scr__nav'), function(b){
+    b.addEventListener('click', function(){ goTo(cur + 1); });
+  });
+  dots.forEach(function(dot, k){
+    dot.addEventListener('click', function(){ goTo(k + 1); });
+  });
+
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', measure, { passive: true });
   window.addEventListener('load', measure);   /* дозагрузились картинки — перемерим */
+  window.addEventListener('pageshow', measure);
+  /* Шрифт пришёл позже — текст стал другой высоты, а с ним и снимки. */
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
   measure();
+
+  /* --- снимки дальних экранов — заранее, но без спешки ---
+     После загрузки страницы, по одному раз в 120 мс: к тому времени, как
+     до них долистают, они уже в кэше. На «экономии трафика» не трогаем. */
+  window.addEventListener('load', function(){
+    var saver = false;
+    try{ saver = !!(navigator.connection && navigator.connection.saveData); }catch(_){}
+    if(saver) return;
+    var lazy = [].slice.call(document.querySelectorAll('img[loading="lazy"]'));
+    setTimeout(function next(){
+      var im = lazy.shift();
+      if(!im) return;
+      if(!im.complete) new Image().src = im.currentSrc || im.src;
+      setTimeout(next, 120);
+    }, 400);
+  });
 
   /* Вернулись сюда «назад» — браузер отдаёт страницу из кэша нетронутой,
      вместе с чёрным занавесом поверх всего. Снимаем его руками: pageshow
@@ -1367,15 +1575,15 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
   if(!sheet || !chips.length) return;
 
   /* Снимки по цветам — в том же порядке, что кнопки в палитре: файл, кто,
-     ракурс. Мужской съёмки в красном и голубом нет, женской в белом тоже —
-     там два ракурса одного человека. Появятся снимки — допишите их сюда.
-     Оттенок — лёгкая подсветка шторки сверху, под цвет. */
+     ракурс. Только одиночные снимки, все обрезаны по низу футболки.
+     Мужской съёмки в красном и голубом нет — там два ракурса Даши. Появятся
+     снимки — допишите их сюда. Оттенок — лёгкая подсветка шторки сверху. */
   var TONES = [
-    { tint:'rgba(0,0,0,.10)',        shots:[['look-16c','Она','спереди'], ['look-23','Он','спереди']] },
-    { tint:'rgba(74,49,40,.20)',     shots:[['look-22c','Она','спереди'], ['look-18c','Он','спереди']] },
-    { tint:'rgba(216,30,40,.15)',    shots:[['look-20c','Она','спереди'], ['look-11c','Она','сзади']] },
+    { tint:'rgba(0,0,0,.10)',        shots:[['ob-dasha-black-front','Она','спереди'], ['ob-leva-black','Он','спереди']] },
+    { tint:'rgba(255,255,255,.95)',  shots:[['look-02c','Он','спереди'],  ['look-12c','Он','сбоку']] },
+    { tint:'rgba(216,30,40,.15)',    shots:[['ob-dasha-red-front','Она','спереди'], ['look-11c','Она','сзади']] },
     { tint:'rgba(94,162,221,.24)',   shots:[['look-19c','Она','спереди'], ['look-10c','Она','сзади']] },
-    { tint:'rgba(255,255,255,.95)',  shots:[['look-02c','Он','спереди'],  ['look-12c','Он','сбоку']] }
+    { tint:'rgba(74,49,40,.20)',     shots:[['look-22c','Она','спереди'], ['look-18c','Он','спереди']] }
   ];
 
   var card = sheet.querySelector('.sheet__card');
@@ -1410,6 +1618,12 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
   });
   var total = list.length;
   document.getElementById('sheetOf').textContent = pad(total);
+  /* Что кнопка откроет окно — говорим отсюда: без шторки кнопка остаётся
+     просто названием цвета. */
+  list.forEach(function(t){
+    t.chip.setAttribute('aria-haspopup', 'dialog');
+    t.chip.setAttribute('aria-label', t.name + ' — показать вживую');
+  });
 
   /* Строку-подсказку под палитрой ставим отсюда, а не в разметке: уберут
      шторку — уйдёт и обещание, которое больше нечему выполнять. Палитра
@@ -1636,7 +1850,9 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
 
   /* --- рука показывает, что цвета нажимаются ---
      Пока человек не нажал ни одного цвета сам, рука по очереди «нажимает» на
-     кнопки: подходит снизу справа, жмёт — кружок отзывается, — и уходит.
+     кнопки: опускается сверху справа, со стороны снимка, жмёт — кружок
+     отзывается, — и уходит. Указывает вниз: название цвета под кружком
+     она не закрывает.
      Пять нажатий подряд, потом пауза; кнопки ушли с экрана — рука стоит.
      Первое своё нажатие выключает её насовсем, и в следующие визиты тоже. */
   var TAPPED = 'lc_tone_tapped';
@@ -1674,20 +1890,21 @@ html.is-locked .skip{right:calc(14px + var(--sb,0px))}
     var circle = t.chip.querySelector('i');
     var box = row.getBoundingClientRect(), c = circle.getBoundingClientRect();
     var s = hand.offsetWidth;
-    /* Кончик пальца — в середину кружка. */
+    /* Рука перевёрнута (scaleY(-1) у svg), кончик пальца теперь внизу —
+       точка (10,5; 21). Ставим его на верхнюю половину кружка. */
     var x = c.left - box.left + c.width / 2 - s * 10.5 / 24;
-    var y = c.top - box.top + c.height / 2 - s * 3 / 24;
+    var y = c.top - box.top + c.height / 2 - 3 - s * 21 / 24;
     function at(dx, dy, sc){ return 'translate(' + (x + dx).toFixed(1) + 'px,' + (y + dy).toFixed(1) + 'px) scale(' + sc + ')'; }
     /* Плавность — на каждом отрезке, а не на всём движении: иначе общая
        кривая сдвигает время, и дно нажатия приходится не на 52%, а на треть
        пути — рука успевала уйти раньше, чем кружок отзывался. */
     var E = 'cubic-bezier(.4,0,.2,1)';
     hand.animate([
-      { opacity: 0, transform: at(26, 30, 1), easing: E },
-      { opacity: 1, transform: at(5, 7, 1), offset: .38, easing: E },
+      { opacity: 0, transform: at(26, -30, 1), easing: E },
+      { opacity: 1, transform: at(5, -7, 1), offset: .38, easing: E },
       { opacity: 1, transform: at(0, 0, .88), offset: .52, easing: E },
-      { opacity: 1, transform: at(4, 6, 1), offset: .7, easing: E },
-      { opacity: 0, transform: at(24, 28, 1) }
+      { opacity: 1, transform: at(4, -6, 1), offset: .7, easing: E },
+      { opacity: 0, transform: at(24, -28, 1) }
     ], { duration: 1700, fill: 'both' });
     /* Кружок отзывается в миг «нажатия». */
     pressTimer = setTimeout(function(){
