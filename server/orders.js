@@ -743,8 +743,14 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
     const comment = String(c.comment || '').trim().slice(0, 300);
     if (city.length < 2) throw Object.assign(new Error('Укажите город доставки'), { status: 400 });
     if (street.length < 5) throw Object.assign(new Error('Укажите улицу и дом'), { status: 400 });
+    /* Точка с карты — подсказка курьеру, а не адрес: едут по строке. */
+    const lat = +c.lat;
+    const lng = +c.lng;
+    const geoOk = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
     courierAddr = {
       city, street, flat, comment,
+      lat: geoOk ? lat : 0,
+      lng: geoOk ? lng : 0,
       text: [city, street, flat && ('кв./офис ' + flat)].filter(Boolean).join(', ')
     };
   } else if (!pvz || !String(pvz.addr || '').trim() || String(pvz.addr).trim().length < 8) {
@@ -763,8 +769,8 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
     flat: courierAddr.flat,
     addressComment: courierAddr.comment,
     hours: '',
-    lat: 0,
-    lng: 0,
+    lat: courierAddr.lat,
+    lng: courierAddr.lng,
     phone: '',
     manual: false
   } : {

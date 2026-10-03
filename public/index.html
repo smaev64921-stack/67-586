@@ -3236,6 +3236,56 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   display:flex;align-items:center;justify-content:center;position:relative;z-index:0
 }
 .pvz__lead{font-size:13px;color:var(--muted);line-height:1.45;margin:0 0 12px}
+/* Курьер: адрес на карте. Булавка стоит в центре, карта ездит под ней. */
+.cmap{
+  position:relative;height:min(38vh, 300px);min-height:220px;margin:0 0 8px;
+  border-radius:var(--r-md);overflow:hidden;background:var(--photo);z-index:0
+}
+.cmap__map{position:absolute;inset:0}
+.cmap__pin{
+  position:absolute;left:50%;top:50%;z-index:650;pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%)
+}
+.cmap__tag{
+  max-width:min(76vw, 300px);margin-bottom:6px;padding:7px 12px;border-radius:999px;
+  background:var(--ink);color:var(--card);font-size:12.5px;font-weight:600;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.22);
+  transition:opacity var(--dur) var(--ease)
+}
+.cmap__ico{display:block;width:28px;height:38px;color:var(--ink);
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.3));transition:transform .18s var(--ease)}
+.cmap__ico circle{fill:var(--card)}
+.cmap__shadow{
+  position:absolute;left:50%;top:50%;z-index:640;width:12px;height:5px;margin:-2px 0 0 -6px;
+  border-radius:50%;background:rgba(0,0,0,.35);pointer-events:none;
+  transition:transform .18s var(--ease),opacity .18s var(--ease)
+}
+.cmap.is-moving .cmap__ico{transform:translateY(-10px)}
+.cmap.is-moving .cmap__tag{opacity:0}
+.cmap.is-moving .cmap__shadow{transform:scale(.7);opacity:.6}
+.cmap__me{
+  position:absolute;right:10px;bottom:26px;z-index:800;width:42px;height:42px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;
+  background:var(--card);color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,.2)
+}
+.cmap__me.is-wait{opacity:.55}
+.cmap__find{position:relative;margin:0 0 10px}
+.cmap__find .f__i{margin:0;padding-left:40px}
+.cmap__sug{
+  position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:900;overflow:hidden;
+  background:var(--card);border:1.5px solid var(--line2);border-radius:var(--r-md);
+  box-shadow:0 10px 30px rgba(0,0,0,.12)
+}
+.cmap__sug button{
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:11px 14px;
+  background:none;border:0;border-bottom:1px solid var(--line2);text-align:left;cursor:pointer;
+  font:inherit;color:var(--ink)
+}
+.cmap__sug button:last-child{border-bottom:0}
+.cmap__sug button:hover,.cmap__sug button.on{background:var(--chip)}
+.cmap__sug b{font-size:14px;font-weight:600;line-height:1.35}
+.cmap__sug span{font-size:12px;color:var(--muted);line-height:1.35}
+.cmap__sug p{margin:0;padding:12px 14px;font-size:12.5px;color:var(--muted)}
 .pvz__map-s{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;padding:0 20px}
 /* Поиск города — поле во всю ширину со значком внутри. Кнопка «Найти»
    рядом отъедала треть строки на телефоне, и название города не влезало;
@@ -4850,6 +4900,24 @@ function pickupPaneHTML(){
 function courierPaneHTML(){
   const c = S.checkout.courier || {};
   return `
+  <div class="cmap__find">
+    <span class="pvz__search-ic">${svg('search','ic ic--sm')}</span>
+    <input class="f__i" id="coFind" type="search" placeholder="Найти адрес — например, Ленина 24"
+      autocomplete="off" enterkeyhint="search" aria-label="Найти адрес доставки">
+    <div class="cmap__sug" id="coSug" hidden></div>
+  </div>
+  <div class="cmap" id="coMapW">
+    <div class="cmap__map" id="coMap"></div>
+    <span class="cmap__shadow" aria-hidden="true"></span>
+    <div class="cmap__pin" aria-hidden="true">
+      <span class="cmap__tag" id="coTag">${esc(cmapTagText())}</span>
+      <svg class="cmap__ico" viewBox="0 0 28 38"><path fill="currentColor" d="M14 0C6.3 0 0 6.2 0 13.9 0 24.3 14 38 14 38s14-13.7 14-24.1C28 6.2 21.7 0 14 0z"/><circle cx="14" cy="14" r="5"/></svg>
+    </div>
+    <button type="button" class="cmap__me" id="coMe" aria-label="Привезти туда, где я сейчас">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+  </div>
+  <p class="pvz__hint" style="margin:0 0 14px">Двигайте карту — булавка покажет, куда привезти. Адрес можно поправить в полях ниже.</p>
   <div class="f"><label class="f__l" for="coCity">${svg('pin','ic ic--sm')} Город</label>
     <input class="f__i" id="coCity" list="coCityList" value="${esc(c.city)}"
       placeholder="Екатеринбург" autocomplete="address-level2">
@@ -4863,6 +4931,192 @@ function courierPaneHTML(){
     <input class="f__i" id="coComment" value="${esc(c.comment)}"
       placeholder="подъезд 2, этаж 5, код 45"></div>
   <p class="pvz__hint">Курьер позвонит за час до доставки.</p>`;
+}
+
+/* ==========================================================
+   КУРЬЕР: АДРЕС НА КАРТЕ
+   Как в приложениях доставки: булавка стоит в центре, человек двигает
+   карту — под булавку подставляются улица и дом (server/geo.js). Можно
+   найти адрес поиском или нажать «где я» — карта переедет сама. Поля
+   ниже остаются: в них адрес правят руками, курьер едет по ним.
+   ========================================================== */
+let cmap = null, cmapBox = null, cmapGoal = null, cmapTimer = null, cmapSeq = 0;
+let cmapFindTimer = null, cmapFindSeq = 0, cmapSugList = [];
+const CMAP_HOME = {lat:56.8389, lng:60.6057};   // Екатеринбург — когда больше не за что зацепиться
+
+function cmapTagText(){
+  const c = S.checkout.courier || {};
+  const street = String(c.street || '').trim();
+  if(street) return street;
+  return 'Подвиньте карту к своему дому';
+}
+function cmapTag(text){
+  const t = document.getElementById('coTag');
+  if(t) t.textContent = text;
+}
+
+/* Откуда начать: сохранённая точка, где человек сейчас, выбранный
+   пункт, город на карте пунктов — и только потом Екатеринбург. */
+function cmapStart(){
+  const c = S.checkout.courier || {};
+  if(+c.lat && +c.lng) return {lat:+c.lat, lng:+c.lng, z:17};
+  if(pvzView.me) return {lat:pvzView.me.lat, lng:pvzView.me.lng, z:17, me:true};
+  const p = S.checkout.pvz;
+  if(p && +p.lat && +p.lng) return {lat:+p.lat, lng:+p.lng, z:15};
+  const city = pvzView.city && (pvzView.cities || []).find(x => +x.code === +pvzView.city.code && x.lat);
+  if(city) return {lat:+city.lat, lng:+city.lng, z:12};
+  const pt = (pvzView.points || [])[0];
+  if(pt && pt.lat) return {lat:+pt.lat, lng:+pt.lng, z:13};
+  return Object.assign({z:12}, CMAP_HOME);
+}
+
+/* Карту двигаем сами (поиск, «где я») — адрес уже известен,
+   спрашивать его заново по этой же точке незачем. */
+function cmapGo(lat, lng, z){
+  if(!cmap) return;
+  cmapGoal = {lat, lng, t:Date.now()};
+  cmap.setView([lat, lng], z || Math.max(cmap.getZoom(), 17));
+}
+
+function mountCourierMap(){
+  const box = document.getElementById('coMap');
+  if(!box) return;
+  bindCourierFind();
+  if(cmap && cmapBox === box){ cmap.invalidateSize(); return; }
+  if(cmap){ try{ cmap.remove(); }catch(e){} cmap = null; }
+  cmapBox = box;
+  ensureMap().then(L => {
+    if(document.getElementById('coMap') !== box) return;
+    const st = cmapStart();
+    cmap = L.map(box, {zoomControl:true, attributionControl:true});
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(cmap);
+    cmap.setView([st.lat, st.lng], st.z);
+    const wrap = document.getElementById('coMapW');
+    cmap.on('movestart', () => { if(wrap) wrap.classList.add('is-moving'); });
+    cmap.on('moveend', () => {
+      if(wrap) wrap.classList.remove('is-moving');
+      const c = cmap.getCenter();
+      const g = cmapGoal;
+      cmapGoal = null;
+      if(g && Date.now() - g.t < 3000 && Math.abs(g.lat - c.lat) < 1e-4 && Math.abs(g.lng - c.lng) < 1e-4) return;
+      clearTimeout(cmapTimer);
+      cmapTimer = setTimeout(() => cmapLookup(c.lat, c.lng), 250);
+    });
+    setTimeout(() => cmap && cmap.invalidateSize(), 80);
+    /* Знаем, где человек, а адреса ещё нет — сразу подставляем, как
+       делают приложения доставки. Чужой город по умолчанию не подставляем:
+       такой адрес легко не заметить и отправить посылку не туда. */
+    if(st.me && !String(S.checkout.courier.street || '').trim()) cmapLookup(st.lat, st.lng);
+  }).catch(() => {
+    box.innerHTML = '<span class="pvz__map-s">Карта не загрузилась — впишите адрес в поля ниже.</span>';
+  });
+}
+
+async function cmapLookup(lat, lng){
+  if(!window.LC) return;
+  const my = ++cmapSeq;
+  cmapTag('Ищем адрес…');
+  try{
+    const p = await LC.geoReverse(lat, lng);
+    if(my !== cmapSeq) return;
+    if(!p || !p.street){
+      cmapTag(p && p.city ? p.city + ' — подвиньте к дому' : 'Здесь нет адреса — подвиньте карту');
+      return;
+    }
+    cmapApply(p);
+  }catch(e){
+    if(my === cmapSeq) cmapTag('Адрес не определился — впишите его ниже');
+  }
+}
+
+/** Подставить найденный адрес в поля и пересчитать доставку. */
+function cmapApply(p){
+  const c = S.checkout.courier || (S.checkout.courier = {city:'', street:'', flat:'', comment:''});
+  if(p.city) c.city = p.city;
+  c.street = p.addr || p.street || '';
+  c.lat = +p.lat || 0;
+  c.lng = +p.lng || 0;
+  [['coCity', c.city], ['coStreet', c.street]].forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    if(el){ el.value = v; el.classList.remove('f__err'); }
+  });
+  cmapTag(p.house ? c.street : c.street + ' — уточните дом');
+  saveUser();
+  quoteSoon();
+  paintDeliveryTotals();
+}
+
+function cmapSugHTML(list, q){
+  if(!list.length) return `<p>Ничего не нашли по «${esc(q)}». Попробуйте улицу и дом без лишних слов.</p>`;
+  return list.map((p, i) => `<button type="button" data-i="${i}"${i === 0 ? ' class="on"' : ''}>
+    <b>${esc(p.addr)}</b><span>${esc([p.city, p.region].filter((x, k, a) => x && a.indexOf(x) === k).join(', '))}</span>
+  </button>`).join('');
+}
+function cmapPickSug(i){
+  const p = cmapSugList[i];
+  if(!p) return;
+  const sug = document.getElementById('coSug');
+  if(sug) sug.hidden = true;
+  const inp = document.getElementById('coFind');
+  if(inp){ inp.value = ''; inp.blur(); }
+  cmapGo(p.lat, p.lng, 17);
+  cmapApply(p);
+}
+
+function bindCourierFind(){
+  const inp = document.getElementById('coFind');
+  const sug = document.getElementById('coSug');
+  const me = document.getElementById('coMe');
+  if(inp && sug){
+    inp.oninput = () => {
+      clearTimeout(cmapFindTimer);
+      const q = inp.value.trim();
+      if(q.length < 3){ sug.hidden = true; return; }
+      cmapFindTimer = setTimeout(async () => {
+        const my = ++cmapFindSeq;
+        const c = cmap ? cmap.getCenter() : null;
+        try{
+          const list = await LC.geoSearch(q, c ? {lat:c.lat, lng:c.lng} : null);
+          if(my !== cmapFindSeq) return;
+          cmapSugList = list;
+          sug.innerHTML = cmapSugHTML(list, q);
+          sug.hidden = false;
+        }catch(e){
+          if(my !== cmapFindSeq) return;
+          cmapSugList = [];
+          sug.innerHTML = '<p>Поиск адреса не ответил — подвиньте карту или впишите адрес ниже.</p>';
+          sug.hidden = false;
+        }
+      }, 400);
+    };
+    inp.onkeydown = e => {
+      if(e.key === 'Enter'){ e.preventDefault(); if(!sug.hidden && cmapSugList.length) cmapPickSug(0); }
+      if(e.key === 'Escape') sug.hidden = true;
+    };
+    inp.onblur = () => setTimeout(() => { sug.hidden = true; }, 180);
+    /* Нажатие на подсказку не должно сначала увести фокус и спрятать список. */
+    sug.onpointerdown = e => e.preventDefault();
+    sug.onclick = e => {
+      const b = e.target.closest('button[data-i]');
+      if(b) cmapPickSug(+b.dataset.i);
+    };
+  }
+  if(me) me.onclick = () => {
+    if(!navigator.geolocation){ toast('Браузер не умеет определять место — найдите адрес поиском'); return; }
+    me.classList.add('is-wait');
+    navigator.geolocation.getCurrentPosition(pos => {
+      me.classList.remove('is-wait');
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      pvzView.me = {lat, lng};
+      cmapGo(lat, lng, 17);
+      cmapLookup(lat, lng);
+    }, () => {
+      me.classList.remove('is-wait');
+      toast('Не получилось определить, где вы — найдите адрес поиском');
+    }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+  };
 }
 
 function pvzCardHTML(){
@@ -4880,7 +5134,9 @@ function deliveryPayload(){
     city: String(c.city || '').trim(),
     street: String(c.street || '').trim(),
     flat: String(c.flat || '').trim(),
-    comment: String(c.comment || '').trim()
+    comment: String(c.comment || '').trim(),
+    lat: +c.lat || 0,
+    lng: +c.lng || 0
   };
 }
 
@@ -5006,6 +5262,7 @@ function deliveryRender(){
   box.outerHTML = pvzCardHTML();
   bindDelivery();
   mountDeliveryMap();
+  mountCourierMap();
   paintDeliveryTotals();
   refreshQuote();
 }
@@ -5035,6 +5292,11 @@ function bindDelivery(){
       el.oninput = () => {
         S.checkout.courier[key] = el.value;
         el.classList.remove('f__err');
+        if(key === 'city' || key === 'street'){
+          S.checkout.courier.lat = 0; S.checkout.courier.lng = 0;
+          const tag = document.getElementById('coTag');
+          if(tag) tag.textContent = cmapTagText();
+        }
         saveUser();
         if(key === 'city') suggestCities(el.value);
         if(key === 'city' || key === 'street'){ quoteSoon(); paintDeliveryTotals(); }
@@ -10347,6 +10609,7 @@ function render(keepScroll){
     if(!dlvOpen){ dlvOpen = true; pvzResetView(); }
     bindDelivery();
     mountDeliveryMap();
+    mountCourierMap();
     refreshQuote();
   }else{
     dlvOpen = false;

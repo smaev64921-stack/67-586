@@ -132,6 +132,17 @@
       const d = await api('/api/cdek/deliverypoints' + (q.toString() ? '?' + q.toString() : ''));
       return d.points || [];
     },
+    /* Адрес курьера: что за дом под булавкой и подсказки по тексту. */
+    async geoReverse(lat, lng) {
+      const d = await api('/api/geo/reverse?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng));
+      return d.place || null;
+    },
+    async geoSearch(q, near) {
+      const p = new URLSearchParams({ q: String(q || '') });
+      if (near && near.lat && near.lng) { p.set('lat', String(near.lat)); p.set('lng', String(near.lng)); }
+      const d = await api('/api/geo/search?' + p.toString());
+      return d.items || [];
+    },
     /* Push-уведомления: ключ, подписка устройства и отписка. */
     async pushKey() {
       const d = await api('/api/push/key');

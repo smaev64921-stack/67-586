@@ -517,6 +517,37 @@ app.get('/api/cdek/deliverypoints', async (req, res) => {
   }
 });
 
+/* -------- адрес курьера: точка на карте ↔ улица и дом (server/geo.js) -------- */
+const geo = require('./geo');
+const geoPoint = (q) => {
+  const lat = +q.lat;
+  const lng = +q.lng;
+  return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+    ? { lat, lng } : null;
+};
+app.get('/api/geo/reverse', async (req, res) => {
+  /* Карту двигают, но запрос уходит, только когда она остановилась, —
+     живому человеку за десять минут хватает и сотни. */
+  const rl = hit('geo', clientIp(req), { limit: 300, windowMs: 10 * 60 * 1000, label: 'Слишком часто' });
+  if (!rl.ok) return res.status(429).json({ error: rl.error });
+  const pt = geoPoint(req.query);
+  if (!pt) return res.status(400).json({ error: 'Нужны координаты' });
+  try {
+    res.json({ place: await geo.reverse(pt.lat, pt.lng) });
+  } catch (e) {
+    res.status(502).json({ error: 'Не удалось определить адрес' });
+  }
+});
+app.get('/api/geo/search', async (req, res) => {
+  const rl = hit('geo', clientIp(req), { limit: 300, windowMs: 10 * 60 * 1000, label: 'Слишком часто' });
+  if (!rl.ok) return res.status(429).json({ error: rl.error });
+  try {
+    res.json({ items: await geo.search(req.query.q, geoPoint(req.query) || {}) });
+  } catch (e) {
+    res.status(502).json({ error: 'Поиск адреса не ответил' });
+  }
+});
+
 /* -------- try-on: ключи только на сервере -------- */
 app.post('/api/tryon', authRequired, async (req, res) => {
   try {
