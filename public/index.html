@@ -1284,6 +1284,55 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 }
 .cart-sum__note .ic{margin-top:1px;color:var(--muted2)}
 .row__v--free{color:var(--tone-ok-fg);font-weight:600}
+/* Доставка в корзине. Адреса нет — на месте суммы мерцает скелет:
+   цена будет, но её ещё не из чего посчитать. Адреса есть — у каждого
+   своя цена, выбранный способ идёт в итог. */
+.cdl__sk{
+  display:inline-block;width:68px;height:18px;border-radius:7px;vertical-align:middle;
+  background:linear-gradient(90deg,var(--chip) 0%,var(--line2) 45%,var(--chip) 90%);
+  background-size:200% 100%;animation:skel-move 1.1s ease-in-out infinite
+}
+.cdl__add{
+  display:flex;align-items:center;gap:10px;width:100%;margin:2px 0 10px;padding:12px 14px;
+  border:1.5px dashed var(--line2);border-radius:var(--r-md);background:none;cursor:pointer;
+  font:inherit;font-size:13.5px;font-weight:600;color:var(--ink);text-align:left;
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)
+}
+.cdl__add span{flex:1;min-width:0}
+.cdl__add .ic:last-child{color:var(--muted2)}
+.cdl__add:hover{border-color:var(--muted);background:var(--chip)}
+.cdl{padding:4px 0 8px}
+.cdl__h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 10px}
+.cdl__t{font-size:13.5px;color:var(--muted)}
+.cdl__edit{
+  padding:4px 0;border:0;background:none;cursor:pointer;font:inherit;font-size:12.5px;
+  color:var(--muted);text-decoration:underline;text-underline-offset:3px
+}
+.cdl__edit:hover{color:var(--ink)}
+.cdl__o{
+  display:flex;align-items:center;gap:12px;width:100%;margin:0 0 8px;padding:12px 14px;
+  border:1.5px solid var(--line2);border-radius:var(--r-md);background:none;cursor:pointer;
+  font:inherit;color:var(--ink);text-align:left;transition:border-color var(--dur) var(--ease)
+}
+.cdl__o:last-child{margin-bottom:0}
+.cdl__o.on{border-color:var(--ink)}
+.cdl__o--one{cursor:default}
+.cdl__o > .ic{flex:none;color:var(--muted)}
+.cdl__r{
+  flex:none;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--line2);position:relative;
+  transition:border-color var(--dur) var(--ease)
+}
+.cdl__o.on .cdl__r{border-color:var(--ink)}
+.cdl__o.on .cdl__r::after{content:'';position:absolute;inset:3.5px;border-radius:50%;background:var(--ink)}
+.cdl__b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cdl__b b{font-size:14px;font-weight:600;line-height:1.35}
+.cdl__b span{font-size:12px;color:var(--muted);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cdl__p{flex:none;font-size:14px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cdl__p--free{color:var(--tone-ok-fg)}
+/* Адреса в «Личных данных»: подпись — что сохранено или что сделать. */
+.pd__h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:4px var(--pad) 0}
+.pitem__s{display:block;margin-top:3px;font-size:12.5px;color:var(--muted);line-height:1.4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* сколько добрать до бесплатной доставки */
 .freebar{padding:10px 0 2px}
@@ -3482,6 +3531,10 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   background-size:200% 100%;animation:skel-move 1.1s ease-in-out infinite
 }
 .skel__meta{padding:12px 12px 14px;display:flex;flex-direction:column;gap:8px}
+.skel__blk{
+  display:flex;flex-direction:column;gap:12px;margin:12px 0;padding:18px 16px;
+  background:var(--card);border-radius:var(--r-lg)
+}
 @keyframes skel-move{0%{background-position:100% 0}100%{background-position:-100% 0}}
 </style>
 </head>
@@ -3519,6 +3572,25 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
     </div>
   </div>
 </div>
+<script>(function(){
+  /* Обновили страницу на оплате, в корзине или профиле — скелет витрины
+     (баннер и плитка товаров) выглядел бы как мелькнувшая главная. Таким
+     разделам — нейтральные карточки. */
+  try{
+    var h = (location.hash || '').replace(/^#/, '');
+    var sc = h.split(/[\/=&]/)[0];
+    if(!sc){
+      var d = JSON.parse(sessionStorage.getItem('shop_place_v1') || 'null');
+      sc = (d && d.screen) || '';
+    }
+    if(!sc || /^(home|catalog|p|product|google_token|reset|forgot|admin)$/.test(sc)) return;
+    var box = document.querySelector('#scr .skel');
+    if(!box) return;
+    var blk = '<div class="skel__blk"><span class="skel__line" style="width:44%"></span>'
+      + '<span class="skel__line" style="width:86%"></span><span class="skel__line" style="width:62%"></span></div>';
+    box.innerHTML = blk + blk + blk;
+  }catch(e){}
+})();</script>
 <div id="mini"></div>
 <nav class="tabs notranslate" id="tabs" aria-label="Основная навигация" translate="no"></nav>
 <div id="net" class="net" role="status" aria-live="polite" hidden></div>
@@ -4978,12 +5050,20 @@ function cmapGo(lat, lng, z){
   cmap.setView([lat, lng], z || Math.max(cmap.getZoom(), 17));
 }
 
+/* Карта, чей контейнер ушёл со страницы, жива для Leaflet: на повороте
+   экрана или выезде клавиатуры она «сдвигается» и переписала бы адрес. */
+function dropCourierMap(){
+  clearTimeout(cmapTimer); clearTimeout(cmapFindTimer);
+  cmapSeq++; cmapFindSeq++;
+  if(cmap){ try{ cmap.remove(); }catch(e){} }
+  cmap = null; cmapBox = null; cmapGoal = null;
+}
 function mountCourierMap(){
   const box = document.getElementById('coMap');
-  if(!box) return;
+  if(!box){ dropCourierMap(); return; }
   bindCourierFind();
   if(cmap && cmapBox === box){ cmap.invalidateSize(); return; }
-  if(cmap){ try{ cmap.remove(); }catch(e){} cmap = null; }
+  dropCourierMap();
   cmapBox = box;
   ensureMap().then(L => {
     if(document.getElementById('coMap') !== box) return;
@@ -4997,6 +5077,7 @@ function mountCourierMap(){
     cmap.on('movestart', () => { if(wrap) wrap.classList.add('is-moving'); });
     cmap.on('moveend', () => {
       if(wrap) wrap.classList.remove('is-moving');
+      if(!document.body.contains(box)) return;
       const c = cmap.getCenter();
       const g = cmapGoal;
       cmapGoal = null;
@@ -5235,13 +5316,24 @@ function paintDeliveryTotals(){
   if(note) note.innerHTML = deliveryNoteHTML();
   const sum = document.getElementById('coSum');
   if(sum) sum.innerHTML = cartSummaryHTML();
+  const cs = document.getElementById('cartSum');
+  if(cs) cs.innerHTML = cartSummaryHTML();
+  const ps = document.getElementById('paySum');
+  if(ps) ps.innerHTML = cartSummaryHTML({pay:true});
+  const pg = document.getElementById('payGo');
+  if(pg) pg.innerHTML = payLabel();
+  const cg = document.getElementById('cartGo');
+  if(cg) cg.innerHTML = `Оформить заказ${totalTail()}`;
 }
 
 function deliveryNoteHTML(){
   const q = shipQuoteNow();
   if(q.unknown){
+    const courier = S.checkout.delivery === 'courier';
     const msg = q.pending ? 'считаем стоимость…'
-      : S.checkout.delivery === 'courier' ? 'впишите город — посчитаем по тарифу СДЭК'
+      : q.cityMiss ? (courier ? 'не нашли такой город — выберите его из подсказок' : 'впишите город в начале адреса')
+      : S.checkout.quoteFailed === quoteFingerprint() ? 'не получилось посчитать — проверьте связь'
+      : courier ? 'впишите город — посчитаем по тарифу СДЭК'
       : 'выберите город — посчитаем по тарифу СДЭК';
     return `${svg('box','ic ic--xs')}<span>${esc(shipModeName() + ' · ' + msg)}</span>`;
   }
@@ -5971,7 +6063,7 @@ function pvzPick(code){
     weightMax: +p.weightMax || 0
   };
   rememberDefaultPvz(S.checkout.pvz);
-  if(S.screen === 'delivery'){
+  if(S.screen === 'delivery' || S.screen === 'addr'){
     /* Только подписи и метки: карта остаётся там, где её оставил палец. */
     deliveryPaint();
     pvzDrawMap({keepView:true});
@@ -6558,7 +6650,9 @@ function prefsPayload(){
     favs: S.favs || [],
     rvVotes: (typeof rvVotes !== 'undefined' && Array.isArray(rvVotes)) ? rvVotes : [],
     pvz: S.checkout && S.checkout.pvz || null,
-    defaultPvz: S.defaultPvz || null
+    defaultPvz: S.defaultPvz || null,
+    courier: S.checkout && S.checkout.courier || null,
+    delivery: S.checkout && S.checkout.delivery || 'pickup'
   };
 }
 
@@ -6640,6 +6734,9 @@ async function pullPrefs(opts){
     }
     if(!S.defaultPvz && p.defaultPvz) S.defaultPvz = p.defaultPvz;
     if(S.checkout && !S.checkout.pvz && p.pvz) S.checkout.pvz = p.pvz;
+    if(S.checkout && p.courier && !String((S.checkout.courier || {}).street || '').trim()){
+      S.checkout.courier = Object.assign({city:'', street:'', flat:'', comment:''}, p.courier);
+    }
   }else{
     /* Замена: у аккаунта своё состояние, и оно главнее того, что осталось
        на этом устройстве от кого-то другого. */
@@ -6651,6 +6748,8 @@ async function pullPrefs(opts){
     }
     S.defaultPvz = p.defaultPvz || null;
     if(S.checkout) S.checkout.pvz = p.pvz || null;
+    if(S.checkout && p.courier) S.checkout.courier = Object.assign({city:'', street:'', flat:'', comment:''}, p.courier);
+    if(S.checkout && (p.delivery === 'courier' || p.delivery === 'pickup')) S.checkout.delivery = p.delivery;
   }
 
   _prefsReady = true;
@@ -7159,7 +7258,6 @@ function unknownQuote(mode){
 function guessQuote(mode){
   const q = localShipQuote(mode);
   if(!shipLiveOn() || q.free) return q;
-  if(S.checkout.quoteFailed === quoteFingerprint()) return q;
   const m = mode || S.checkout.delivery;
   const z = shipZone(deliveryPlace(m));
   const zp = z ? (m === 'courier' ? z.courier : z.pickup) : null;
@@ -7170,11 +7268,29 @@ function guessQuote(mode){
 /** Расчёт, который показываем: серверный, если он про эту же доставку. */
 function tabQuote(mode){
   const q = (S.checkout.quotes || {})[mode];
-  if(q && q.fp === modeFingerprint(mode)) return q.noCity ? unknownQuote(mode) : q;
+  if(q && q.fp === modeFingerprint(mode)){
+    return q.noCity ? Object.assign(unknownQuote(mode), {cityMiss: !!q.cityMiss}) : q;
+  }
   return guessQuote(mode);
 }
 function shipQuoteNow(){
+  if(S.screen === 'cart' && !addrKnown(S.checkout.delivery)) return unknownQuote();
   return tabQuote(S.checkout.delivery);
+}
+function payLabel(){
+  return `${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}${totalTail(' ')}`;
+}
+/* Дальше по шагам — только с посчитанной доставкой: иначе на экране
+   оплаты сумма без доставки, а в ЮKassa уйдёт с ней. */
+function shipNotReady(){
+  const q = shipQuoteNow();
+  if(!q.unknown) return '';
+  refreshQuote();
+  return q.cityMiss
+    ? (S.checkout.delivery === 'courier'
+      ? 'Не нашли такой город у СДЭК — выберите его из подсказок'
+      : 'Впишите город в начале адреса пункта')
+    : 'Считаем стоимость доставки — секунду';
 }
 function shipPriceText(q){
   if(q.unknown) return q.pending ? 'считаем…' : 'по тарифу СДЭК';
@@ -7373,6 +7489,64 @@ function deliveryMeta(){
       : shipModeName()
   };
 }
+/* ==========================================================
+   ДОСТАВКА В КОРЗИНЕ
+   Адрес знаем — из «Личных данных» или прошлого заказа: показываем цену
+   до каждого известного адреса, выбранный способ идёт в итог. Не знаем —
+   на месте суммы скелет и обещание посчитать после адреса.
+   ========================================================== */
+function pickupKnown(){
+  const p = S.checkout.pvz;
+  return pvzIsMine(p) && String(p.addr || '').trim().length >= 8;
+}
+function courierKnown(){
+  const c = S.checkout.courier || {};
+  return String(c.city || '').trim().length >= 2 && String(c.street || '').trim().length >= 5;
+}
+const addrKnown = mode => mode === 'courier' ? courierKnown() : pickupKnown();
+/* Выбранным в корзине может быть только способ, для которого есть адрес. */
+function cartModeSync(){
+  const m = S.checkout.delivery;
+  const other = m === 'courier' ? 'pickup' : 'courier';
+  if(!addrKnown(m) && addrKnown(other)) S.checkout.delivery = other;
+}
+function cartDeliveryHTML(){
+  const has = {pickup: pickupKnown(), courier: courierKnown()};
+  if(!has.pickup && !has.courier){
+    return `<div class="row row--soft">
+      <span class="row__l">Доставка<span class="row__hint">Цена будет указана после ввода адреса</span></span>
+      <span class="row__v"><span class="cdl__sk" aria-hidden="true"></span></span>
+    </div>
+    <button type="button" class="cdl__add" data-a="addr:${S.checkout.delivery}">
+      ${svg('pin','ic ic--sm')}<span>Указать адрес доставки</span>${svg('chev','ic ic--sm')}</button>`;
+  }
+  const p = S.checkout.pvz || {};
+  const c = S.checkout.courier || {};
+  const opts = [];
+  if(has.pickup) opts.push({m:'pickup', t:'Пункт выдачи СДЭК', ic:'pin', s:p.addr});
+  if(has.courier) opts.push({m:'courier', t:'Курьером до двери', ic:'home',
+    s:[c.street, c.flat && ('кв. ' + c.flat)].filter(Boolean).join(', ')});
+  const two = opts.length > 1;
+  return `<div class="cdl">
+    <div class="cdl__h"><span class="cdl__t">Доставка</span>
+      <button type="button" class="cdl__edit" data-a="addr:${S.checkout.delivery}">${two ? 'Изменить адреса' : 'Изменить адрес'}</button></div>
+    ${opts.map(o => {
+      const q = tabQuote(o.m);
+      const on = S.checkout.delivery === o.m;
+      const sub = [o.s, !q.unknown && q.days ? q.days : ''].filter(Boolean).join(' · ');
+      const price = q.unknown
+        ? '<span class="cdl__sk" aria-label="Считаем цену доставки"></span>'
+        : (q.cost ? money(q.cost) : 'Бесплатно');
+      return `<button type="button" class="cdl__o${on ? ' on' : ''}${two ? '' : ' cdl__o--one'}"
+        ${two ? `data-a="cdlmode:${o.m}" aria-pressed="${on}"` : ''}>
+        ${two ? '<span class="cdl__r" aria-hidden="true"></span>' : svg(o.ic, 'ic ic--sm')}
+        <span class="cdl__b"><b>${o.t}</b><span>${esc(sub)}</span></span>
+        <span class="cdl__p${!q.unknown && !q.cost ? ' cdl__p--free' : ''}">${price}</span>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
 function cartSummaryHTML(opts = {}){
   /* закончившиеся позиции не считаем — платить за них не придётся */
   const n = S.cart.reduce((s,i) => s + (i.gone ? 0 : i.qty), 0);
@@ -7391,10 +7565,10 @@ function cartSummaryHTML(opts = {}){
       <span class="row__l">Промокод ${S.promo.code}</span>
       <span class="row__v" style="color:var(--ok)">${isFreeShipPromo(S.promo) ? 'доставка 0 ₽' : '−' + money(disc)}</span>
     </div>` : ''}
-    <div class="row row--soft">
+    ${S.screen === 'cart' && !pay ? cartDeliveryHTML() : `<div class="row row--soft">
       <span class="row__l">${d.label}<span class="row__hint">${d.hint}</span></span>
       <span class="row__v${d.free ? ' row__v--free' : ''}">${d.value}</span>
-    </div>
+    </div>`}
     <div class="row row--total">
       <span class="row__l">${pay ? 'К оплате' : 'Итого'}${d.unknown ? '<span class="row__hint">без доставки</span>' : ''}</span>
       <span class="row__v">${money(orderTotal())}</span>
@@ -7482,7 +7656,7 @@ const TAB_ITEMS = [
 ];
 /* экран -> какая вкладка подсвечена (товар относится к каталогу и т.д.) */
 const TAB_OF = {home:0, catalog:1, product:1, tryon:1, favs:2, profile:3, auth:3, orders:3,
-  pdata:3, notif:3, cart:4, pay:4, delivery:4, done:4, info:0};
+  pdata:3, addr:3, notif:3, cart:4, pay:4, delivery:4, done:4, info:0};
 
 /* Шапка знает про корзину, поэтому её надо перерисовывать вместе с таб-баром */
 let _hdKey = '';
@@ -7836,6 +8010,7 @@ function scrCart(){
 
   /* Полоски шагов здесь нет: корзина — это ещё не оформление. Она
      появляется с первого шага после кнопки «Оформить заказ». */
+  cartModeSync();
   return `
   <div class="sec">
     ${S.cart.map(i => `
@@ -7864,7 +8039,7 @@ function scrCart(){
     </div>`).join('')}
   </div>
 
-  ${cartSummaryHTML()}
+  <div id="cartSum">${cartSummaryHTML()}</div>
 
   <div style="padding:6px var(--pad) 0">
     <div class="promo">
@@ -7881,7 +8056,7 @@ function scrCart(){
       ? `<p class="cart__block">${svg('info','ic ic--sm')} Заказ не оформить: часть товаров закончилась. Уберите их из корзины — остальное сохранится.</p>
          <button class="btn" disabled>Оформить заказ</button>
          <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
-      : `<button class="btn" data-a="checkout">Оформить заказ${totalTail()}</button>`}
+      : `<button class="btn" id="cartGo" data-a="checkout">Оформить заказ${totalTail()}</button>`}
     ${!hasLiveSession() ? `<p class="gform__n" style="padding:10px 0 0">В корзину можно без аккаунта. Оформить заказ — после регистрации.</p>` : ''}
     <p class="safe">${svg('lock')} Безопасная оплата</p>
   </div>`;
@@ -7926,7 +8101,7 @@ function scrPay(){
       <span>${esc(S.checkout.guest.name)}${S.checkout.guest.phone ? ' · ' + esc(S.checkout.guest.phone) : ''}</span></div>` : ''}
   </div>
 
-  ${cartSummaryHTML({pay:true})}
+  <div id="paySum">${cartSummaryHTML({pay:true})}</div>
 
   <div class="cosec cosec--tight">
     <div class="cosec__t">Способ оплаты</div>
@@ -7945,7 +8120,7 @@ function scrPay(){
       ? `<p class="cart__block">${svg('info','ic ic--sm')} Оформление недоступно: пока вы оформляли заказ, часть товаров разобрали. Уберите их — и продолжим.</p>
          <button class="btn" disabled>${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}</button>
          <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
-      : `<button class="btn" data-a="paynow">${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}${totalTail(' ')}</button>`}
+      : `<button class="btn" id="payGo" data-a="paynow">${payLabel()}</button>`}
     <p class="safe">${window.__LC_YK
       ? svg('lock') + ' Безопасная оплата · данные защищены'
       : svg('info','ic ic--sm') + ' Онлайн-оплата пока не подключена — заказ уйдёт в обработку'}</p>
@@ -9061,6 +9236,37 @@ function needAuth(what){
     <button class="btn" style="margin-top:16px" data-a="go:auth">Войти</button></div>`;
 }
 
+/* Отдельный экран выбора адреса — из «Личных данных» и из корзины.
+   Те же вкладки, карта пунктов и карта курьера, что в оформлении. */
+function scrAddr(){
+  return `
+  <div class="cosec">
+    <div class="cosec__t">Адрес доставки</div>
+    <p class="pvz__lead">Сохраним его — и в корзине сразу будет видна цена доставки.</p>
+    ${pvzCardHTML()}
+    ${S.cart.length ? `<p class="pvz__note" id="dlvNote">${deliveryNoteHTML()}</p>` : ''}
+  </div>
+  <div style="padding:4px var(--pad) 28px">
+    <button class="btn" data-a="addrsave">Сохранить адрес</button>
+  </div>`;
+}
+
+/** Блок «Адреса доставки» в «Личных данных». */
+function personalAddrHTML(){
+  const p = [S.checkout.pvz, S.defaultPvz].find(x => pvzIsMine(x) && String(x.addr || '').trim()) || null;
+  const c = S.checkout.courier || {};
+  const door = courierKnown() ? [c.city, c.street, c.flat && ('кв. ' + c.flat)].filter(Boolean).join(', ') : '';
+  return `<p class="pd__h">Адреса доставки</p>
+  <div class="plist">
+    <button class="pitem" data-a="addr:pickup">${svg('pin','ic ic--sm')}
+      <span class="pitem__t">Пункт выдачи СДЭК<span class="pitem__s">${p ? esc([p.city, p.addr].filter(Boolean).join(', ')) : 'Выбрать ближайший пункт'}</span></span>
+      <span class="pitem__c">${svg('chev','ic ic--sm')}</span></button>
+    <button class="pitem" data-a="addr:courier">${svg('home','ic ic--sm')}
+      <span class="pitem__t">Курьером до двери<span class="pitem__s">${door ? esc(door) : 'Добавить адрес на карте'}</span></span>
+      <span class="pitem__c">${svg('chev','ic ic--sm')}</span></button>
+  </div>`;
+}
+
 function scrPersonal(){
   if(!S.user) return `<h1 class="form__t">Личные данные</h1>` + needAuth('редактировать профиль');
   const u = S.user;
@@ -9094,7 +9300,8 @@ function scrPersonal(){
     <div class="f"><label class="f__l" for="uP">${svg('phone','ic ic--sm')} Телефон</label>
       <input class="f__i" id="uP" type="tel" value="${esc(u.phone || '')}" placeholder="+7 (___) ___-__-__" autocomplete="tel"></div>
     <button class="btn" type="submit">Сохранить</button>
-  </form>`;
+  </form>
+  ${personalAddrHTML()}`;
 }
 
 
@@ -10378,6 +10585,7 @@ const SCREENS = {
   profile: {hd:hdMain,  body:scrProfile},
   favs:    {hd:hdMain,  body:scrFavs},
   pdata:   {hd:hdBack,  body:scrPersonal},
+  addr:    {hd:hdBack,  body:scrAddr},
   notif:   {hd:hdBack,  body:scrNotif},
   tryon:   {hd:() => hdModal('Примерка'), body:scrTryon},
   info:    {hd:() => hdModal((INFO_PAGES[S.infoKey] || INFO_PAGES.about).title), body:scrInfo}
@@ -10451,7 +10659,7 @@ function render(keepScroll){
   }
   renderTabs();
   document.title = ({home:'Главная',catalog:'Каталог',product:'Товар',cart:'Корзина',
-    auth:'Вход',orders:'Мои заказы',profile:'Профиль',favs:'Избранное',pay:'Оплата заказа',pdata:'Личные данные',notif:'Уведомления',delivery:'Оформление',done:'Заказ оформлен',tryon:'Примерка',
+    auth:'Вход',orders:'Мои заказы',profile:'Профиль',favs:'Избранное',pay:'Оплата заказа',pdata:'Личные данные',addr:'Адрес доставки',notif:'Уведомления',delivery:'Оформление',done:'Заказ оформлен',tryon:'Примерка',
     info:(INFO_PAGES[S.infoKey] || INFO_PAGES.about).title})[S.screen] + ' • ' + BRAND;
   /* Главную видят и поисковики: там заголовок из <head> с полным именем
      магазина, а не «Главная • Canvas» — иначе в выдаче было бы именно оно. */
@@ -10595,8 +10803,9 @@ function render(keepScroll){
   }
   /* Поля контактов: экран перерисовывается при выборе способа и адреса,
      поэтому запоминаем ввод сразу, а не при отправке. */
-  if(S.screen === 'delivery'){
-    syncGuest();
+  if(S.screen === 'cart' || S.screen === 'pay') refreshQuote();
+  if(S.screen === 'delivery' || S.screen === 'addr'){
+    if(S.screen === 'delivery') syncGuest();
     [['cName','name'],['cPhone','phone'],['cEmail','email']].forEach(([id, key]) => {
       const el = document.getElementById(id);
       if(el) el.oninput = () => {
@@ -10613,6 +10822,7 @@ function render(keepScroll){
     refreshQuote();
   }else{
     dlvOpen = false;
+    dropCourierMap();
   }
   bindFooterCols();
   keepScroll ? window.scrollTo(0, y) : window.scrollTo(0, 0);
@@ -12801,6 +13011,38 @@ document.addEventListener('click', e => {
       })();
       break;
     /* --- пункты выдачи --- */
+    /* Открыть выбор адреса нужным способом; «Сохранить» вернёт назад. */
+    case 'addr': {
+      S.checkout.delivery = a === 'courier' ? 'courier' : 'pickup';
+      saveUser();
+      go('addr');
+      break;
+    }
+    case 'addrsave': {
+      const derr = destError();
+      if(derr){
+        const f = document.getElementById(derr.id);
+        if(f){ f.classList.add('f__err'); f.focus(); f.scrollIntoView({block:'center', behavior:'smooth'}); }
+        toast(derr.msg); break;
+      }
+      if(S.checkout.delivery !== 'courier') rememberDefaultPvz(S.checkout.pvz);
+      saveUser();
+      toast('Адрес сохранён');
+      /* Назад, а не вперёд: иначе «Назад» из корзины снова открывал бы адрес. */
+      if(HIST.length) back();
+      else go(S.user ? 'pdata' : 'cart');
+      break;
+    }
+    /* Корзина: какой из сохранённых адресов считать в итог. */
+    case 'cdlmode': {
+      const m = a === 'courier' ? 'courier' : 'pickup';
+      if(S.checkout.delivery === m || !addrKnown(m)) break;
+      S.checkout.delivery = m;
+      saveUser();
+      paintDeliveryTotals();
+      refreshQuote();
+      break;
+    }
     /* Способ доставки: пересобираем блок целиком — на карте и в форме
        курьера общего почти нет. */
     case 'dmode': {
@@ -13240,6 +13482,8 @@ document.addEventListener('click', e => {
         if(f){ f.classList.add('f__err'); f.focus(); f.scrollIntoView({block:'center', behavior:'smooth'}); }
         toast(derr.msg); break;
       }
+      const wait = shipNotReady();
+      if(wait){ toast(wait); break; }
       if(S.checkout.delivery !== 'courier') rememberDefaultPvz(S.checkout.pvz);
       go('pay'); break;
     }
@@ -13256,6 +13500,8 @@ document.addEventListener('click', e => {
       if(cerr){ toast(cerr.msg); go('delivery'); break; }
       const derr2 = destError();
       if(derr2){ toast(derr2.msg); go('delivery'); break; }
+      const shipWait = shipNotReady();
+      if(shipWait){ toast(shipWait); break; }
       if(!window.LC){ toast('Запустите сервер магазина'); break; }
       S._payBusy = true;
       (async () => {
@@ -16300,6 +16546,11 @@ async function bootFromServer(){
         syncTryonFromCms();
       }
       const earlyAdmin = new URLSearchParams(location.search).get('tg_admin');
+      /* Раздел, где обновили страницу, ставим сразу, до входа в аккаунт:
+         вход перерисовывает страницу, и раньше на миг мелькала главная, а
+         уже потом «Оплата». Возврат с ЮKassa и вход админа ведут сами —
+         на возврате нельзя даже на секунду показать кнопку «Оплатить». */
+      if(!earlyAdmin && !new URLSearchParams(location.search).get('paid')) restorePlace();
       if(!earlyAdmin){
         const me = await applyServerSession();
         if(me){

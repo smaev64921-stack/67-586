@@ -72,6 +72,29 @@ function cityCodeByName(city, region) {
   return list.slice().sort((a, b) => b.points - a.points)[0].code;
 }
 
+/* Адрес пункта, вписанный руками, приходит без города: «Владивосток,
+   ул. Светланская, 1». Ищем город среди частей адреса и их первых слов.
+   «Садовая, 12, Москва» — в справочнике есть и посёлок Садовая, поэтому
+   из всех найденных берём самый крупный, а части-улицы пропускаем. */
+const STREETY = /^(ул|улица|пр|пр-т|просп|проспект|пер|переулок|б-р|бульвар|ш|шоссе|д|дом|наб|набережная|пл|площадь|мкр|микрорайон|тракт|проезд|пр-д|стр|корп|кв|офис)(\.|\s|$)/i;
+function cityCodeFromText(text) {
+  const parts = String(text || '').split(/[,;\n]/).map((p) => p.trim()).filter(Boolean).slice(0, 5);
+  let best = null;
+  for (const part of parts) {
+    if (STREETY.test(part)) continue;
+    const words = part.split(/\s+/);
+    for (let n = Math.min(3, words.length); n >= 1; n--) {
+      const code = cityCodeByName(words.slice(0, n).join(' '));
+      if (!code) continue;
+      let pts = 0;
+      try { pts = (dir.cities().find((c) => c.code === code) || {}).points || 0; } catch (_) {}
+      if (!best || pts > best.pts) best = { code, pts };
+      break;
+    }
+  }
+  return best ? best.code : 0;
+}
+
 function remember(key, val, ttl) {
   if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);
   cache.set(key, { val, exp: Date.now() + ttl });
@@ -137,4 +160,4 @@ async function liveQuote({ mode, cityCode, qty, shipping } = {}) {
   };
 }
 
-module.exports = { enabled, liveQuote, cityCodeByName, parcel, daysText };
+module.exports = { enabled, liveQuote, cityCodeByName, cityCodeFromText, parcel, daysText };

@@ -427,8 +427,11 @@ async function shipQuoteLive({ mode, place, cityCode, qty, goodsAfterDiscount, p
   const plain = shipQuote({ mode, place, goodsAfterDiscount, promo, liveOn });
   if (!liveOn || plain.free || plain.by === 'zone') return plain;
   if (!cityCode) {
-    /* Города ещё нет — нет и цены: базовые 190 ₽ выглядели бы настоящими. */
-    if (!String((place && place.city) || '').trim()) plain.noCity = true;
+    /* Города нет или СДЭК такого не знает — нет и цены: базовые 190 ₽
+       выглядели бы настоящими, а до Владивостока доставка втрое дороже.
+       cityMiss — что-то вписали, но город не нашёлся. */
+    plain.noCity = true;
+    plain.cityMiss = !!String((place && (place.city || place.addr)) || '').trim();
     return plain;
   }
   const live = await shipLive.liveQuote({ mode, cityCode, qty, shipping: s });
@@ -618,7 +621,7 @@ async function quoteForCart({ items, promoCode, delivery, pvz, hint } = {}) {
         }
       } catch (_) {}
     }
-    if (!pvzCity) pvzCity = shipLive.cityCodeByName(pvzPlace.city, pvzPlace.region);
+    if (!pvzCity) pvzCity = shipLive.cityCodeByName(pvzPlace.city, pvzPlace.region) || shipLive.cityCodeFromText(pvzPlace.addr);
   }
   const courierPlace = {
     city: String((delivery && delivery.city) || (hint && hint.courierCity) || '').trim(),
@@ -646,7 +649,7 @@ async function quoteForCart({ items, promoCode, delivery, pvz, hint } = {}) {
     : { mode: 'pickup', place: { city: hintName || courierPlace.city, region: '', addr: '' }, cityCode: hintCity || courierCity };
   /* Курьер без вписанного города — в том же городе, что и пункт: вкладка
      показывает, сколько стоит привезти туда же, только до двери. */
-  const courierArgs = courierCity || courierPlace.city
+  const courierArgs = courierCity || courierPlace.city || !shipLive.enabled(getCms().shipping || {})
     ? { mode: COURIER, place: courierPlace, cityCode: courierCity }
     : { mode: COURIER, place: { city: (pvzPlace && pvzPlace.city) || hintName, region: '', addr: '' }, cityCode: pvzCity || hintCity };
 
@@ -675,7 +678,8 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
      оформлял бы заказ за заказом и держал весь склад «проданным» — живые
      покупатели видели бы «нет в наличии». Три неоплаченных за раз хватает
      любому честному покупателю. Админ тестирует без ограничений. */
-  if (!(user && user.role === 'admin')) {
+  const checkPending = () => {
+    if (user && user.role === 'admin') return;
     const pending = db.prepare(`
       SELECT COUNT(*) AS n FROM orders
       WHERE user_id = ? AND status = 'Ожидает оплаты' AND pay_status != 'paid' AND pay_status != 'manual'
@@ -683,7 +687,8 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
     if (pending && pending.n >= 3) {
       throw Object.assign(new Error('У вас уже есть неоплаченные заказы — оплатите их или подождите 10 минут, пока они отменятся'), { status: 429 });
     }
-  }
+  };
+  checkPending();
 
   const normalized = items.map((i) => {
     const p = getProduct(i.id);
@@ -836,7 +841,8 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
      справочника он свой, у курьера и адреса «руками» ищем по названию. */
   const cityCode = shipMode === COURIER
     ? shipLive.cityCodeByName(cleanPvz.city)
-    : pvzKnown ? cleanPvz.cityCode : shipLive.cityCodeByName(cleanPvz.city, cleanPvz.region);
+    : pvzKnown ? cleanPvz.cityCode
+      : (shipLive.cityCodeByName(cleanPvz.city, cleanPvz.region) || shipLive.cityCodeFromText(cleanPvz.addr));
   const quote = await shipQuoteLive({
     mode: shipMode,
     place: { city: cleanPvz.city, region: cleanPvz.region || '', addr: cleanPvz.addr },
@@ -849,6 +855,14 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
      Сверяем склад ещё раз: отсюда до списания ожиданий уже нет. */
   const stockLate = checkStock(normalized);
   if (stockLate) throw Object.assign(new Error(stockLate), { status: 409 });
+  /* И предел неоплаченных: пять одновременных запросов иначе прошли бы
+     проверку вместе, пока ждали СДЭК, и забронировали склад впятером. */
+  checkPending();
+  if (quote.noCity) {
+    throw Object.assign(new Error(shipMode === COURIER
+      ? 'Не нашли такой город у СДЭК — выберите его из подсказок или на карте'
+      : 'Не нашли город в адресе пункта — впишите его в начале, например «Казань, ул. Баумана, 1»'), { status: 400 });
+  }
   const ship = quote.cost;
   const price = after + ship;
   const num = nextOrderNum();

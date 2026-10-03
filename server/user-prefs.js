@@ -28,6 +28,21 @@ function clampList(v) {
   return Array.isArray(v) ? v.slice(0, MAX_LIST) : [];
 }
 
+/* Адрес курьера: только строки разумной длины и координаты точки. */
+function cleanCourier(c) {
+  if (!c || typeof c !== 'object') return null;
+  const str = (v, n) => String(v == null ? '' : v).slice(0, n);
+  const num = (v) => (Number.isFinite(+v) ? +v : 0);
+  return {
+    city: str(c.city, 120),
+    street: str(c.street, 200),
+    flat: str(c.flat, 40),
+    comment: str(c.comment, 300),
+    lat: num(c.lat),
+    lng: num(c.lng)
+  };
+}
+
 /** Пускаем только знакомые поля — клиент не должен класть сюда что попало. */
 function sanitize(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
@@ -36,7 +51,9 @@ function sanitize(raw) {
     favs: clampList(src.favs),
     rvVotes: clampList(src.rvVotes),
     pvz: src.pvz && typeof src.pvz === 'object' ? src.pvz : null,
-    defaultPvz: src.defaultPvz && typeof src.defaultPvz === 'object' ? src.defaultPvz : null
+    defaultPvz: src.defaultPvz && typeof src.defaultPvz === 'object' ? src.defaultPvz : null,
+    courier: cleanCourier(src.courier),
+    delivery: src.delivery === 'courier' ? 'courier' : 'pickup'
   };
   const text = JSON.stringify(out);
   if (text.length > MAX_BYTES) {
