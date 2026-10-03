@@ -1208,8 +1208,30 @@ app.get('/favicon.ico', (_req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=604800');
   res.status(204).end();
 });
+/* Поисковикам: витрина открыта, служебное — нет, и где карта сайта.
+   Адрес карты — от PUBLIC_URL, то есть luxecanvas.ru (см. public-url.js). */
 app.get('/robots.txt', (_req, res) => {
-  res.type('text/plain').send('User-agent: *\nAllow: /\n');
+  res.type('text/plain').send([
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /api/',
+    'Disallow: /media/o/',
+    'Disallow: /reset.html',
+    '',
+    `Sitemap: ${PUBLIC_URL}/sitemap.xml`,
+    ''
+  ].join('\n'));
+});
+/* Карта сайта. Магазин одностраничный (экраны — по #якорю), поэтому
+   адрес для поиска один — витрина. */
+app.get('/sitemap.xml', (_req, res) => {
+  const day = new Date().toISOString().slice(0, 10);
+  res.type('application/xml').send(
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    `  <url><loc>${PUBLIC_URL}/</loc><lastmod>${day}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>\n` +
+    '</urlset>\n'
+  );
 });
 
 /* Всё, что похоже на файл (есть расширение), но до сюда долетело — значит

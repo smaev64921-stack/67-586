@@ -18,7 +18,28 @@
 <meta name="apple-mobile-web-app-title" content="Canvas">
 <meta name="mobile-web-app-capable" content="yes">
 <meta http-equiv="Content-Language" content="ru">
-<title>Каталог</title>
+<!-- Для поисковиков и превью ссылок. Магазин ищут и как «Luxe Canvas» /
+     «luxecanvas» (домен, бот), и как «Canvas» (так он подписан на сайте) —
+     оба имени есть в заголовке, описании и данных о магазине ниже. -->
+<title>Luxe Canvas — интернет-магазин базовых футболок</title>
+<meta name="description" content="Luxe Canvas (Canvas) — базовые футболки из плотного хлопка: оверсайз и прямой крой, пять цветов. Доставка СДЭК по всей России, оплата онлайн, лёгкий возврат.">
+<link rel="canonical" href="https://luxecanvas.ru/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Luxe Canvas">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://luxecanvas.ru/">
+<meta property="og:title" content="Luxe Canvas — базовые футболки">
+<meta property="og:description" content="Футболки из плотного хлопка: оверсайз и прямой крой, пять цветов. Доставка СДЭК по России.">
+<meta property="og:image" content="https://luxecanvas.ru/onboarding/look-14.jpg">
+<meta property="og:image:width" content="1254">
+<meta property="og:image:height" content="1254">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"WebSite","@id":"https://luxecanvas.ru/#site","name":"Luxe Canvas","alternateName":["Canvas","LuxeCanvas","luxecanvas"],"url":"https://luxecanvas.ru/","inLanguage":"ru"},
+ {"@type":"OnlineStore","@id":"https://luxecanvas.ru/#store","name":"Luxe Canvas","alternateName":"Canvas","url":"https://luxecanvas.ru/","logo":"https://luxecanvas.ru/icon-512.png","image":"https://luxecanvas.ru/onboarding/look-14.jpg","description":"Интернет-магазин базовых футболок из плотного хлопка: оверсайз и прямой крой, пять цветов. Доставка СДЭК по всей России.","areaServed":"RU","sameAs":["https://t.me/Luxe_Canvas_bot"]}
+]}
+</script>
 
 <!-- Знакомство с магазином — при каждом входе на сайт или запуске приложения.
      Стоит здесь, до стилей и разметки: иначе человек успел бы увидеть
@@ -31,6 +52,13 @@
 (function(){
   try{
     if(location.hash) return;
+    /* Поисковым роботам и сборщикам превью ссылок — сразу магазин: иначе в
+       выдачу и в превью попадало бы знакомство, а не витрина. Показываем им
+       ровно то же, что человеку после «Пропустить». */
+    /* Только роботы: встроенный браузер Telegram на Android пишет в
+       userAgent «Telegram-Android», Яндекс.Браузер — «YaBrowser», и
+       покупатели из них знакомство видеть должны. */
+    if(/bot\b|crawl|spider|slurp|yandex|bingpreview|facebookexternalhit|vkshare|whatsapp\/|lighthouse|pagespeed|google-inspectiontool/i.test(navigator.userAgent || '')) return;
     if(sessionStorage.getItem('shop_place_v1')) return;   // человек уже ходит по магазину
     var q = new URLSearchParams(location.search);
     if(q.get('tg_admin') || q.get('paid')) return;
@@ -3368,6 +3396,18 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 </style>
 </head>
 <body class="notranslate" translate="no">
+
+<!-- Для тех, кто открывает страницу без JavaScript, — в первую очередь
+     поисковых роботов (Яндекс выполняет скрипты не всегда). Человек с
+     обычным браузером этот блок не видит. -->
+<noscript>
+  <h1>Luxe Canvas — интернет-магазин базовых футболок</h1>
+  <p>Canvas (Luxe Canvas) — базовые футболки из плотного хлопка (95% хлопок, 5% эластан):
+     оверсайз унисекс и женский прямой крой. Цвета: чёрный, шоколад, красный, голубой, молочный.</p>
+  <p>Доставка СДЭК в пункты выдачи и курьером по всей России. Оплата онлайн, лёгкий возврат.</p>
+  <p>Для работы магазина включите JavaScript в браузере.
+     Связаться с нами: <a href="https://t.me/Luxe_Canvas_bot">Telegram @Luxe_Canvas_bot</a>.</p>
+</noscript>
 
 <!-- Заставка установленного приложения. Стоит первой в разметке, чтобы
      закрыть экран ещё до того, как отрисуется магазин. В браузере скрыта. -->
@@ -9972,6 +10012,9 @@ function render(keepScroll){
   document.title = ({home:'Главная',catalog:'Каталог',product:'Товар',cart:'Корзина',
     auth:'Вход',orders:'Мои заказы',profile:'Профиль',favs:'Избранное',pay:'Оплата заказа',pdata:'Личные данные',notif:'Уведомления',delivery:'Оформление',done:'Заказ оформлен',tryon:'Примерка',
     info:(INFO_PAGES[S.infoKey] || INFO_PAGES.about).title})[S.screen] + ' • ' + BRAND;
+  /* Главную видят и поисковики: там заголовок из <head> с полным именем
+     магазина, а не «Главная • Canvas» — иначе в выдаче было бы именно оно. */
+  if(S.screen === 'home') document.title = 'Luxe Canvas — интернет-магазин базовых футболок';
   const NO_TABS = ['product','tryon','delivery','pay','done'];
   document.body.classList.toggle('no-tabs', NO_TABS.includes(S.screen));
   document.body.classList.toggle('has-mini', !!S.mini);
