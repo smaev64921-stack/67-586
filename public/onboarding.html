@@ -16,7 +16,7 @@
 <!-- Отдельный файл, а не сам логотип: iOS кладёт иконку на сплошную подложку,
      и чёрный знак по прозрачному фону там просто исчезал. -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" as="image" href="/onboarding/h1.jpg" fetchpriority="high">
+<link rel="preload" as="image" href="/onboarding/h2.jpg" fetchpriority="high">
 <!-- Греем оба русских шрифта: заголовки набраны антиквой, всё мелкое — Onest.
      crossorigin обязателен даже для своего домена, иначе браузер скачает
      файл дважды. -->
@@ -136,8 +136,8 @@ img{display:block;max-width:100%}
 html.is-final .skip{opacity:0;visibility:hidden}
 
 /* ================= 01: ПЕРВЫЙ ЭКРАН — по макету владельца =================
-   Холст h1.jpg шириной 1362 px: дорисованная стена 1100 px, снимок 1155 px,
-   тёмный пол 700 px. Слои цветов h1-*.jpg — только снимок, кладутся ровно на
+   Холст h2.jpg шириной 1362 px: дорисованная стена 1100 px, снимок 1155 px,
+   тёмный пол 700 px. Слои цветов h2-*.jpg — только снимок, кладутся ровно на
    его место (37.225% сверху, 39.086% высоты холста).
    Размер считается в CSS, без скрипта, — первый кадр уже на месте: от макушки
    (строка 105 снимка) до предплечий (строка 975, ниже он уходит в пол) снимок
@@ -981,20 +981,20 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 
 <main>
 <!-- ====== 01: первый экран — по макету владельца ======
-     Снимок — его фото троих в футболках; холст h1.jpg собран из него
-     (сверху дорисована стена, снизу пол). Слои h1-*.jpg — те же трое в других
+     Снимок — его фото троих в футболках; холст h2.jpg собран из него
+     (сверху дорисована стена, снизу пол). Слои h2-*.jpg — те же трое в других
      цветах, порядок слоёв = порядок кнопок после «Чёрного». #introMark —
      сюда приезжает белый знак заставки запуска, id не менять. -->
 <section class="hero snap" id="intro" aria-labelledby="t1">
   <div class="hero__ph" aria-hidden="true">
     <div class="hero__in"><div class="hero__kb"><div class="hero__jolt">
       <div class="hero__st">
-        <img class="hero__bg" id="heroBg" src="/onboarding/h1.jpg" alt="" width="1362" height="2955" fetchpriority="high" decoding="async">
-        <div class="hero__tone"><img data-src="/onboarding/h1-black.jpg" alt="" width="1362" height="1155" decoding="async"></div>
-        <div class="hero__tone"><img data-src="/onboarding/h1-choc.jpg" alt="" width="1362" height="1155" decoding="async"></div>
-        <div class="hero__tone"><img data-src="/onboarding/h1-red.jpg" alt="" width="1362" height="1155" decoding="async"></div>
-        <div class="hero__tone"><img data-src="/onboarding/h1-blue.jpg" alt="" width="1362" height="1155" decoding="async"></div>
-        <div class="hero__tone"><img data-src="/onboarding/h1-white.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <img class="hero__bg" id="heroBg" src="/onboarding/h2.jpg" alt="" width="1362" height="2955" fetchpriority="high" decoding="async">
+        <div class="hero__tone"><img data-src="/onboarding/h2-black.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h2-choc.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h2-red.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h2-blue.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h2-white.jpg" alt="" width="1362" height="1155" decoding="async"></div>
       </div>
     </div></div></div>
   </div>
@@ -1248,9 +1248,15 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       lay.forEach(function(el, i){
         var im = el.querySelector('img');
         if(!im || !im.getAttribute('data-src')) return;
-        im.addEventListener('load', function(){
+        /* Цвет готов, когда картинка не только скачана, но и распакована:
+           иначе распаковка случалась в первом кадре шторки, и её мягкий край
+           проскакивал рывком. */
+        var ready = function(){
           ok[i] = true;
           if(want === i){ pick(i); plan(); }
+        };
+        im.addEventListener('load', function(){
+          if(im.decode) im.decode().then(ready, ready); else ready();
         });
         im.src = im.getAttribute('data-src');
         im.removeAttribute('data-src');
