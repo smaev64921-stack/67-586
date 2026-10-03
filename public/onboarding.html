@@ -29,7 +29,7 @@
      Семь экранов, листаются вниз с остановкой на каждом.
 
      Первый — по макету владельца: сверху знак, LUXE CANVAS и заголовок на
-     светлой стене, ниже трое в футболках, внизу на тёмном полу пять цветов
+     светлой стене, ниже трое в футболках, внизу на тёмном полу четыре цвета
      и «Листайте». Каждые 4 секунды снимок чуть вздрагивает, и футболки на
      всех троих меняют цвет — на тот, что подсвечен внизу.
 
@@ -207,7 +207,7 @@ html.is-final .skip{opacity:0;visibility:hidden}
   -webkit-background-clip:text;background-clip:text;color:transparent
 }
 
-/* ---------- пять цветов ----------
+/* ---------- четыре цвета (голубой владелец убрал) ----------
    Одна стеклянная капсула с плоскими кружками. Текущий цвет раскрывается в
    плашку с названием, и по ней слева направо идёт заливка — отсчёт до
    следующей смены. Нажатие на кружок переключает сразу. */
@@ -986,7 +986,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 <!-- ====== 01: первый экран — по макету владельца ======
      Снимок — его фото троих в футболках; холст h2.jpg собран из него
      (сверху дорисована стена, снизу пол). Слои h2-*.jpg — те же трое в других
-     цветах, порядок слоёв = порядок кнопок после «Чёрного». #introMark —
+     цветах, порядок слоёв = порядок кнопок (чёрный тоже слой). #introMark —
      сюда приезжает белый знак заставки запуска, id не менять. -->
 <section class="hero snap" id="intro" aria-labelledby="t1">
   <div class="hero__ph" aria-hidden="true">
@@ -996,7 +996,6 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
         <div class="hero__tone"><img data-src="/onboarding/h2-black.jpg" alt="" width="1362" height="1155" decoding="async"></div>
         <div class="hero__tone"><img data-src="/onboarding/h2-choc.jpg" alt="" width="1362" height="1155" decoding="async"></div>
         <div class="hero__tone"><img data-src="/onboarding/h2-red.jpg" alt="" width="1362" height="1155" decoding="async"></div>
-        <div class="hero__tone"><img data-src="/onboarding/h2-blue.jpg" alt="" width="1362" height="1155" decoding="async"></div>
         <div class="hero__tone"><img data-src="/onboarding/h2-white.jpg" alt="" width="1362" height="1155" decoding="async"></div>
       </div>
     </div></div></div>
@@ -1011,7 +1010,6 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     <button class="tn is-on" type="button" aria-pressed="true" style="--c:#141414"><span class="tn__c"></span><span class="tn__n">Чёрный</span></button>
     <button class="tn" type="button" aria-pressed="false" style="--c:#4a2f24"><span class="tn__c"></span><span class="tn__n">Шоколад</span></button>
     <button class="tn" type="button" aria-pressed="false" style="--c:#c1161d"><span class="tn__c"></span><span class="tn__n">Красный</span></button>
-    <button class="tn" type="button" aria-pressed="false" style="--c:#a9c9e5"><span class="tn__c"></span><span class="tn__n">Голубой</span></button>
     <button class="tn" type="button" aria-pressed="false" style="--c:#f3f1ec"><span class="tn__c tn__c--w"></span><span class="tn__n">Белый</span></button>
   </div>
   <button class="hero__go" type="button" data-next aria-label="Листайте — следующий экран">Листайте<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -1205,7 +1203,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   var hero = document.getElementById('intro');
   if(hero && hero.classList.contains('hero')) (function(){
     var STEP = 4000, WIPE = 1250;
-    var ORDER = [1, 2, 3, 4, 0];          /* порядок загрузки; чёрный последним — его и так видно на холсте */
+    var ORDER = [1, 2, 3, 0];             /* порядок загрузки; чёрный последним — его и так видно на холсте */
     var tns = [].slice.call(hero.querySelectorAll('.tn'));
     var lay = [].slice.call(hero.querySelectorAll('.hero__tone'));
     var ok = lay.map(function(){ return false; });     /* скачан и распакован */
