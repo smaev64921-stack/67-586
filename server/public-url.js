@@ -85,9 +85,27 @@ function resolvePublicUrl(port = 3000) {
     })
     .filter((u) => isValidPublicHttps(u));
 
-  if (candidates[0]) return candidates[0];
+  if (candidates[0]) {
+    /* Свой домен вместо адреса Bothost. Панель отдаёт сайт только по одному
+       адресу, а в переменных окружения прежний *.bothost.tech остаётся
+       (PUBLIC_URL / DOMAIN / WEBHOOK_URL задаются при создании бота). Тогда
+       кнопка «Магазин» в боте, вход через Google и ссылки в письмах вели бы
+       на мёртвый адрес. Явный PUBLIC_URL на свой домен по-прежнему главнее. */
+    const own = ownSiteUrl();
+    if (own && /\.bothost\.tech$/i.test(new URL(candidates[0]).hostname)) return own;
+    return candidates[0];
+  }
 
   return `http://localhost:${port}`;
+}
+
+/* Свой домен магазина (с 2026-10-03 — luxecanvas.ru, куплен на рег.ру,
+   A-запись на центральный Traefik Bothost). Сменили домен — поправить здесь
+   или задать OWN_SITE_URL в панели. */
+const OWN_SITE_URL = 'https://luxecanvas.ru';
+function ownSiteUrl() {
+  const u = strip(process.env.OWN_SITE_URL || OWN_SITE_URL);
+  return isValidPublicHttps(u) ? u : '';
 }
 
 function logPublicUrlDebug(resolved) {
