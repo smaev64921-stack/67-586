@@ -112,6 +112,18 @@ html.lc-leaving .lcc{opacity:0}
 (function(){
   /* Знак с названием: нужен и занавесу, и заставке приложения ниже. */
   var G = 'M0 131.2L0 130.39L0.85 130.39C4.5 130.39 6.86 128.97 8.37 125.86C8.93 124.73 16.08 103.52 16.08 103.01C16.08 102.95 15.02 101.87 13.73 100.61C10.01 96.98 7.96 94.24 5.79 89.94C2.07 82.58 0.76 73.36 2.22 64.84C4.73 50.12 14.81 38.83 29.2 34.58C31.61 33.88 35 33.16 37.43 32.85L39.06 32.65L43.04 20.57C45.24 13.92 47.18 7.93 47.36 7.25C48.27 3.84 47.26 2.06 44.19 1.61C43.51 1.52 42.49 1.43 41.91 1.43C41.03 1.43 40.88 1.38 40.97 1.15C41.03 0.99 41.08 0.67 41.08 0.43L41.08 0L54.85 0L68.61 0L68.56 0.67L68.5 1.34L66.27 1.45C63.66 1.58 63.31 1.65 61.92 2.38C60.67 3.03 59.75 4.04 58.86 5.73C58.46 6.49 56.53 11.98 54.02 19.52C51.72 26.41 49.83 32.11 49.83 32.19C49.83 32.27 50.15 32.33 50.54 32.33C51.68 32.33 54.65 32.97 56.67 33.64C59.14 34.47 61.62 35.73 64.32 37.53C66.7 39.12 67.51 39.49 68.29 39.35C69.29 39.16 70.27 37.72 70.73 35.77C70.94 34.84 70.96 34.83 71.62 34.83L72.29 34.83L72.4 36.57C72.47 37.53 72.52 42.47 72.52 47.56L72.52 56.8L71.74 56.8L70.96 56.8L70.84 55.77C69.78 46.7 65.58 40.23 58.44 36.63C55.98 35.4 51.52 34.12 49.67 34.12C49.05 34.12 49.72 32.23 42.53 54.03C36.98 70.87 35.88 74.23 32.24 85.47C31.29 88.42 30.2 91.77 29.81 92.93C27.55 99.74 26.09 104.36 26.16 104.48C26.34 104.78 29.02 106.72 30.34 107.51C32.87 109.04 36.92 110.62 39.3 111.02C39.64 111.07 40.25 111.19 40.64 111.28C42.53 111.71 46.24 111.88 48.74 111.66C52.98 111.29 56.1 110.45 59.57 108.77C65.65 105.83 70.29 100.45 72.51 93.8C73.16 91.83 73.9 88.3 74.06 86.38L74.18 85.02L74.97 85.02L75.75 85.02L75.65 88.73C75.43 96.24 75.2 105.69 75.2 107.04L75.2 108.42L74.5 108.42L73.79 108.42L73.59 107.44C73.26 105.84 72.18 104.85 70.76 104.85C69.92 104.85 68.86 105.38 66.27 107.11C60.74 110.79 55.4 112.65 48.58 113.26C41.62 113.88 33.42 112.45 26.63 109.43C25.61 108.97 24.75 108.62 24.73 108.64C24.71 108.67 24.21 110.18 23.62 111.99C23.03 113.81 21.89 117.29 21.1 119.72C20.3 122.15 19.57 124.67 19.47 125.32C19.09 127.68 19.73 128.94 21.64 129.59C22.39 129.85 25.39 129.88 50.8 129.87C69.76 129.87 79.24 129.81 79.47 129.69C80.38 129.2 80.96 127.44 81.29 124.15C81.5 122.06 81.51 122 81.93 122L82.35 122L82.3 126.95L82.25 131.91L41.13 131.96L0 132L0 131.2ZM20.59 89.49C21.53 86.59 23.72 79.84 25.45 74.48C30.2 59.85 38.36 34.79 38.51 34.4C38.63 34.09 38.57 34.08 37.76 34.19C33.81 34.77 29.37 36.64 26.23 39.05C19.77 44.02 15.03 53.4 13.67 63.95C12.86 70.15 13.22 78.06 14.58 84.04C15.48 88.02 18.3 95.41 18.73 94.92C18.81 94.83 19.65 92.39 20.59 89.49Z';
+  window.__lcGlyph = G;
+  /* Перо, которым знак рисуется на выходе из знакомства (там же LC_PEN), —
+     здесь им раз в 10 секунд заново рисуется знак в шапке. [путь, толщина,
+     где на пути пера начинается, длина]; всё в длине пути пера. */
+  window.__lcPen = [
+    ['M54.06 2.50L37.50 2.50', 9, 13.92, 16.56]   /* верхняя засечка влево */,
+    ['M54.06 2.50L72.50 2.50', 9, 13.92, 18.44]   /* верхняя засечка вправо */,
+    ['M58.41 -10.72L10.13 136.00', 11, 0, 154.46]   /* косая L сверху вниз */,
+    ['M13.03 127.18L-5.00 127.18', 18, 145.17, 18.03]   /* нижняя засечка влево */,
+    ['M13.03 127.18L84.31 127.18', 18, 154.46, 71.28]   /* ножка вправо */,
+    ['M74.66 83.95C74.66 84.99 74.81 87.46 74.66 90.20C74.51 92.94 74.54 98.21 73.77 100.38C73.00 102.56 71.60 102.14 70.02 103.24C68.44 104.34 66.45 105.77 64.30 106.99C62.16 108.21 59.54 109.70 57.16 110.57C54.78 111.43 52.40 111.88 50.01 112.17C47.63 112.47 45.25 112.56 42.87 112.35C40.49 112.14 38.11 111.64 35.72 110.92C33.34 110.21 31.11 109.43 28.58 108.06C26.05 106.70 22.71 104.55 20.54 102.71C18.37 100.86 17.00 98.99 15.54 96.99C14.08 95.00 12.86 92.82 11.79 90.74C10.72 88.65 9.79 86.63 9.11 84.49C8.42 82.34 7.98 80.05 7.68 77.88C7.38 75.71 7.32 73.59 7.32 71.45C7.32 69.30 7.35 67.19 7.68 65.02C8.01 62.84 8.57 60.55 9.29 58.41C10.00 56.27 10.90 54.18 11.97 52.16C13.04 50.13 14.44 47.99 15.72 46.26C17.00 44.54 18.40 43.08 19.65 41.80C20.90 40.52 22.03 39.50 23.22 38.58C24.41 37.66 25.60 36.91 26.79 36.26C27.98 35.60 28.88 35.16 30.37 34.65C31.85 34.15 33.34 33.70 35.72 33.22C38.11 32.75 41.68 31.82 44.65 31.79C47.63 31.76 50.91 32.45 53.59 33.04C56.27 33.64 58.59 34.74 60.73 35.37C62.87 35.99 64.72 36.59 66.45 36.80C68.17 37.00 70.26 35.31 71.09 36.62C71.92 37.93 71.39 41.17 71.45 44.65C71.51 48.14 71.45 55.37 71.45 57.52', 22, 237.74, 219.31]   /* C от нижнего конца к верхнему */
+  ];
   window.__lcLockup =
     '<div class="lcs" aria-hidden="true"><div class="lcs__mark"><svg viewBox="0 0 82.34 132">' +
     '<path fill="#fff" fill-rule="evenodd" d="' + G + '"/></svg></div>' +
@@ -368,6 +380,14 @@ s{color:var(--muted2)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0
 }
 @media (max-width:339px){.hd__brand{font-size:14px;letter-spacing:.1em}}
+/* Знак в шапках и меню — SVG, а не картинка: раз в 10 секунд его заново рисует
+   перо (скрипт «Перо в шапке»). Ширину даёт пропорция знака. Буквы названия —
+   отдельные span, чтобы наливаться по очереди; поле сверху и снизу нужно, иначе
+   overflow:hidden у .hd__brand срезал бы букву, пока она привстаёт. */
+.lgp{display:block;flex:none;aspect-ratio:82.34/132;overflow:visible}
+.hd__mark.lgp{width:auto}
+.lgp__br span{display:inline-block}
+.hd__brand.lgp__br{padding:3px 0;margin:-3px 0}
 .hd__ttl{font-size:16px;font-weight:600;flex:1;text-align:center}
 .hd__sp{flex:1}
 /* «противовес» кнопкам слева — держит заголовок ровно по центру */
@@ -6066,6 +6086,26 @@ function syncBrandFromCms(){
 const MARK = (cls = 'hd__mark') => `<picture class="lg lg--mark ${cls}">
   <img src="${brandLogoSrc()}" alt="${BRAND}" decoding="async">
 </picture>`;
+/* Знак для шапок и меню, который умеет рисоваться пером. Только для нашего LC:
+   чужой логотип из админки перо нарисовать не может — тогда обычная картинка.
+   В покое видна сплошная заливка (lgp__ghost), а копия под маской пера скрыта:
+   края знака такие же, как у картинки. */
+let PEN_N = 0;
+const PEN_MARK = (cls = 'hd__mark') => {
+  if(brandLogoSrc() !== DEFAULT_LOGO || !window.__lcGlyph || !window.__lcPen) return MARK(cls);
+  const id = 'lcpen' + (++PEN_N), G = window.__lcGlyph;
+  let s = '';
+  window.__lcPen.forEach(p => [1, .7, .45, .25, .1].forEach(o => {
+    s += `<path d="${p[0]}" stroke-width="${p[1]}" stroke-opacity="${o}" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="0"/>`;
+  }));
+  return `<svg class="lg lg--mark lgp ${cls}" viewBox="0 0 82.34 132" aria-hidden="true">` +
+    `<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="-30" y="-40" width="150" height="220">` +
+    `<g fill="none" stroke="#fff" stroke-linecap="butt" stroke-linejoin="round">${s}</g></mask></defs>` +
+    `<path class="lgp__ghost" fill="currentColor" fill-rule="evenodd" d="${G}"/>` +
+    `<path class="lgp__ink" fill="currentColor" fill-rule="evenodd" opacity="0" mask="url(#${id})" d="${G}"/></svg>`;
+};
+const PEN_BRAND = cls => `<span class="${cls} lgp__br">${
+  [...BRAND].map(c => `<span>${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('')}</span>`;
 
 /* Логотипы ЮKassa вшиты как AVIF + WebP — работают офлайн.
    Официальные материалы: yookassa.ru/guide-instruction/#materials */
@@ -7006,7 +7046,7 @@ const hdMain  = () => `<header class="hd hd--main">
   <div class="hd__l">
     <button class="hd__b" data-a="menu" aria-label="Меню">${svg('menu')}</button>
     <button class="hd__logo hd__logo--name" data-a="go:home" aria-label="На главную">
-      ${MARK()}<span class="hd__brand">${esc(BRAND)}</span></button>
+      ${PEN_MARK()}${PEN_BRAND('hd__brand')}</button>
   </div>
   <div class="hd__sp"></div>${hdActions()}</header>`;
 /* Назад + логотип слева — одинаково во всех шапках.
@@ -7017,7 +7057,7 @@ const hdMain  = () => `<header class="hd hd--main">
 const hdLeft = () => `<div class="hd__l">
   <button class="hd__b" data-a="back" aria-label="Назад">${svg('back')}</button>
   <button class="hd__logo hd__logo--name" data-a="go:home" aria-label="На главную">
-    ${MARK()}<span class="hd__brand hd__brand--sub">${esc(BRAND)}</span></button>
+    ${PEN_MARK()}${PEN_BRAND('hd__brand hd__brand--sub')}</button>
 </div>`;
 
 const hdBack = () => `<header class="hd">${hdLeft()}<div class="hd__sp"></div></header>`;
@@ -11399,7 +11439,7 @@ function sheetMenu(){
   openOv(`<div class="scrim"></div>
   <aside class="mnu" role="dialog" aria-modal="true" aria-label="Меню">
     <div class="mnu__h">
-      <span class="mnu__logo">${MARK('mnu__mark')}${esc(BRAND)}</span>
+      <span class="mnu__logo">${PEN_MARK('mnu__mark')}${PEN_BRAND('mnu__name')}</span>
       <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button>
     </div>
     <div class="mnu__b">
@@ -16283,6 +16323,107 @@ bootFromServer().catch((err) => {
   setInterval(() => {
     if(!document.hidden && S.user) refreshAuthUser().catch(() => {});
   }, 20000);
+})();
+</script>
+<script>
+/* ==================================================================
+   ПЕРО В ШАПКЕ. Раз в 10 секунд знак в шапке (и в открытом меню) бледнеет
+   и заново рисуется тем же пером, что на выходе из знакомства, а буквы
+   названия по очереди наливаются чернилами. Ведём по времени через rAF:
+   куски пера стыкуются без пауз, только когда идут по одной кривой.
+   Шапку то и дело перерисовывают целиком — старый знак просто выпадает
+   из документа, и его анимация останавливается сама.
+   ================================================================== */
+(function(){
+  if(!window.__lcPen) return;
+  try{ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(_){}
+  var PEN = window.__lcPen, TIP = 5, STEP = 1.6, END = 1.6, TOTAL = 0;
+  PEN.forEach(function(p){ TOTAL = Math.max(TOTAL, p[2] + p[3]); });
+
+  function bez(x1, y1, x2, y2){
+    var cx = 3*x1, bx = 3*(x2-x1) - cx, ax = 1 - cx - bx,
+        cy = 3*y1, by = 3*(y2-y1) - cy, ay = 1 - cy - by;
+    return function(x){
+      if(x <= 0) return 0;
+      if(x >= 1) return 1;
+      var lo = 0, hi = 1, t = x;
+      for(var i = 0; i < 40; i++){
+        var v = ((ax*t + bx)*t + cx)*t;
+        if(Math.abs(v - x) < 1e-6) break;
+        if(v < x) lo = t; else hi = t;
+        t = (lo + hi) / 2;
+      }
+      return ((ay*t + by)*t + cy)*t;
+    };
+  }
+  var E_PEN = bez(.37,0,.25,1), E_SOFT = bez(.3,0,.2,1), E_EXPO = bez(.16,1,.3,1), E_FADE = bez(.4,0,.6,1);
+  /* [[время, значение, кривая подхода], ...]; до первой точки и после последней — на месте */
+  function at(tr, t){
+    if(t <= tr[0][0]) return tr[0][1];
+    for(var i = 1; i < tr.length; i++){
+      var k = tr[i];
+      if(t <= k[0]){ var p = tr[i-1], q = (t - p[0]) / (k[0] - p[0]); return p[1] + (k[1] - p[1]) * (k[2] ? k[2](q) : q); }
+    }
+    return tr[tr.length-1][1];
+  }
+  /* 0–0,32 с всё бледнеет до 16 %; 0,2–1,02 с перо рисует знак; с 0,72 с
+     буквы по одной наливаются и привстают на 3 px. */
+  var GHOST = [[0,1],[.32,.16,E_FADE],[1.02,.16],[1.12,1]], PENP = [[.2,0],[1.02,1,E_PEN]];
+
+  function play(svg){
+    if(svg.__lgp) return;
+    var ghost = svg.querySelector('.lgp__ghost'), ink = svg.querySelector('.lgp__ink'),
+        strokes = svg.querySelectorAll('mask path'),
+        br = svg.parentNode && svg.parentNode.querySelector('.lgp__br'), sp = br ? br.children : [];
+    if(!ghost || !ink || strokes.length !== PEN.length * TIP) return;
+    svg.__lgp = true;
+    ink.setAttribute('opacity', '1');
+    function render(t){
+      ghost.setAttribute('opacity', at(GHOST, t).toFixed(3));
+      var g = at(PENP, t) * TOTAL, n = 0;
+      for(var j = 0; j < PEN.length; j++){
+        var p = PEN[j];
+        for(var k = 0; k < TIP; k++, n++){
+          var q = g <= 0 ? 0 : Math.min(1, Math.max(0, (g + k*STEP - p[2]) / p[3]));
+          strokes[n].setAttribute('stroke-dashoffset', (1 - q).toFixed(4));
+        }
+      }
+      for(var i = 0; i < sp.length; i++){
+        var s = .72 + i*.06, y = at([[s,3],[s+.5,0,E_EXPO]], t);
+        sp[i].style.opacity = at([[0,1],[.32,.16,E_FADE],[s,.16],[s+.38,1,E_SOFT]], t).toFixed(3);
+        sp[i].style.transform = y > .01 ? 'translateY(' + y.toFixed(2) + 'px)' : '';
+      }
+    }
+    function done(){
+      for(var n = 0; n < strokes.length; n++) strokes[n].setAttribute('stroke-dashoffset', '0');
+      for(var i = 0; i < sp.length; i++){ sp[i].style.opacity = ''; sp[i].style.transform = ''; }
+      ghost.setAttribute('opacity', '1');
+      ink.setAttribute('opacity', '0');
+      svg.__lgp = false;
+    }
+    var t0 = null;
+    function frame(now){
+      if(!svg.isConnected) return;
+      if(t0 === null) t0 = now;
+      var t = (now - t0) / 1000;
+      if(t >= END){ done(); return; }
+      render(t);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* Рисуем только то, что сейчас на экране: спрятанную шапку прошлого экрана
+     и знак под шторкой меню незачем гонять. Вкладка в фоне — пропускаем такт. */
+  function tick(){
+    if(document.hidden) return;
+    var list = document.querySelectorAll('svg.lgp');
+    for(var i = 0; i < list.length; i++){
+      var r = list[i].getBoundingClientRect();
+      if(r.width && r.bottom > 0 && r.top < innerHeight) play(list[i]);
+    }
+  }
+  setInterval(tick, 10000);
 })();
 </script>
 <script>
