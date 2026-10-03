@@ -16,7 +16,8 @@
 <!-- Отдельный файл, а не сам логотип: iOS кладёт иконку на сплошную подложку,
      и чёрный знак по прозрачному фону там просто исчезал. -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" as="image" href="/onboarding/h2.jpg" fetchpriority="high">
+<link rel="preload" as="image" href="/onboarding/h2-black.jpg" fetchpriority="high">
+<link rel="preload" as="image" href="/onboarding/h2-wall.jpg">
 <!-- Греем оба русских шрифта: заголовки набраны антиквой, всё мелкое — Onest.
      crossorigin обязателен даже для своего домена, иначе браузер скачает
      файл дважды. -->
@@ -136,7 +137,7 @@ img{display:block;max-width:100%}
 html.is-final .skip{opacity:0;visibility:hidden}
 
 /* ================= 01: ПЕРВЫЙ ЭКРАН — по макету владельца =================
-   Холст h2.jpg шириной 1362 px: дорисованная стена 1100 px, снимок 1155 px,
+   Холст шириной 1362 px (h2-wall, h2-black, h2-floor): стена 1100 px, снимок 1155 px,
    тёмный пол 700 px. Слои цветов h2-*.jpg — только снимок, кладутся ровно на
    его место (37.225% сверху, 39.086% высоты холста).
    Размер считается в CSS, без скрипта, — первый кадр уже на месте: от макушки
@@ -164,6 +165,12 @@ html.is-final .skip{opacity:0;visibility:hidden}
   width:var(--w);height:calc(2955 * var(--s));margin-left:calc(var(--w) / -2)
 }
 .hero__st img{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none}
+/* Холст по частям — так первый экран грузится быстрее: снимок — тот же файл,
+   что слой чёрного, стена и пол — лёгкие. Они заходят под снимок на 4 строки,
+   стык спрятан под ним. Доли — от высоты холста 2955. */
+.hero__st .hero__wall{height:37.36%}
+.hero__st .hero__bg{top:37.225%;height:39.086%}
+.hero__st .hero__floor{top:76.176%;height:23.824%}
 /* Слой цвета — рамка шире снимка на 28 %, правый край у неё растушёван.
    Смена: рамка едет слева направо, а снимок внутри — навстречу, поэтому он
    стоит на месте, и новый цвет проходит по футболкам мягкой полосой. Только
@@ -888,7 +895,29 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 .lcb__in{position:relative;transition:transform .6s cubic-bezier(.22,1,.36,1),opacity .3s ease .35s}
 .lcb .lcs__name{transition:opacity .2s ease}
 .lcb.is-out{pointer-events:none}
-.lcb.is-out .lcb__bg,.lcb.is-out .lcb__in,.lcb.is-out .lcs__name{opacity:0}
+.lcb.is-out .lcb__bg,.lcb.is-out .lcb__in,.lcb.is-out .lcs__name,.lcb.is-out .lcb__bar{opacity:0}
+/* Полоса загрузки под знаком — та же, что на заставке магазина (.lcc__bar в
+   index.html): сама ползёт вперёд, когда снимок первого экрана готов —
+   добегает до конца. Только transform и opacity: идёт ровно, даже пока
+   страница грузится. */
+.lcb__bar{
+  position:absolute;left:50%;top:calc(50% + 116px);width:136px;height:2px;margin-left:-68px;
+  border-radius:2px;background:rgba(255,255,255,.13);overflow:hidden;
+  opacity:0;animation:lcbIn .5s ease .3s forwards;transition:opacity .3s ease
+}
+.lcb__bar i{
+  position:absolute;inset:0;border-radius:inherit;background:rgba(255,255,255,.88);
+  transform-origin:0 50%;transform:scaleX(0);animation:lcbFill 10s cubic-bezier(.25,.8,.3,1) .3s forwards
+}
+.lcb__bar i::after{
+  content:'';position:absolute;top:0;bottom:0;left:0;width:46px;
+  background:linear-gradient(90deg,rgba(255,255,255,0),#fff,rgba(255,255,255,0));
+  transform:translateX(-46px);animation:lcbGleam 1.3s ease-in-out .6s infinite
+}
+@keyframes lcbFill{0%{transform:scaleX(0)}18%{transform:scaleX(.5)}40%{transform:scaleX(.74)}100%{transform:scaleX(.94)}}
+@keyframes lcbGleam{to{transform:translateX(140px)}}
+.lcb__bar.is-loaded i{animation:none;transform:scaleX(1);transition:transform .4s cubic-bezier(.2,.7,.2,1)}
+@media (max-width:359px){ .lcb__bar{top:calc(50% + 104px)} }
 </style>
 <script>
 (function(){
@@ -918,7 +947,8 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     var el = document.createElement('div');
     el.className = 'lcb';
     el.setAttribute('aria-hidden', 'true');
-    el.innerHTML = '<div class="lcb__bg"></div><div class="lcb__in"><div class="lcs">' + window.__lcLockup + '</div></div>';
+    el.innerHTML = '<div class="lcb__bg"></div><div class="lcb__in"><div class="lcs">' + window.__lcLockup + '</div></div>' +
+      '<div class="lcb__bar"><i></i></div>';
     root.appendChild(el);                       /* <body> ещё нет — вешаем на <html> */
     var box = el.querySelector('.lcs'), wrap = el.querySelector('.lcb__in');
     /* Старт в первом кадре — вместе с первой отрисовкой, дальше ведёт браузер.
@@ -927,12 +957,40 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
        обрезал бы последний шаг рывком. Таймер — только страховка на случай,
        если кадры не идут (приложение свернули). */
     var tDone = 0, tOut = 0, done = false;
+    /* Заставка уходит, когда снимок первого экрана уже скачан: иначе после
+       неё на секунды оставалась пустая серая подложка (сервер отдаёт снимок
+       не мгновенно). Ждём не дольше 6 с; касание уводит сразу, как и раньше.
+       Пока ждём, под знаком идёт полоса загрузки — как на заставке магазина. */
+    function heroReady(cb){
+      var t0 = Date.now();
+      (function poll(){
+        var ph = document.getElementById('heroBg');
+        var wall = document.querySelector('.hero__wall');
+        var ok = ph && ph.complete && ph.naturalWidth && (!wall || (wall.complete && wall.naturalWidth));
+        if(ok || el.__out || Date.now() - t0 > 6000) return cb();
+        setTimeout(poll, 100);
+      })();
+    }
+    function barDone(){
+      var fill = el.querySelector('.lcb__bar i');
+      if(!fill) return;
+      try{
+        fill.style.transform = getComputedStyle(fill).transform;
+        fill.style.animation = 'none';
+        void fill.offsetWidth;
+        fill.parentNode.classList.add('is-loaded');
+        fill.style.transform = '';
+      }catch(_){}
+    }
     function finish(){
       if(done) return;
       done = true;
       box.classList.add('is-done');
       clearTimeout(tDone);
-      tOut = setTimeout(out, 250);
+      heroReady(function(){
+        barDone();
+        tOut = setTimeout(out, 450);      /* полоса успевает добежать */
+      });
     }
     requestAnimationFrame(function(){ box.classList.add('is-play'); });
     box.querySelector('.lcs__mark').addEventListener('animationend', function(e){
@@ -984,7 +1042,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 
 <main>
 <!-- ====== 01: первый экран — по макету владельца ======
-     Снимок — его фото троих в футболках; холст h2.jpg собран из него
+     Снимок — его фото троих в футболках; холст (h2-wall / h2-black / h2-floor) собран из него
      (сверху дорисована стена, снизу пол). Слои h2-*.jpg — те же трое в других
      цветах, порядок слоёв = порядок кнопок (чёрный тоже слой). #introMark —
      сюда приезжает белый знак заставки запуска, id не менять. -->
@@ -992,7 +1050,9 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   <div class="hero__ph" aria-hidden="true">
     <div class="hero__in"><div class="hero__kb"><div class="hero__jolt">
       <div class="hero__st">
-        <img class="hero__bg" id="heroBg" src="/onboarding/h2.jpg" alt="" width="1362" height="2955" fetchpriority="high" decoding="async">
+        <img class="hero__wall" src="/onboarding/h2-wall.jpg" alt="" width="1362" height="1104" decoding="async">
+        <img class="hero__floor" src="/onboarding/h2-floor.jpg" alt="" width="1362" height="704" decoding="async">
+        <img class="hero__bg" id="heroBg" src="/onboarding/h2-black.jpg" alt="" width="1362" height="1155" fetchpriority="high" decoding="async">
         <div class="hero__tone"><img data-src="/onboarding/h2-black.jpg" alt="" width="1362" height="1155" decoding="async"></div>
         <div class="hero__tone"><img data-src="/onboarding/h2-choc.jpg" alt="" width="1362" height="1155" decoding="async"></div>
         <div class="hero__tone"><img data-src="/onboarding/h2-red.jpg" alt="" width="1362" height="1155" decoding="async"></div>

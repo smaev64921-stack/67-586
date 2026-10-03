@@ -73,6 +73,20 @@
       var black = document.createElement('style');
       black.textContent = 'html{background:#0b0b0b!important}body{display:none!important}';
       document.head.appendChild(black);
+      /* Строка состояния тоже чёрная: иначе после системного экрана она на
+         миг белела (светлый theme-color магазина). */
+      var tc = document.querySelector('meta[name="theme-color"]');
+      if(tc) tc.content = '#0b0b0b';
+      /* Сначала один чёрный кадр, потом уход. Если уйти сразу, эта страница
+         не рисует ничего, и пока грузится знакомство, телефон ~0,6 с показывал
+         свой пустой тёмно-серый фон (видео владельца, 2026-10-03). Нарисованный
+         кадр браузер держит на экране, пока не нарисуется следующая страница.
+         Остальное этой страницы не нужно — грузить и разбирать его не даём. */
+      try{ window.stop(); }catch(_){}
+      requestAnimationFrame(function(){
+        setTimeout(function(){ location.replace('/onboarding.html'); }, 0);
+      });
+      return;
     }
     location.replace('/onboarding.html');
   }catch(e){}   /* приватный режим без localStorage — просто открываем магазин */
