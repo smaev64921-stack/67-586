@@ -57,6 +57,220 @@
     return data;
   }
 
+  /* ------------------------------------------------------------------
+     ВИДЕО ДЛЯ ГЛАВНОЙ: оригинал байт в байт, кусками.
+     fetch не умеет показывать, сколько уже ушло на сервер, — а ролик на
+     сотню мегабайт без полосы прогресса выглядит как зависание. Поэтому
+     куски уходят через XMLHttpRequest. Кусок, который оборвался (метро,
+     смена вышки), отправляется заново с того байта, где сервер остановился.
+     ------------------------------------------------------------------ */
+  const MB = 1024 * 1024;
+  /* Нет движения дольше этого — соединение считаем мёртвым и повторяем
+     кусок. Таймаут на весь кусок не годится: на плохой связи 8 МБ честно
+     идут и две минуты. */
+  const STALL_MS = 45000;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  /* у nginx по умолчанию потолок тела — 1 МБ; ниже резать незачем */
+  const MIN_CHUNK = 256 * 1024;
+
+  function abortError() {
+    const e = new Error('Загрузка отменена');
+    e.aborted = true;
+    return e;
+  }
+
+  function putChunk(id, off, blob, onLoaded, signal) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let last = Date.now(), dead = false;
+      const watch = setInterval(() => {
+        if (Date.now() - last > STALL_MS) { dead = true; xhr.abort(); }
+      }, 3000);
+      const onAbort = () => xhr.abort();
+      const done = () => {
+        clearInterval(watch);
+        if (signal) signal.removeEventListener('abort', onAbort);
+      };
+      xhr.open('PUT', '/api/admin/video/' + encodeURIComponent(id) + '?off=' + off);
+      const tok = getToken();
+      if (tok) xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.upload.onprogress = (e) => { last = Date.now(); onLoaded(e.loaded); };
+      xhr.onload = () => {
+        done();
+        let data = null;
+        try { data = JSON.parse(xhr.responseText); } catch (e) {}
+        resolve({ status: xhr.status, data });
+      };
+      xhr.onerror = () => { done(); reject(new Error('Нет связи с сервером')); };
+      xhr.onabort = () => {
+        done();
+        if (dead) reject(new Error('Связь оборвалась'));
+        else reject(abortError());
+      };
+      if (signal) {
+        if (signal.aborted) { done(); reject(abortError()); return; }
+        signal.addEventListener('abort', onAbort);
+      }
+      xhr.send(blob);
+    });
+  }
+
+  /* Загрузки, брошенные из-за связи: тот же файл, выбранный снова, едет
+     дальше с того места, где остановился, а не с нуля. Ключ — имя, размер
+     и дата файла: другой ролик с тем же именем сюда не попадёт. */
+  const resumable = new Map();
+  const fileKey = (f) => [f.name || '', f.size, f.lastModified || 0].join('|');
+
+  /* Ответ, после которого продолжать бессмысленно: файл не тот, места нет,
+     прав нет. 408/409/429 — не отказ, а «попробуй ещё раз». */
+  const isFinal = (e) => !!(e && e.status && ((e.status >= 400 && e.status < 500
+    && e.status !== 408 && e.status !== 409 && e.status !== 429) || e.status === 507));
+
+  /**
+   * file → {url, size, type}. onProgress(отправлено, всего).
+   * onState({state:'retry', attempt, max, sent, total}) — связь моргнула,
+   * повторяем; {state:'ok'} — снова пошло.
+   * signal (AbortController) отменяет загрузку и стирает её хвост на сервере.
+   */
+  async function uploadVideo(file, opts) {
+    const o = opts || {};
+    const signal = o.signal;
+    const size = file.size;
+    const key = fileKey(file);
+    const MAX_FAILS = 6;
+    let off = 0, fails = 0, resyncs = 0, sent = 0, shaky = false;
+    const report = (n) => { sent = Math.min(size, n); if (o.onProgress) o.onProgress(sent, size); };
+    const state = (s) => { if (o.onState) { try { o.onState(Object.assign({ sent, total: size }, s)); } catch (e) {} } };
+    const retry = async () => {
+      fails += 1;
+      if (fails > MAX_FAILS) {
+        const e = new Error('Связь с сервером рвётся — загрузка остановлена. Выберите тот же файл ещё раз — продолжим с того же места, лучше на Wi-Fi.');
+        e.network = true;
+        throw e;
+      }
+      shaky = true;
+      state({ state: 'retry', attempt: fails + 1, max: MAX_FAILS + 1 });
+      await wait(Math.min(15000, 800 * Math.pow(2, fails)));
+      if (signal && signal.aborted) throw abortError();
+    };
+    const ok = () => {
+      fails = 0;
+      resyncs = 0;
+      if (shaky) { shaky = false; state({ state: 'ok' }); }
+    };
+
+    let id = resumable.get(key) || '';
+    let resumed = !!id;
+    let chunk = 8 * MB;
+    if (!id) {
+      const st = await api('/api/admin/video', { method: 'POST', body: { size, name: file.name || '' } });
+      id = st.id;
+      chunk = st.chunk || chunk;
+    }
+    resumable.delete(key);
+    try {
+      report(0);
+      for (;;) {
+        while (off < size) {
+          if (signal && signal.aborted) throw abortError();
+          const from = off;
+          const end = Math.min(size, off + chunk);
+          let r;
+          try {
+            r = await putChunk(id, from, file.slice(from, end), (n) => report(from + n), signal);
+          } catch (e) {
+            if (e.aborted) throw e;
+            await retry();
+            continue;
+          }
+          const got = r.data && typeof r.data.got === 'number' ? r.data.got : null;
+          if (r.status === 200 && got != null) { off = got; resumed = false; ok(); report(off); continue; }
+          /* Сервер на другом байте (оборвался прошлый кусок, потерялся ответ,
+             продолжаем брошенную загрузку) — это сверка, а не сбой: в лимит
+             попыток не считаем, только не даём ей крутиться бесконечно. */
+          if (r.status === 409 && got != null) {
+            off = got;
+            resumed = false;
+            report(off);
+            resyncs += 1;
+            if (resyncs > 20) await retry();
+            else await wait(300);
+            continue;
+          }
+          /* Продолжали брошенную загрузку, а сервер её уже убрал — начинаем
+             эту же загрузку заново, без ошибки для владельца. */
+          if (r.status === 404 && resumed) {
+            resumed = false;
+            const st = await api('/api/admin/video', { method: 'POST', body: { size, name: file.name || '' } });
+            id = st.id;
+            chunk = st.chunk || chunk;
+            off = 0;
+            continue;
+          }
+          /* 413 не от нашего сервера (у него ответ JSON), а от прокси хостинга:
+             кусок ему велик — режем пополам */
+          if (r.status === 413 && !(r.data && r.data.error) && chunk > MIN_CHUNK) {
+            chunk = Math.max(MIN_CHUNK, Math.floor(chunk / 2));
+            continue;
+          }
+          /* 408 — прокси или сам Node не дождались тела: кусок на этой связи
+             идёт слишком долго, берём поменьше */
+          if (r.status === 408) {
+            chunk = Math.max(MIN_CHUNK, Math.floor(chunk / 2));
+            if (got != null) off = got;
+            await retry();
+            continue;
+          }
+          /* кусок дошёл не целиком или прокси моргнул — тот же кусок ещё раз */
+          if ((r.status === 400 && got != null) || r.status === 0 || r.status === 502 || r.status === 503 || r.status === 504) {
+            if (got != null) off = got;
+            await retry();
+            continue;
+          }
+          const err = new Error((r.data && r.data.error) || ('Ошибка ' + r.status));
+          err.status = r.status;
+          err.data = r.data;
+          throw err;
+        }
+        /* «Готово» — последний короткий запрос. Его ответ тоже может
+           потеряться; сервер повтор принимает и отдаёт ту же ссылку, так что
+           повторяем, а не стираем ролик, который уже целиком на сервере. */
+        let d = null, back = -1;
+        for (;;) {
+          if (signal && signal.aborted) throw abortError();
+          try {
+            d = await api('/api/admin/video/' + encodeURIComponent(id) + '/done', { method: 'POST', body: {} });
+            break;
+          } catch (e) {
+            const got = e && e.data && typeof e.data.got === 'number' ? e.data.got : null;
+            /* сервер недосчитался байтов — доотправляем их */
+            if (e && e.status === 409 && got != null && got < size) { back = got; break; }
+            if (isFinal(e)) throw e;
+            await retry();
+          }
+        }
+        if (back >= 0) { off = back; report(off); continue; }
+        ok();
+        report(size);
+        return d;
+      }
+    } catch (e) {
+      if (e && (e.aborted || isFinal(e))) {
+        /* хвост незаконченной загрузки не должен лежать на диске сервера */
+        window.LC.cancelVideo(id);
+      } else {
+        /* Связь пропала: DELETE всё равно не дойдёт, а хвост пригодится —
+           тот же файл, выбранный снова, продолжит с этого места. Не
+           понадобится — сервер сам перестанет держать под него место
+           и уберёт его. */
+        resumable.set(key, id);
+      }
+      throw e;
+    }
+  }
+
   window.LC = {
     api,
     getToken,
@@ -82,6 +296,11 @@
     async saveCms(cms) {
       const d = await api('/api/cms', { method: 'PUT', body: cms });
       return d.cms;
+    },
+    uploadVideo,
+    async cancelVideo(id) {
+      if (!id) return;
+      try { await api('/api/admin/video/' + encodeURIComponent(id), { method: 'DELETE' }); } catch (e) {}
     },
     async me() {
       const d = await api('/api/auth/me');

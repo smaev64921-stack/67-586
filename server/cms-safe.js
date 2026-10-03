@@ -1,5 +1,9 @@
 /** Публичное CMS без секретов. Ключи AI только в process.env. */
 
+/* Тот же шаблон, что в video.js; не импортируем его, чтобы проверка CMS не
+   тянула за собой создание папок на диске. */
+const RE_VIDEO_URL = /^\/media\/v\/[0-9a-f]{16}\.(mp4|webm)$/;
+
 function tryonServerConfigured() {
   /* Реальная примерка — только через свой эндпоинт (фото уходят туда). */
   return !!String(process.env.TRYON_API_URL || '').trim();
@@ -41,6 +45,21 @@ function scrubCmsInput(cms) {
   if (out.shipping && typeof out.shipping === 'object') {
     delete out.shipping.live;
     delete out.shipping.liveKeys;
+  }
+  /* Видео-слайд: в поле video допускаем только ссылку на наш же файл
+     /media/v/<хэш>.mp4|webm. Иначе через CMS на витрину можно было бы
+     подставить чужой адрес, и каждый покупатель качал бы ролик оттуда. */
+  if (Array.isArray(out.slides)) {
+    out.slides.forEach((s) => {
+      if (!s || typeof s !== 'object') return;
+      if (s.video != null && !RE_VIDEO_URL.test(String(s.video))) delete s.video;
+      ['vw', 'vh', 'dur', 'size'].forEach((k) => {
+        if (s[k] == null) return;
+        const n = +s[k];
+        if (Number.isFinite(n) && n >= 0) s[k] = n;
+        else delete s[k];
+      });
+    });
   }
   return out;
 }

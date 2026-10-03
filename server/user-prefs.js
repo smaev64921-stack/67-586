@@ -37,6 +37,9 @@ function cleanCourier(c) {
     city: str(c.city, 120),
     street: str(c.street, 200),
     flat: str(c.flat, 40),
+    entrance: str(c.entrance, 10),
+    floor: str(c.floor, 10),
+    intercom: str(c.intercom, 20),
     comment: str(c.comment, 300),
     lat: num(c.lat),
     lng: num(c.lng)

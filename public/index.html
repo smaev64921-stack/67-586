@@ -3396,11 +3396,31 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .cmap.is-moving .cmap__tag{opacity:0}
 .cmap.is-moving .cmap__shadow{transform:scale(.7);opacity:.6}
 .cmap__me{
-  position:absolute;right:10px;bottom:26px;z-index:800;width:42px;height:42px;border-radius:50%;
+  position:absolute;left:10px;bottom:12px;z-index:800;width:42px;height:42px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;
   background:var(--card);color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,.2)
 }
 .cmap__me.is-wait{opacity:.55}
+/* Детали для курьера: квартира, подъезд, этаж, домофон — плитки 2×2,
+   значение крупно, подпись мелко сверху. Ниже — свободный комментарий. */
+.cod{margin:2px 0 4px;padding:14px;border-radius:var(--r-lg);background:var(--chip)}
+.cod__t{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cod__g{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cod__f{
+  display:flex;flex-direction:column;gap:4px;padding:10px 12px 9px;cursor:text;
+  background:var(--card);border:1.5px solid transparent;border-radius:var(--r-md);
+  transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)
+}
+.cod__f:focus-within{border-color:var(--ink);box-shadow:0 0 0 3px rgba(0,0,0,.05)}
+.cod__l{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);line-height:1.2}
+.cod__l svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.cod__i{
+  width:100%;min-width:0;padding:0;border:0;outline:none;background:none;
+  font:inherit;font-size:17px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums
+}
+.cod__i::placeholder{color:var(--muted2);font-weight:500}
+.cod__note{margin-top:8px;font-size:14px;padding:12px 14px;border-color:transparent}
+.cod__note:focus{border-color:var(--ink)}
 .cmap__find{position:relative;margin:0 0 10px}
 .cmap__find .f__i{margin:0;padding-left:40px}
 .cmap__sug{
@@ -3675,6 +3695,70 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 <div id="ov"></div>
 <div id="adm"></div>
 
+<style>
+/* ===================== ВИДЕО НА ГЛАВНОЙ =====================
+   Отдельным стилем в <body>, а не в общем листе в <head>: <head> (занавес,
+   заставка) правит другая работа, и так наши правки с ней не пересекаются.
+   Стоит после общего листа — значит, при равной специфичности побеждает. */
+
+/* ---- видео-слайд ----
+   Высоту слайду задаёт сам ролик (--ar = его ширина/высота), а не обложка:
+   обложка с другой пропорцией иначе торчала бы полосами вокруг играющего
+   видео. Обложка лежит внутри того же прямоугольника и вписывается целиком,
+   как фото (на главной ничего не обрезается). Видео ложится поверх ровно
+   туда же и показывается, только когда реально заиграло, — до этого видна
+   обложка, а не чёрный квадрат. Никаких scale и фильтров: ролик рисуется
+   в родном разрешении, без размытия. */
+.hs__vid{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;
+  opacity:0;transition:opacity .35s var(--ease);pointer-events:none;
+  /* поля по бокам (экран уже ролика) — цветом карточки, а не обложкой */
+  background:var(--photo)
+}
+.hs__s.is-playing .hs__vid{opacity:1}
+.hs__vph{
+  position:relative;display:block;width:100%;aspect-ratio:var(--ar,4/5);
+  max-height:calc(100vh - var(--hd-off) - 96px);
+  max-height:calc(100svh - var(--hd-off) - 96px)
+}
+.hs--hero .hs__vph .hs__img{position:absolute;inset:0;width:100%;height:100%;max-height:none;object-fit:contain}
+/* ролик проявился — обложку прячем совсем (после его 0,35 с проявления) */
+.hs__s--v.is-playing .hs__img{visibility:hidden;transition:visibility 0s linear .4s}
+.hs__play{
+  position:absolute;left:50%;top:42%;z-index:3;transform:translate(-50%,-50%);
+  width:64px;height:64px;border-radius:50%;display:none;align-items:center;justify-content:center;
+  color:#fff;background:rgba(0,0,0,.32);border:1.5px solid rgba(255,255,255,.85);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)
+}
+.hs__play .ic{width:26px;height:26px;fill:currentColor;stroke-linejoin:round;margin-left:3px}
+.hs__s.is-still .hs__play,.hs__s.is-blocked .hs__play{display:flex}
+.hs__s.is-playing .hs__play{display:none}
+
+/* видео в админке: превью, полоса загрузки, обложка, значок ▶ в списке */
+.ad__vidpv{aspect-ratio:4/5;max-height:56vh}
+.ad__vidpv video{width:100%;height:100%;object-fit:contain;background:#000}
+.ad__vup{margin:-4px 0 12px}
+.ad__vup-bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden;margin-bottom:6px}
+.ad__vup-bar i{display:block;height:100%;width:0;background:var(--ink);border-radius:inherit;transition:width .25s var(--ease)}
+.ad__vup span{font-size:12px;color:var(--muted)}
+.ad__vwarn{margin:0 0 12px;padding:10px 12px;border-radius:var(--r-sm);background:var(--chip);color:var(--ink)}
+.ad__vcover{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ad__vcover img{width:56px;height:70px;object-fit:contain;border-radius:var(--r-sm);background:var(--photo);flex:none}
+.ad__vcover span{flex:1;min-width:0;font-size:12px;color:var(--muted)}
+.ad__vth{position:relative;flex:none;display:block}
+/* видео без обложки (кадр не снялся): тёмная плашка вместо пустого места,
+   иначе от строки оставался один белый ▶ на белом */
+.ad__vth span.ad__th{display:block;background:#1a1a1a}
+.ad__vth-b{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#fff;pointer-events:none
+}
+.ad__vth-b .ic{width:22px;height:22px;fill:currentColor;filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
+/* загрузка не удалась — сообщение остаётся в форме, а не в тосте на 2 с */
+.ad__vup.is-err .ad__vup-bar i{background:var(--danger)}
+.ad__vup.is-err span{color:var(--danger);font-size:13px;line-height:1.45}
+.ad__vup.is-retry span{color:var(--ink)}
+</style>
 <script src="/api-bridge.js"></script>
 <script>
 /* ==========================================================
@@ -5075,12 +5159,34 @@ function courierPaneHTML(){
   <div class="f"><label class="f__l" for="coStreet">Улица и дом</label>
     <input class="f__i" id="coStreet" value="${esc(c.street)}"
       placeholder="ул. Ленина, 24" autocomplete="street-address"></div>
-  <div class="f"><label class="f__l" for="coFlat">Квартира или офис</label>
-    <input class="f__i" id="coFlat" value="${esc(c.flat)}" placeholder="12"></div>
-  <div class="f" style="margin-bottom:0"><label class="f__l" for="coComment">Подъезд, этаж, домофон</label>
-    <input class="f__i" id="coComment" value="${esc(c.comment)}"
-      placeholder="подъезд 2, этаж 5, код 45"></div>
+  <div class="cod">
+    <p class="cod__t">Для курьера</p>
+    <div class="cod__g">
+      ${codFieldHTML('coFlat', 'flat', 'Квартира', 'door', '12', 'text', c.flat)}
+      ${codFieldHTML('coEntr', 'entrance', 'Подъезд', 'entr', '2', 'numeric', c.entrance)}
+      ${codFieldHTML('coFloor', 'floor', 'Этаж', 'floor', '5', 'numeric', c.floor)}
+      ${codFieldHTML('coDomo', 'intercom', 'Домофон', 'keypad', '45К', 'text', c.intercom)}
+    </div>
+    <input class="f__i cod__note" id="coComment" value="${esc(c.comment)}" maxlength="200"
+      placeholder="Комментарий курьеру" aria-label="Комментарий курьеру">
+  </div>
   <p class="pvz__hint">Курьер позвонит за час до доставки.</p>`;
+}
+
+/* Подъезд, этаж и домофон — отдельными плитками: в одной строке их
+   вписывали через раз, и курьер звонил уточнять. */
+const COD_IC = {
+  door:'<path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M4 21h16"/><circle cx="14.5" cy="12.5" r=".9"/>',
+  entr:'<path d="M4 20V9l8-5 8 5v11"/><path d="M9.5 20v-6h5v6"/>',
+  floor:'<path d="M4 20h4v-4h4v-4h4V8h4"/>',
+  keypad:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h.01M12 8h.01M15 8h.01M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01"/>'
+};
+function codFieldHTML(id, key, label, ic, ph, mode, val){
+  return `<label class="cod__f" for="${id}">
+    <span class="cod__l"><svg viewBox="0 0 24 24" aria-hidden="true">${COD_IC[ic]}</svg>${label}</span>
+    <input class="cod__i" id="${id}" value="${esc(val || '')}" placeholder="${ph}"
+      inputmode="${mode}" maxlength="${key === 'intercom' ? 20 : key === 'flat' ? 40 : 10}" autocomplete="off">
+  </label>`;
 }
 
 /* ==========================================================
@@ -5125,7 +5231,53 @@ function cmapStart(){
 function cmapGo(lat, lng, z){
   if(!cmap) return;
   cmapGoal = {lat, lng, t:Date.now()};
-  cmap.setView([lat, lng], z || Math.max(cmap.getZoom(), 17));
+  cmap.go(lat, lng, z || Math.max(cmap.zoom(), 17));
+}
+
+/* Карта курьера — тот же движок, что у пунктов выдачи: 2ГИС, если ключ
+   живой, иначе OpenStreetMap. Снаружи оба одинаковые — центр, перелёт,
+   «начали двигать» и «остановились», — остальной код не знает, какой. */
+function cmapOsm(L, box, st, on){
+  const m = L.map(box, {zoomControl:true, attributionControl:true});
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap'
+  }).addTo(m);
+  m.setView([st.lat, st.lng], st.z);
+  m.on('movestart', on.start);
+  m.on('moveend', on.end);
+  setTimeout(() => { try{ m.invalidateSize(); }catch(e){} }, 80);
+  return {
+    kind: 'osm',
+    center: () => { const c = m.getCenter(); return {lat:c.lat, lng:c.lng}; },
+    zoom: () => m.getZoom(),
+    go: (lat, lng, z) => m.setView([lat, lng], z),
+    resize: () => m.invalidateSize(),
+    destroy: () => m.remove()
+  };
+}
+function cmapGis(gl, box, st, on){
+  const m = new gl.Map(box, {
+    key: dgisKey(),
+    center: [st.lng, st.lat],
+    zoom: st.z,
+    zoomControl: 'topRight',
+    maxPitch: 0,
+    disablePitchByUserInteraction: true,
+    disableRotationByUserInteraction: true
+  });
+  /* У 2ГИС начало движения ловим и по «move»: на части устройств
+     «movestart» не приходит, а булавка должна приподняться сразу. */
+  m.on('movestart', on.start);
+  m.on('move', on.start);
+  m.on('moveend', on.end);
+  return {
+    kind: 'gis',
+    center: () => { const c = m.getCenter(); return {lat:c[1], lng:c[0]}; },
+    zoom: () => m.getZoom(),
+    go: (lat, lng, z) => { m.setCenter([lng, lat], {duration:350}); if(z) m.setZoom(z, {duration:350}); },
+    resize: () => { try{ m.invalidateSize(); }catch(e){} },
+    destroy: () => m.destroy()
+  };
 }
 
 /* Карта, чей контейнер ушёл со страницы, жива для Leaflet: на повороте
@@ -5133,44 +5285,66 @@ function cmapGo(lat, lng, z){
 function dropCourierMap(){
   clearTimeout(cmapTimer); clearTimeout(cmapFindTimer);
   cmapSeq++; cmapFindSeq++;
-  if(cmap){ try{ cmap.remove(); }catch(e){} }
+  if(cmap){ try{ cmap.destroy(); }catch(e){} }
   cmap = null; cmapBox = null; cmapGoal = null;
 }
 function mountCourierMap(){
   const box = document.getElementById('coMap');
   if(!box){ dropCourierMap(); return; }
   bindCourierFind();
-  if(cmap && cmapBox === box){ cmap.invalidateSize(); return; }
+  if(cmap && cmapBox === box){ cmap.resize(); return; }
   dropCourierMap();
   cmapBox = box;
-  ensureMap().then(L => {
-    if(document.getElementById('coMap') !== box) return;
-    const st = cmapStart();
-    cmap = L.map(box, {zoomControl:true, attributionControl:true});
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© OpenStreetMap'
-    }).addTo(cmap);
-    cmap.setView([st.lat, st.lng], st.z);
-    const wrap = document.getElementById('coMapW');
-    cmap.on('movestart', () => { if(wrap) wrap.classList.add('is-moving'); });
-    cmap.on('moveend', () => {
+  const st = cmapStart();
+  const wrap = document.getElementById('coMapW');
+  const alive = () => document.getElementById('coMap') === box && cmapBox === box;
+  const on = {
+    start: () => { if(wrap) wrap.classList.add('is-moving'); },
+    end: () => {
       if(wrap) wrap.classList.remove('is-moving');
-      if(!document.body.contains(box)) return;
-      const c = cmap.getCenter();
+      if(!cmap || !document.body.contains(box)) return;
+      const c = cmap.center();
       const g = cmapGoal;
       cmapGoal = null;
       if(g && Date.now() - g.t < 3000 && Math.abs(g.lat - c.lat) < 1e-4 && Math.abs(g.lng - c.lng) < 1e-4) return;
       clearTimeout(cmapTimer);
       cmapTimer = setTimeout(() => cmapLookup(c.lat, c.lng), 250);
-    });
-    setTimeout(() => cmap && cmap.invalidateSize(), 80);
-    /* Знаем, где человек, а адреса ещё нет — сразу подставляем, как
-       делают приложения доставки. Чужой город по умолчанию не подставляем:
-       такой адрес легко не заметить и отправить посылку не туда. */
+    }
+  };
+  /* Знаем, где человек, а адреса ещё нет — сразу подставляем, как
+     делают приложения доставки. Чужой город по умолчанию не подставляем:
+     такой адрес легко не заметить и отправить посылку не туда. */
+  const ready = () => {
     if(st.me && !String(S.checkout.courier.street || '').trim()) cmapLookup(st.lat, st.lng);
-  }).catch(() => {
-    box.innerHTML = '<span class="pvz__map-s">Карта не загрузилась — впишите адрес в поля ниже.</span>';
-  });
+  };
+  const fail = () => {
+    if(alive()) box.innerHTML = '<span class="pvz__map-s">Карта не загрузилась — впишите адрес в поля ниже.</span>';
+  };
+  const osm = () => ensureMap().then(L => {
+    if(!alive()) return;
+    box.innerHTML = '';
+    cmap = cmapOsm(L, box, st, on);
+    ready();
+  }).catch(fail);
+  const key = dgisKey();
+  (key ? gisKeyReady(key) : Promise.resolve(false)).then(ok => {
+    if(!alive()) return;
+    if(!ok) return osm();
+    return ensureGis().then(gl => {
+      if(!alive()) return;
+      box.innerHTML = '';
+      cmap = cmapGis(gl, box, st, on);
+      ready();
+      /* Ключ не приняли — 2ГИС не падает, а рисует в контейнере свою
+         чёрную плашку. Тогда, как и у пунктов, уходим на OpenStreetMap. */
+      setTimeout(() => {
+        if(!alive() || !cmap || cmap.kind !== 'gis' || !gisBroken(box)) return;
+        try{ cmap.destroy(); }catch(e){}
+        cmap = null;
+        osm();
+      }, 1500);
+    }, osm);
+  }).catch(fail);
 }
 
 async function cmapLookup(lat, lng){
@@ -5192,7 +5366,7 @@ async function cmapLookup(lat, lng){
 
 /** Подставить найденный адрес в поля и пересчитать доставку. */
 function cmapApply(p){
-  const c = S.checkout.courier || (S.checkout.courier = {city:'', street:'', flat:'', comment:''});
+  const c = S.checkout.courier || (S.checkout.courier = {city:'', street:'', flat:'', entrance:'', floor:'', intercom:'', comment:''});
   if(p.city) c.city = p.city;
   c.street = p.addr || p.street || '';
   c.lat = +p.lat || 0;
@@ -5235,7 +5409,7 @@ function bindCourierFind(){
       if(q.length < 3){ sug.hidden = true; return; }
       cmapFindTimer = setTimeout(async () => {
         const my = ++cmapFindSeq;
-        const c = cmap ? cmap.getCenter() : null;
+        const c = cmap ? cmap.center() : null;
         try{
           const list = await LC.geoSearch(q, c ? {lat:c.lat, lng:c.lng} : null);
           if(my !== cmapFindSeq) return;
@@ -5293,6 +5467,9 @@ function deliveryPayload(){
     city: String(c.city || '').trim(),
     street: String(c.street || '').trim(),
     flat: String(c.flat || '').trim(),
+    entrance: String(c.entrance || '').trim(),
+    floor: String(c.floor || '').trim(),
+    intercom: String(c.intercom || '').trim(),
     comment: String(c.comment || '').trim(),
     lat: +c.lat || 0,
     lng: +c.lng || 0
@@ -5455,7 +5632,7 @@ function bindDelivery(){
     saveUser();
     paintDeliveryTotals();
   };
-  [['coCity','city'],['coStreet','street'],['coFlat','flat'],['coComment','comment']]
+  [['coCity','city'],['coStreet','street'],['coFlat','flat'],['coEntr','entrance'],['coFloor','floor'],['coDomo','intercom'],['coComment','comment']]
     .forEach(([id, key]) => {
       const el = document.getElementById(id);
       if(!el) return;
@@ -6318,6 +6495,7 @@ const I = {
   menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
   arrowR:'<path d="M4 12h15M13 6l6 6-6 6"/>',
   arrowL:'<path d="M20 12H5M11 6l-6 6 6 6"/>',
+  play:'<path d="M8 5.5v13l11-6.5z"/>',
   star:'<path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.7l5.8-.8z"/>',
   up:'<path d="M7 21V10l5-7 1.2.8a2 2 0 0 1 .8 2.1L13 10h5.5a2 2 0 0 1 2 2.4l-1.4 6.6a2 2 0 0 1-2 1.6H7Z"/><path d="M7 10H4v11h3"/>',
   bksp:'<path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9L2.5 12 9 5Z"/><path d="m12 9.5 5 5M17 9.5l-5 5"/>',
@@ -6852,7 +7030,7 @@ function resetPersonalState(){
     S.checkout.quote = null;
     S.checkout.quotes = null;
     S.checkout.delivery = 'pickup';
-    S.checkout.courier = {city:'', street:'', flat:'', comment:''};
+    S.checkout.courier = {city:'', street:'', flat:'', entrance:'', floor:'', intercom:'', comment:''};
     S.checkout.guest = {name:'', phone:'', email:''};
   }
   S.orderSeen = {};
@@ -9095,7 +9273,25 @@ const MAX_SLIDES = 10;
 
 function homeSlides(){
   const list = (typeof CMS !== 'undefined' && Array.isArray(CMS.slides)) ? CMS.slides : [];
-  return list.filter(s => s && s.img).slice(0, MAX_SLIDES);
+  /* видео-слайд может прийти и без обложки — показываем и его */
+  return list.filter(s => s && (s.img || isVideoSlide(s))).slice(0, MAX_SLIDES);
+}
+/* Видео-слайд: в поле video — ссылка на наш файл /media/v/… (см. server/video.js) */
+const VIDEO_URL_RE = /^\/media\/v\/[0-9a-f]{16}\.(mp4|webm)$/;
+function isVideoSlide(s){
+  return !!(s && typeof s.video === 'string' && VIDEO_URL_RE.test(s.video));
+}
+/* Отпечаток героя: тот же — значит, при перерисовке главной слайдер можно
+   оставить живым (см. render), и ролик не начнётся заново от лайка на
+   карточке. Фото бывают по 1,5 МБ base64 — берём длину и хвост, а не всё. */
+function heroKey(list, banner){
+  const raw = JSON.stringify([banner || '', heroBtnText(), list.map(s => [
+    s.id, s.video || '', String(s.img || '').length, String(s.img || '').slice(-24),
+    s.cap || '', s.kick || '', s.sub || '', s.vw || 0, s.vh || 0
+  ])]);
+  let h = 0;
+  for(let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + '.' + raw.length;
 }
 
 function homeBannerText(){
@@ -9119,11 +9315,27 @@ function heroHTML(list, id, banner){
   const cta = `<div class="hs__cta-wrap">
     <button class="hs__cta" data-a="go:catalog">${esc(heroBtnText())}</button>
   </div>`;
-  return `<div class="hs hs--hero" id="${id}">
+  /* Видео: src не ставим сразу — его выдаст bindSlider, когда слайд станет
+     активным и заставка уйдёт. Иначе браузер начал бы качать все ролики
+     разом, под чёрным экраном загрузки. muted + playsinline обязательны:
+     без них iPhone не запустит ролик сам и развернёт его на весь экран. */
+  const media = (s, i) => {
+    const img = s.img ? `<img class="hs__img" src="${esc(s.img)}" alt="${esc(s.cap || '')}" decoding="async"
+          loading="${i ? 'lazy' : 'eager'}" fetchpriority="${i ? 'low' : 'high'}" draggable="false">` : '';
+    if(!isVideoSlide(s)) return img;
+    /* Прямоугольник слайда — по пропорции ролика, обложка внутри него.
+       Пропорция неизвестна (кадр снять не удалось) — берём её у обложки,
+       а как только браузер прочтёт ролик, у него самого (см. bindSlider). */
+    const known = +s.vw > 0 && +s.vh > 0;
+    return `<span class="hs__vph"${known ? ` style="--ar:${+s.vw}/${+s.vh}"` : ' data-ar="auto"'}>${img}</span>
+        <video class="hs__vid" data-src="${esc(s.video)}" muted playsinline webkit-playsinline preload="none"
+          disablepictureinpicture disableremoteplayback aria-hidden="true"${list.length === 1 ? ' loop' : ''}></video>
+        <button class="hs__play" data-hsplay aria-label="Смотреть видео">${svg('play')}</button>`;
+  };
+  return `<div class="hs hs--hero" id="${id}" data-hk="${heroKey(list, b)}">
     <div class="hs__track">${list.map((s,i) => `
-      <div class="hs__s">
-        <img class="hs__img" src="${esc(s.img)}" alt="${esc(s.cap || '')}" decoding="async"
-          loading="${i ? 'lazy' : 'eager'}" fetchpriority="${i ? 'low' : 'high'}" draggable="false">
+      <div class="hs__s${isVideoSlide(s) ? ' hs__s--v' : ''}">
+        ${media(s, i)}
         <span class="hs__shade"></span>
         <div class="hs__txt">
           ${s.kick ? `<span class="hs__k">${esc(s.kick)}</span>` : ''}
@@ -9162,7 +9374,10 @@ function uspHTML(){
 }
 
 
-/* Свайп + точки + автопрокрутка. Таймер сам гаснет, когда узел исчезает из DOM. */
+/* Свайп + точки + автопрокрутка. Таймер сам гаснет, когда узел исчезает из DOM.
+   Фото стоит 4,5 с. Видео играет до конца и только потом листается дальше —
+   так попросил владелец. Ролик идёт, лишь пока его видно: под заставкой,
+   в фоновой вкладке, за админкой или ниже экрана он стоит на паузе. */
 function bindSlider(box){
   if(!box || box.dataset.bound === '1') return;
   box.dataset.bound = '1';
@@ -9173,11 +9388,18 @@ function bindSlider(box){
   if(n < 1) return;
   let idx = 0, touched = 0;
 
+  /* Слайд «наступает», когда прокрутка остановилась, а не на каждом
+     промежуточном кадре: при переходе с последнего на первый лента
+     проезжает через все слайды, и ролики посередине начали бы качаться зря. */
+  let settle = 0, started = false, shown = -1;
+  let activate = () => {};
   const paint = () => {
     const w = track.clientWidth || 1;
     const i = Math.max(0, Math.min(n - 1, Math.round(track.scrollLeft / w)));
     idx = i;
     dots.forEach((d,k) => d.classList.toggle('on', k === i));
+    clearTimeout(settle);
+    settle = setTimeout(() => { if(started && idx !== shown) activate(idx); }, 180);
   };
   const go = i => {
     idx = (i + n) % n;
@@ -9197,14 +9419,202 @@ function bindSlider(box){
     go(idx + (+b.dataset.hsar || 1));
   });
 
-  if(n > 1){
-    const t = setInterval(() => {
-      if(!document.body.contains(box)){ clearInterval(t); return; }
-      if(document.hidden || Date.now() - touched < 7000) return;
-      go(idx + 1);
-    }, 4500);
+  const slides = [...track.children];
+  const vids = slides.map(s => s.querySelector('video.hs__vid'));
+  /* Одно фото — листать нечего, таймер не нужен (как и раньше) */
+  if(n < 2 && !vids.some(Boolean)){ paint(); return; }
+
+  const IMG_MS = 4500, TOUCH_MS = 7000, STALL_MS = 10000;
+  const root = document.documentElement;
+  /* «Уменьшить движение» и экономия трафика: ролик сам не запускаем —
+     обложка с кнопкой ▶, а слайдер листается дальше, как с фото. */
+  const still = (() => {
+    try{ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return true; }catch(_){}
+    return !!(navigator.connection && navigator.connection.saveData);
+  })();
+  const broken = new Set();     // ролики, которые не смогли играть: дальше как фото
+  const blocked = new Set();    // браузер запретил автозапуск — ждём нажатия ▶
+  let spent = 0, last = Date.now();
+  let fresh = false, done = false, manual = -1, lastT = -1, lastTAt = 0, moving = 0;
+  let seen = !('IntersectionObserver' in window);
+  const bornAt = Date.now();
+
+  /* Заставка магазина (занавес со знаком, класс lc-enter в <head>) первые
+     ~3 с закрывает экран. Ролик, запущенный под ней, покупатель увидел бы
+     с середины — поэтому ждём полной загрузки и начала её ухода. Через 12 с
+     стартуем в любом случае: занавес и сам снимается по таймауту. */
+  const ready = () => Date.now() - bornAt > 12000 || (document.readyState === 'complete'
+    && (!root.classList.contains('lc-enter') || root.classList.contains('lc-leaving')));
+  const canAuto = () => ready() && seen && !document.hidden
+    && !document.body.classList.contains('adm-on') && box.isConnected;
+  const isVid = k => !!vids[k] && (manual === k || (!still && !broken.has(k) && !blocked.has(k)));
+
+  const load = k => {
+    const v = vids[k];
+    if(v && !v.getAttribute('src')){ v.preload = 'auto'; v.src = v.dataset.src; }
+  };
+  /* Память телефона не резиновая: держим загруженными только текущий
+     ролик и следующий, остальные отпускаем (из кэша вернутся быстро). */
+  const unload = k => {
+    const v = vids[k];
+    if(!v || !v.getAttribute('src')) return;
+    try{ v.pause(); }catch(_){}
+    v.removeAttribute('src'); v.preload = 'none';
+    try{ v.load(); }catch(_){}
+    slides[k].classList.remove('is-playing');
+  };
+  const fail = k => {
+    broken.add(k);
+    unload(k);
+    if(k === shown){ spent = 0; done = false; }
+  };
+  const play = (k, fromStart) => {
+    const v = vids[k];
+    load(k);
+    if(fromStart){ try{ v.currentTime = 0; }catch(_){} }
+    fresh = false;
+    v.muted = true;
+    lastT = -1; lastTAt = Date.now();
+    let p;
+    try{ p = v.play(); }catch(e){ fail(k); return; }
+    if(p && p.catch) p.catch(e => {
+      const name = e && e.name;
+      /* AbortError — это наш же pause() поверх запуска, не сбой */
+      if(name === 'AbortError' || k !== shown) return;
+      if(name === 'NotAllowedError' && manual !== k){
+        blocked.add(k);
+        slides[k].classList.add('is-blocked');
+        spent = 0;
+        return;
+      }
+      fail(k);
+    });
+  };
+  activate = i => {
+    shown = i; spent = 0; done = false; fresh = true; moving = 0;
+    const next = (i + 1) % n;
+    vids.forEach((v, k) => {
+      if(!v || k === i) return;
+      if(!v.paused) v.pause();
+      slides[k].classList.remove('is-playing');
+      if(k !== next) unload(k);
+    });
+    if(manual !== i) manual = -1;
+    if(vids[i] && still) slides[i].classList.add('is-still');
+    if(isVid(i) && canAuto()) play(i, true);
+    /* сейчас фото, следом ролик — 4,5 с хватает, чтобы он начал грузиться
+       и стартовал без паузы на обложке */
+    else if(!vids[i] && next !== i && isVid(next) && canAuto()) load(next);
+  };
+
+  /* Пропорция видео-слайда без записанных vw/vh: сначала по обложке, потом —
+     точнее — по самому ролику. Иначе прямоугольник остался бы 4:5 по умолчанию. */
+  const setAr = (k, w, h) => {
+    const ph = slides[k].querySelector('.hs__vph[data-ar="auto"]');
+    if(ph && w > 0 && h > 0) ph.style.setProperty('--ar', `${w}/${h}`);
+  };
+  vids.forEach((v, k) => {
+    if(!v) return;
+    const ph = slides[k].querySelector('.hs__vph[data-ar="auto"]');
+    const im = ph && ph.querySelector('img');
+    if(im){
+      const fromImg = () => { if(ph.dataset.ar === 'auto') setAr(k, im.naturalWidth, im.naturalHeight); };
+      if(im.complete) fromImg(); else im.addEventListener('load', fromImg, {once:true});
+    }
+    v.addEventListener('loadedmetadata', () => {
+      setAr(k, v.videoWidth, v.videoHeight);
+      if(ph && v.videoWidth > 0) ph.dataset.ar = 'video';
+    });
+    v.addEventListener('playing', () => {
+      slides[k].classList.add('is-playing');
+      lastTAt = Date.now();
+    });
+    v.addEventListener('timeupdate', () => {
+      if(k !== shown || !v.duration) return;
+      /* за 4 с до конца подтягиваем следующий ролик, чтобы он стартовал сразу */
+      const j = (k + 1) % n;
+      if(j !== k && v.duration - v.currentTime < 4 && isVid(j)) load(j);
+    });
+    v.addEventListener('ended', () => {
+      if(k !== shown) return;
+      /* дальше — по общему правилу: если человек только что листал сам,
+         даём ему досмотреть, потом едем */
+      done = true;
+      spent = IMG_MS;
+      tick();
+    });
+    v.addEventListener('error', () => {
+      if(v.getAttribute('src')) fail(k);
+    });
+  });
+  box.querySelectorAll('[data-hsplay]').forEach(b => b.onclick = () => {
+    const k = slides.indexOf(b.closest('.hs__s'));
+    if(k < 0) return;
+    manual = k;
+    broken.delete(k); blocked.delete(k);
+    slides[k].classList.remove('is-blocked', 'is-still');
+    touched = Date.now();
+    started = true;
+    if(shown !== k){ shown = k; spent = 0; }
+    done = false;
+    /* нажатие — жест пользователя: тут браузер разрешит запуск всегда */
+    play(k, true);
+  });
+
+  let io = null, beat = 0;
+  const teardown = () => {
+    clearInterval(beat);
+    clearTimeout(settle);
+    if(io) io.disconnect();
+    document.removeEventListener('visibilitychange', tick);
+    vids.forEach((v, k) => { if(v) unload(k); });
+  };
+  function tick(){
+    if(!box.isConnected){ teardown(); return; }
+    const now = Date.now();
+    const dt = Math.min(1000, now - last);
+    last = now;
+    const ok = canAuto();
+    if(!started){
+      if(!ok) return;
+      started = true;
+      activate(idx);
+      return;
+    }
+    if(shown < 0) return;
+    const v = vids[shown];
+    /* Ролик доиграл, а событие 'ended' ещё в очереди: браузер уже выставил
+       paused=true, и ниже это выглядело бы как пауза — play() на доигравшем
+       видео перематывает его в начало, и уезжающий слайд дёргался бы на
+       первый кадр. Считаем его доигравшим прямо здесь. */
+    if(v && isVid(shown) && !done && v.ended){ done = true; spent = IMG_MS; }
+    if(v && isVid(shown) && !done){
+      if(!ok){ if(!v.paused) v.pause(); return; }
+      if(v.paused){ play(shown, fresh); return; }
+      /* завис: время не идёт дольше 10 с — показываем обложку и листаем */
+      if(v.currentTime !== lastT){ lastT = v.currentTime; lastTAt = now; }
+      else if(now - lastTAt > STALL_MS) fail(shown);
+      return;
+    }
+    if(!ok || n < 2) return;
+    /* лента ещё едет к следующему слайду — второй go() отправил бы её дальше,
+       через слайд (или обратно, когда их два) */
+    if(now - moving < 1500) return;
+    spent += dt;
+    if(spent >= IMG_MS && now - touched >= TOUCH_MS){ moving = now; go(idx + 1); }
   }
+  if(!seen){
+    io = new IntersectionObserver(es => {
+      const e = es[es.length - 1];
+      seen = !!(e && e.isIntersecting && e.intersectionRatio >= .35);
+      tick();
+    }, {threshold:[0, .35, .6]});
+    io.observe(box);
+  }
+  document.addEventListener('visibilitychange', tick);
+  beat = setInterval(tick, 500);
   paint();
+  tick();
 }
 const bindSliders = () => document.querySelectorAll('.hs').forEach(bindSlider);
 
@@ -10727,7 +11137,22 @@ function render(keepScroll){
     scr.classList.remove('quiet');
     scr.classList.remove('anim'); void scr.offsetWidth; scr.classList.add('anim');
   }
+  /* Главное фото/видео переживает перерисовку, если в нём ничего не
+     поменялось: ♥ на карточке «Новинок» или живое обновление каталога
+     иначе пересобирали героя, и ролик начинался заново, а лента прыгала
+     на первый слайд. Узел возвращается в том же такте — браузер не успевает
+     поставить видео на паузу. */
+  const keepHero = keepScroll ? document.getElementById('homeSlider') : null;
+  const keepHeroTrack = keepHero && keepHero.querySelector('.hs__track');
+  const keepHeroLeft = keepHeroTrack ? keepHeroTrack.scrollLeft : 0;
   scr.innerHTML = nextBody;
+  if(keepHero){
+    const fresh = document.getElementById('homeSlider');
+    if(fresh && fresh.dataset.hk && fresh.dataset.hk === keepHero.dataset.hk){
+      fresh.replaceWith(keepHero);
+      if(keepHeroTrack && keepHeroTrack.scrollLeft !== keepHeroLeft) keepHeroTrack.scrollLeft = keepHeroLeft;
+    }
+  }
   scr.dataset.screen = S.screen;
   _paintKey = paintKey;
   if(!keepScroll){
@@ -14049,7 +14474,7 @@ function loadCms(){
       usp: uspMerge(base.usp, d.usp),
       customers: d.customers || {},
       promos: Array.isArray(d.promos) ? d.promos : base.promos,
-      slides: Array.isArray(d.slides) ? d.slides.filter(s => s && s.img).slice(0,10) : base.slides
+      slides: Array.isArray(d.slides) ? d.slides.filter(s => s && (s.img || s.video)).slice(0, MAX_SLIDES) : base.slides
     });
     /* Первый заход после переименования: стоковые тексты/промо SAS → Canvas */
     if(!d.brand){
@@ -14085,7 +14510,12 @@ function cmsLegal(key){
   return v || (LINKS.legal && LINKS.legal[key]) || '';
 }
 
+/* Форма видео, пока идёт загрузка или сохранение, сама решает, можно ли её
+   закрыть (см. videoSlideForm). Escape, системное «Назад» и крестик админки
+   иначе молча сносили бы форму вместе с загрузкой на 60 % — без вопроса. */
+let videoFormGuard = null;
 const closeAdmin = () => {
+  if(videoFormGuard && videoFormGuard()) return;
   adm.innerHTML = '';
   document.body.style.overflow = '';
   document.body.classList.remove('adm-on');
@@ -14562,6 +14992,19 @@ const PHOTO_SPECS = {
       'JPG, PNG или WebP. При загрузке сжимается до 1400 px по ширине, вес до 1,2 МБ.'
     ]
   },
+  video: {
+    title: 'Какое видео загружать',
+    size: '1080 × 1350 или 1080 × 1920',
+    ratio: 'вертикальное, 4:5 или 9:16',
+    lines: [
+      'Видео <b>не сжимается</b>: на сайт уходит ваш файл байт в байт — качество как в оригинале.',
+      '<b>MP4 (H.264)</b> играет везде. Так сохраняют CapCut, InShot, Premiere — «Экспорт → MP4».',
+      'Видео с iPhone в формате HEVC (.mov) Chrome и Android могут не показать. На айфоне: Настройки → Камера → Форматы → «Наиболее совместимый».',
+      'Звук не нужен: на главной видео всегда идёт без звука, иначе телефон не запустит его сам.',
+      'Лучше 10–30 секунд. Доиграло — слайдер листает дальше, по кругу.',
+      'MP4, MOV или WebM, до 300 МБ. Чем легче файл, тем быстрее он начнёт играть у покупателя.'
+    ]
+  },
   about: {
     title: 'Какое фото загружать',
     size: '1200 × 1600 px',
@@ -14603,13 +15046,20 @@ function photoSpecHTML(kind){
 function viewSlider(){
   const list = (CMS.slides || []).slice(0, MAX_SLIDES);
   const full = list.length >= MAX_SLIDES;
-  const rows = list.length ? list.map((s,i) => `
+  const rows = list.length ? list.map((s,i) => {
+    const vid = isVideoSlide(s);
+    /* в списке — обложка, не <video>: список перерисовывается часто,
+       и живой ролик в нём качался бы заново при каждой перерисовке */
+    const th = s.img ? `<img class="ad__th ad__th--wide" src="${esc(s.img)}" alt="">`
+      : `<span class="ad__th ad__th--wide"></span>`;
+    return `
     <div class="ad__row">
-      <img class="ad__th ad__th--wide" src="${esc(s.img)}" alt="">
+      ${vid ? `<span class="ad__vth">${th}<span class="ad__vth-b">${svg('play','ic')}</span></span>` : th}
       <div class="ad__i">
-        <span class="ad__n">Фото ${i+1}${i === 0 ? ' · показывается первым' : ''}</span>
+        <span class="ad__n">${vid ? 'Видео' : 'Фото'} ${i+1}${i === 0 ? ' · показывается первым' : ''}</span>
         <span class="ad__m">${s.cap ? esc(s.cap) : 'без заголовка'}</span>
-        <span class="ad__m">${String(s.img).startsWith('data:') ? 'с устройства' : 'по ссылке'}</span>
+        <span class="ad__m">${vid ? esc(videoMeta(s))
+          : (String(s.img).startsWith('data:') ? 'с устройства' : 'по ссылке')}</span>
       </div>
       <div class="ad__acts">
         <button class="ad__ib" data-smv="${s.id}:-1" aria-label="Выше"${i === 0 ? ' disabled' : ''}>${svg('chevU','ic')}</button>
@@ -14617,27 +15067,34 @@ function viewSlider(){
         <button class="ad__ib" data-sed="${s.id}" aria-label="Изменить">${svg('pencil','ic')}</button>
         <button class="ad__ib ad__ib--d" data-srm="${s.id}" aria-label="Удалить">${svg('trash','ic')}</button>
       </div>
-    </div>`).join('')
-    : `<div class="ad__empty"><b>Фото пока нет</b>Добавьте до ${MAX_SLIDES} снимков — они откроют главную страницу.</div>`;
+    </div>`;
+  }).join('')
+    : `<div class="ad__empty"><b>Фото пока нет</b>Добавьте до ${MAX_SLIDES} снимков или видео — они откроют главную страницу.</div>`;
 
   return `
   <div class="ad__panel">
     <div class="ad__hrow"><div>
       <h1 class="ad__h">Главная</h1>
-      <p class="ad__sub">Фото и текст на первом экране · ${list.length} из ${MAX_SLIDES}</p>
+      <p class="ad__sub">Фото, видео и текст на первом экране · ${list.length} из ${MAX_SLIDES}</p>
     </div></div>
 
     <div class="ad__step">
       <div class="ad__step-h"><span class="ad__step-n">1</span>
-        <div><b>Фото первого экрана</b>
-          <span>Показываются по очереди, первое — сверху. Фото видно целиком, ничего не обрезается.</span></div>
+        <div><b>Фото и видео первого экрана</b>
+          <span>Показываются по очереди, первое — сверху. Фото стоит 4,5 секунды, видео — пока не доиграет. Ничего не обрезается.</span></div>
       </div>
       ${photoSpecHTML('hero')}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <button class="ad__b ad__b--pri" id="aSlideNew"${full ? ' disabled' : ''}>+ Загрузить фото</button>
+        <button class="ad__b ad__b--pri" id="aSlideVid"${full ? ' disabled' : ''}>+ Загрузить видео</button>
         <button class="ad__b" id="aSlideLink"${full ? ' disabled' : ''}>Добавить ссылкой</button>
         <input type="file" id="aSlideFiles" accept="image/*" multiple hidden>
+        <input type="file" id="aSlideVidFile" accept="${VIDEO_ACCEPT}" hidden>
       </div>
+      <!-- требования к видео — до выбора файла: иначе владелец узнаёт про
+           HEVC и 300 МБ, когда загрузка уже идёт -->
+      <p class="ad__hint" style="margin:-4px 0 12px">Видео: <b>MP4 (H.264)</b>, до 300 МБ — уходит без сжатия.
+        HEVC (.mov с iPhone) в Chrome и на Android не играет — экспортируйте в MP4 H.264.</p>
       <div class="ad__list">${rows}</div>
     </div>
 
@@ -14706,6 +15163,7 @@ function addSlideFiles(files){
 }
 
 function slideForm(s){
+  if(isVideoSlide(s)) return videoSlideForm(s);
   const d = s || {img:'', cap:'', kick:'', sub:''};
   const w = document.createElement('div');
   w.className = 'ad__form';
@@ -14779,6 +15237,478 @@ function slideForm(s){
     toast(ok ? (s ? 'Фото обновлено' : 'Фото добавлено')
              : 'Сохранено на сессию — в браузере кончилось место');
   };
+}
+
+/* ==========================================================
+   АДМИН: ВИДЕО НА ГЛАВНОЙ
+   Файл уходит на сервер как есть — без пережатия и без canvas, поэтому
+   качество то же, что у оригинала. Canvas трогает только обложку: один
+   кадр из ролика, чтобы слайд не был чёрным, пока видео грузится.
+   ========================================================== */
+const VIDEO_ACCEPT = 'video/mp4,video/webm,video/quicktime,.mp4,.m4v,.mov,.webm';
+const VIDEO_MAX_BYTES = 300 * 1024 * 1024;
+
+function fmtMB(n){
+  const v = (+n || 0) / 1048576;
+  return (v >= 10 ? Math.round(v) : Math.round(v * 10) / 10).toString().replace('.', ',') + ' МБ';
+}
+function fmtDur(sec){
+  const t = Math.max(0, Math.round(+sec || 0));
+  return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+}
+function videoMeta(s){
+  const bits = ['видео'];
+  if(+s.dur > 0) bits.push(fmtDur(s.dur));
+  if(+s.vw > 0 && +s.vh > 0) bits.push(`${s.vw}×${s.vh}`);
+  if(+s.size > 0) bits.push(fmtMB(s.size));
+  return bits.join(' · ');
+}
+
+/**
+ * Что внутри файла — по байтам, а не по расширению. Читаем только начало
+ * и заголовок moov (Blob.slice), сам ролик в память не тянем.
+ * → {ok, kind:'mp4'|'webm', codec:'h264'|'hevc'|'av1'|'vp9'|'', fast:bool, err}
+ */
+async function sniffVideoFile(file){
+  const buf = async (from, len) => new Uint8Array(await file.slice(from, from + len).arrayBuffer());
+  /* latin1, а не fromCharCode(...): заголовок moov бывает в мегабайты */
+  const dec = new TextDecoder('latin1');
+  const str = (u, a, b) => dec.decode(u.subarray(a, b));
+  const head = await buf(0, 64);
+  if(head.length < 12) return {ok:false, err:'Файл пустой или битый'};
+  const dv = new DataView(head.buffer, head.byteOffset, head.byteLength);
+  if(dv.getUint32(0) === 0x1A45DFA3){
+    if(!str(head, 0, head.length).includes('webm')) return {ok:false, err:'Это MKV — сохраните ролик в MP4 (H.264)'};
+    return {ok:true, kind:'webm', codec:'', fast:true};
+  }
+  const box0 = str(head, 4, 8);
+  if(box0 !== 'ftyp' && box0 !== 'moov' && box0 !== 'mdat' && box0 !== 'wide'){
+    return {ok:false, err:'Это не видео MP4, MOV или WebM'};
+  }
+  const brand = box0 === 'ftyp' ? str(head, 8, 12) : '';
+  if(/^(heic|heix|hevc|heim|heis|hevm|hevs|mif1|msf1|avif|avis)$/.test(brand)) return {ok:false, err:'Это фото HEIC/AVIF, а не видео'};
+  if(/^M4[ABP] $/.test(brand)) return {ok:false, err:'Это аудиофайл, а не видео'};
+  /* Обходим коробки верхнего уровня до moov: там записан кодек.
+     Если moov стоит до mdat — ролик «быстрый», начнёт играть сразу. */
+  let off = 0, sawMdat = false, fast = false, codec = '';
+  for(let guard = 0; guard < 64 && off + 8 <= file.size; guard++){
+    const h = await buf(off, 16);
+    const hv = new DataView(h.buffer, h.byteOffset, h.byteLength);
+    let size = hv.getUint32(0);
+    const type = str(h, 4, 8);
+    if(size === 1 && h.length >= 16) size = hv.getUint32(8) * 4294967296 + hv.getUint32(12);
+    else if(size === 0) size = file.size - off;
+    if(size < 8) break;
+    if(type === 'mdat') sawMdat = true;
+    if(type === 'moov'){
+      fast = !sawMdat;
+      const m = await buf(off, Math.min(size, 16 * 1048576));
+      const txt = str(m, 0, m.length);
+      codec = /avc1|avc3/.test(txt) ? 'h264' : /hvc1|hev1/.test(txt) ? 'hevc'
+        : /av01/.test(txt) ? 'av1' : /vp09/.test(txt) ? 'vp9' : '';
+      break;
+    }
+    off += size;
+  }
+  return {ok:true, kind:'mp4', codec, fast};
+}
+
+/**
+ * Обложка: кадр из начала ролика → WebP data URL, как у фото (до 1400 px).
+ * → {img, vw, vh, dur} или null, если браузер этот ролик показать не может.
+ */
+function videoPoster(file){
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true; v.preload = 'auto';
+    v.setAttribute('playsinline', '');
+    let over = false;
+    const end = out => {
+      if(over) return;
+      over = true;
+      clearTimeout(t);
+      v.removeAttribute('src');
+      try{ v.load(); }catch(_){}
+      URL.revokeObjectURL(url);
+      resolve(out);
+    };
+    const t = setTimeout(() => end(null), 15000);
+    v.onerror = () => end(null);
+    v.onloadeddata = () => {
+      const dur = isFinite(v.duration) ? v.duration : 0;
+      /* не самый первый кадр: у многих роликов он чёрный (затемнение) */
+      const at = Math.min(0.1, dur / 2 || 0);
+      if(at > 0 && Math.abs(v.currentTime - at) > 0.01) v.currentTime = at;
+      else grab();
+    };
+    v.onseeked = () => grab();
+    const grab = async () => {
+      if(over) return;
+      try{
+        const vw = v.videoWidth, vh = v.videoHeight;
+        if(!vw || !vh) return end(null);
+        const k = Math.min(1, 1400 / vw);
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(vw * k));
+        c.height = Math.max(1, Math.round(vh * k));
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        let img = '';
+        for(const q of [.86, .75]){
+          const b = await canvasToBlob(c, 'image/webp', q);
+          img = b ? await blobToDataURL(b) : c.toDataURL('image/jpeg', q);
+          if(img.length <= 1.6e6) break;
+        }
+        end({img: img.length <= 1.6e6 ? img : '', vw, vh, dur: Math.round((isFinite(v.duration) ? v.duration : 0) * 10) / 10});
+      }catch(e){ end(null); }
+    };
+    v.src = url;
+  });
+}
+
+/**
+ * Новое видео (s = null, file — выбранный файл) или правка существующего.
+ * Загрузка начинается сразу после выбора файла — подпись можно набирать,
+ * пока ролик едет на сервер.
+ */
+function videoSlideForm(s, file){
+  const d = s || {video:'', img:'', cap:'', kick:'', sub:''};
+  const w = document.createElement('div');
+  w.className = 'ad__form';
+  w.innerHTML = `<div class="ad__card">
+    <h2 class="ad__ct">${s ? 'Видео на главной' : 'Новое видео'}</h2>
+    <div class="ad__slidepv ad__vidpv">
+      <video id="vsPrev" class="hide" controls muted playsinline preload="metadata"></video>
+      <span id="vsNone">Выберите видео — оно появится здесь</span>
+    </div>
+    <div class="ad__vup hide" id="vsUp">
+      <div class="ad__vup-bar"><i id="vsBar"></i></div>
+      <span id="vsUpT">Готовим загрузку…</span>
+    </div>
+    <p class="ad__hint ad__vwarn hide" id="vsWarn"></p>
+    ${photoSpecHTML('video')}
+    <label class="ad__l">${s ? 'Заменить видео' : 'Файл видео'}</label>
+    <input type="file" id="vsFile" accept="${VIDEO_ACCEPT}" class="ad__f">
+    <p class="ad__hint">${s ? 'Новый файл заменит ролик; надписи останутся.' : 'Загрузка начнётся сразу — подписи можно заполнять, пока она идёт.'}</p>
+    <label class="ad__l">Обложка — видна, пока видео грузится</label>
+    <div class="ad__vcover">
+      <img id="vsCover" class="${d.img ? '' : 'hide'}" src="${esc(d.img || '')}" alt="">
+      <span id="vsCoverT">${d.img ? 'кадр из видео' : 'появится после выбора видео'}</span>
+      <button class="ad__b" id="vsCoverBtn" type="button">Заменить фото</button>
+      <input type="file" id="vsCoverFile" accept="image/*" hidden>
+    </div>
+    <label class="ad__l">Надпись сверху (не обязательно)</label>
+    <input class="ad__f" id="vsKick" value="${esc(d.kick || '')}" placeholder="NEW COLLECTION">
+    <label class="ad__l">Заголовок поверх видео</label>
+    <input class="ad__f" id="vsCap" value="${esc(d.cap || '')}" placeholder="Новая летняя коллекция">
+    <label class="ad__l">Подзаголовок (не обязательно)</label>
+    <input class="ad__f" id="vsSub" value="${esc(d.sub || '')}" placeholder="Стиль, который говорит за тебя">
+    <p class="ad__hint">Кнопка «${esc(heroBtnText())}» появляется под текстом сама — её надпись меняется на вкладке «Главная».</p>
+    <div class="ad__foot">
+      <button class="ad__b" id="vsX">Отмена</button>
+      <button class="ad__b ad__b--pri" id="vsSave"${s ? '' : ' disabled'}>${s ? 'Сохранить' : 'Добавить'}</button>
+    </div></div>`;
+  adm.appendChild(w);
+
+  const $ = q => w.querySelector(q);
+  const prev = $('#vsPrev'), none = $('#vsNone'), saveBtn = $('#vsSave'), xBtn = $('#vsX');
+  const up = $('#vsUp'), bar = $('#vsBar'), upT = $('#vsUpT'), warn = $('#vsWarn');
+  const cover = $('#vsCover'), coverT = $('#vsCoverT');
+  /* Что уйдёт в слайд. Меняется только тем, что уже точно случилось:
+     ролик целиком на сервере, кадр снят с него же, своё фото выбрано.
+     Пока новый файл едет, форма лишь показывает его — сорвалась загрузка,
+     и всё возвращается к out, без смеси старой ссылки и нового кадра. */
+  const out = {video: d.video || '', img: d.img || '', vw: d.vw || 0, vh: d.vh || 0, dur: d.dur || 0, size: d.size || 0};
+  let coverOwn = false;      // обложку выбрали руками — кадр из нового видео её не заменит
+  let ownRaw = '';           // своё фото до подрезки: под ролик другой пропорции подрежем заново
+  let ctl = null;            // AbortController текущей загрузки
+  let prevUrl = '';
+  let curFile = null;        // файл в работе: поздний кадр от прошлого файла сюда не ляжет
+  let pend = null;           // кадр нового файла, пока сам файл ещё грузится
+  let posterWait = false, cropping = false;
+  /* Два разных «занято». Загрузку можно остановить — недогруженный хвост
+     сотрётся. Сохранение остановить нельзя: ролик уже на сервере, и
+     говорить «то, что ушло, сотрётся» было бы неправдой. */
+  let uploading = false, saving = false;
+  let retryNote = '';
+
+  const setPrev = src => {
+    if(prevUrl && prevUrl !== src) URL.revokeObjectURL(prevUrl);
+    prevUrl = src && src.startsWith('blob:') ? src : '';
+    if(src) prev.src = src; else prev.removeAttribute('src');
+    prev.classList.toggle('hide', !src);
+    none.classList.toggle('hide', !!src);
+  };
+  /* показать обложку, не записывая её в out (кадр файла, который ещё едет) */
+  const showCover = (img, label) => {
+    if(img) cover.src = img; else cover.removeAttribute('src');
+    cover.classList.toggle('hide', !img);
+    coverT.textContent = label;
+  };
+  const setCover = (img, label) => { out.img = img || ''; showCover(out.img, label); };
+  const coverLabel = () => out.img
+    ? (coverOwn ? (out.vw > 0 ? 'своё фото — подрезано под кадр видео' : 'своё фото') : 'кадр из видео')
+    : (out.video ? 'обложки нет — выберите фото' : 'появится после выбора видео');
+  const setWarn = t => { warn.innerHTML = t || ''; warn.classList.toggle('hide', !t); };
+  const canSave = () => {
+    saveBtn.disabled = uploading || saving || posterWait || cropping || !out.video;
+    xBtn.disabled = saving;
+  };
+  /* Строка под полосой. Ошибка остаётся в форме, пока владелец не выберет
+     файл заново: тост живёт 2 секунды, а «На сервере свободно 35 МБ…»
+     за 2 секунды не прочесть. */
+  const upLine = (t, cls) => {
+    up.classList.remove('hide', 'is-err', 'is-retry');
+    if(cls) up.classList.add(cls);
+    upT.textContent = t;
+  };
+  const paintUp = (sent, total) => {
+    const pc = total ? Math.floor(sent / total * 100) : 0;
+    bar.style.width = pc + '%';
+    upLine(retryNote
+      ? `Связь прервалась — продолжаем с ${pc}% ${retryNote}`
+      : `Загружаем без сжатия: ${pc}% · ${fmtMB(sent)} из ${fmtMB(total)}`, retryNote ? 'is-retry' : '');
+  };
+  const showErr = msg => {
+    bar.style.width = '0%';
+    upLine(String(msg || 'Видео не загрузилось.').replace(/\s*$/, '') + ' Выберите файл ещё раз.', 'is-err');
+  };
+  if(out.video) setPrev(out.video);
+
+  const onUnload = e => {
+    if(!uploading && !saving) return;
+    e.preventDefault();
+    e.returnValue = '';
+  };
+  window.addEventListener('beforeunload', onUnload);
+  const dispose = () => {
+    window.removeEventListener('beforeunload', onUnload);
+    if(videoFormGuard === guard) videoFormGuard = null;
+    setPrev('');
+    w.remove();
+  };
+  const close = () => {
+    if(ctl) ctl.abort();
+    dispose();
+  };
+  const tryClose = () => {
+    if(saving){ toast('Сохраняем видео — секунду'); return; }
+    if(!uploading) return close();
+    if(document.querySelector('.askw')) return;
+    askConfirm({
+      title:'Остановить загрузку видео?',
+      text:'То, что уже ушло на сервер, сотрётся — начать придётся заново.',
+      ok:'Остановить', cancel:'Пусть грузится',
+      onOk: close
+    });
+  };
+  /* Escape, «Назад» и крестик админки идут через closeAdmin — спрашиваем
+     там же. true — «админку не закрывай, форма разберётся сама». */
+  const guard = () => {
+    if(!document.body.contains(w)){ videoFormGuard = null; return false; }
+    if(!uploading && !saving){ dispose(); return false; }
+    tryClose();
+    return true;
+  };
+  videoFormGuard = guard;
+
+  /* Своё фото обложки подрезаем по центру под пропорцию ролика: иначе
+     вокруг играющего видео остались бы поля, а слайд прыгал бы по высоте
+     в момент, когда обложку сменяет видео. */
+  let cropTok = 0;
+  const applyOwn = async dims => {
+    if(!ownRaw) return;
+    const t = ++cropTok;
+    const dm = dims || out;
+    cropping = true; canSave();
+    let img = ownRaw;
+    if(dm.vw > 0 && dm.vh > 0) img = (await cropToRatio(ownRaw, dm.vw, dm.vh)) || ownRaw;
+    if(t !== cropTok || !document.body.contains(w)) return;
+    cropping = false;
+    setCover(img, dm.vw > 0 ? 'своё фото — подрезано под кадр видео' : 'своё фото');
+    canSave();
+  };
+  /* кадр нового файла становится частью слайда только вместе с самим файлом */
+  const commitPoster = () => {
+    const p = pend;
+    pend = null;
+    if(!p) return;
+    out.vw = p.vw || 0; out.vh = p.vh || 0; out.dur = p.dur || 0;
+    if(coverOwn) applyOwn();
+    else setCover(p.img, p.img ? 'кадр из видео'
+      : (p.none ? 'браузер не смог показать кадр — выберите фото обложки' : 'кадр слишком тяжёлый — выберите фото'));
+  };
+
+  const take = async f => {
+    if(!f || saving) return;
+    if(f.size > VIDEO_MAX_BYTES){
+      showErr(`Видео ${fmtMB(f.size)} — больше 300 МБ. Сократите ролик или сохраните его в 1080p.`);
+      return;
+    }
+    let info;
+    try{ info = await sniffVideoFile(f); }catch(e){ info = {ok:false, err:'Не удалось прочитать файл'}; }
+    if(!info.ok){ showErr(info.err + '.'); return; }
+    if(ctl) ctl.abort();
+    setWarn(info.codec === 'hevc'
+      ? '<b>Это HEVC (H.265).</b> На iPhone и Mac видео пойдёт, а в Chrome на Android и Windows вместо него будет обложка. Лучше пересохранить в MP4 H.264.'
+      : (info.kind === 'mp4' && !info.fast
+        ? 'Ролик сохранён без «быстрого старта» — у покупателя он может начать играть на пару секунд позже. Качество от этого не меняется.'
+        : ''));
+    if(info.codec === 'hevc') toast('HEVC: в Chrome и на Android видео может не показаться');
+    setPrev(URL.createObjectURL(f));
+
+    curFile = f;
+    pend = null;
+    uploading = true; posterWait = true; canSave();
+    retryNote = '';
+    bar.style.width = '0%';
+    upLine('Готовим загрузку…');
+
+    /* обложку снимаем параллельно с загрузкой */
+    if(!coverOwn) showCover(out.img, 'снимаем кадр…');
+    videoPoster(f).then(p => {
+      if(!document.body.contains(w) || f !== curFile) return;
+      pend = p || {img:'', vw:0, vh:0, dur:0, none:true};
+      posterWait = false;
+      if(uploading){
+        if(!coverOwn) showCover(pend.img, pend.img ? 'кадр из видео' : 'кадр не снялся — можно выбрать фото');
+        else if(pend.vw > 0) applyOwn(pend);
+      }else{
+        commitPoster();
+      }
+      canSave();
+    });
+
+    const my = new AbortController();
+    ctl = my;
+    try{
+      const r = await LC.uploadVideo(f, {
+        signal: my.signal,
+        onProgress(sent, total){
+          /* форму убрали мимо tryClose — останавливаемся */
+          if(!document.body.contains(w)){ my.abort(); return; }
+          paintUp(sent, total);
+        },
+        onState(st){
+          if(!document.body.contains(w)) return;
+          retryNote = st.state === 'retry' ? `(попытка ${st.attempt} из ${st.max})…` : '';
+          paintUp(st.sent, st.total);
+        }
+      });
+      if(ctl !== my) return;
+      out.video = r.url;
+      out.size = r.size || f.size;
+      retryNote = '';
+      bar.style.width = '100%';
+      upLine(`Загружено: ${fmtMB(out.size)} — оригинал, без сжатия`);
+      if(pend) commitPoster();
+    }catch(e){
+      if(ctl !== my || (e && e.aborted)) return;
+      /* всё назад, к тому, что было до этого файла */
+      curFile = null; pend = null; posterWait = false;
+      setPrev(out.video);
+      if(coverOwn) applyOwn();
+      else showCover(out.img, coverLabel());
+      showErr(e && e.message ? e.message : 'Видео не загрузилось.');
+      const fi = $('#vsFile');
+      if(fi) fi.value = '';
+    }finally{
+      if(ctl === my){ ctl = null; uploading = false; canSave(); }
+    }
+  };
+
+  $('#vsFile').onchange = e => take(e.target.files && e.target.files[0]);
+  $('#vsCoverBtn').onclick = () => { const i = $('#vsCoverFile'); i.value = ''; i.click(); };
+  $('#vsCoverFile').onchange = e => {
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    shrinkImage(f, 1400, img => {
+      if(!img) return toast('Не удалось прочитать фото');
+      if(img.length > 1.6e6) return toast('Фото слишком тяжёлое — возьмите поменьше');
+      coverOwn = true;
+      ownRaw = img;
+      /* файл ещё едет, а его кадр уже известен — режем под новый ролик */
+      applyOwn(uploading && pend && pend.vw > 0 ? pend : out);
+    });
+  };
+  xBtn.onclick = tryClose;
+  w.onclick = e => { if(e.target === w) tryClose(); };
+
+  saveBtn.onclick = async () => {
+    if(uploading || saving || posterWait || cropping || !out.video) return;
+    const vals = {
+      video: out.video, img: out.img, vw: out.vw, vh: out.vh, dur: out.dur, size: out.size,
+      cap: $('#vsCap').value.trim(), kick: $('#vsKick').value.trim(), sub: $('#vsSub').value.trim()
+    };
+    const list = Array.isArray(CMS.slides) ? CMS.slides : [];
+    /* Ищем слайд заново по id: пока форма была открыта, живое обновление
+       могло заменить весь массив слайдов, и старый объект s уже не в CMS. */
+    const cur = s ? list.find(x => x.id === s.id) : null;
+    if(s && !cur){ toast('Этот слайд уже удалили в другой вкладке'); return; }
+    if(!s && list.length >= MAX_SLIDES){ toast(`Больше ${MAX_SLIDES} слайдов нельзя`); return; }
+    /* CMS не трогаем, пока сервер не ответил. Не сохранилось — в памяти и
+       в localStorage не должно остаться слайда, которого на сервере нет
+       (его тихо унесло бы следующее сохранение админки), а повторное
+       «Добавить» не должно дать второй такой же. */
+    const next = cur
+      ? list.map(x => x === cur ? Object.assign({}, x, vals) : x)
+      : list.concat([Object.assign({id: Date.now()}, vals)]);
+    /* Здесь ждём ответа сервера, а не отправляем «в фоне», как остальные
+       правки: видео без сохранённой CMS — это ролик, который никто не увидит,
+       а владелец думал бы, что всё готово. */
+    saving = true; canSave();
+    let slides = next;
+    try{
+      if(window.LC && S.user && S.user.admin){
+        const saved = await LC.saveCms(Object.assign({}, CMS, {slides: next}));
+        if(saved && Array.isArray(saved.slides)) slides = saved.slides;
+      }
+    }catch(e){
+      saving = false; canSave();
+      upLine(`Не сохранилось: ${e && e.message ? e.message : 'нет связи с сервером'}. Нажмите «${saveBtn.textContent}» ещё раз.`, 'is-err');
+      return;
+    }
+    CMS.slides = slides;
+    try{ localStorage.setItem(CMS_KEY, JSON.stringify(CMS)); }catch(e){}
+    saving = false;
+    dispose();
+    paintAdmin(); render(true);
+    toast(s ? 'Видео обновлено' : 'Видео добавлено');
+  };
+
+  if(file) take(file);
+}
+
+/* Своё фото обложки → та же картинка, подрезанная по центру под rw:rh.
+   '' — не вышло (битое фото), тогда берём фото как есть. */
+function cropToRatio(src, rw, rh){
+  return new Promise(resolve => {
+    const im = new Image();
+    im.onerror = () => resolve('');
+    im.onload = async () => {
+      try{
+        const iw = im.naturalWidth, ih = im.naturalHeight;
+        if(!iw || !ih || !(rw > 0) || !(rh > 0)) return resolve('');
+        const want = rw / rh;
+        /* пропорция и так та же (±1 %) — не пережимаем фото лишний раз */
+        if(Math.abs(iw / ih - want) / want < 0.01) return resolve(src);
+        let sw = iw, sh = ih;
+        if(iw / ih > want) sw = Math.round(ih * want); else sh = Math.round(iw / want);
+        const k = Math.min(1, 1400 / sw);
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(sw * k));
+        c.height = Math.max(1, Math.round(sh * k));
+        c.getContext('2d').drawImage(im, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, c.width, c.height);
+        for(const q of [.86, .75]){
+          const b = await canvasToBlob(c, 'image/webp', q);
+          const img = b ? await blobToDataURL(b) : c.toDataURL('image/jpeg', q);
+          if(img.length <= 1.6e6) return resolve(img);
+        }
+        resolve('');
+      }catch(e){ resolve(''); }
+    };
+    im.src = src;
+  });
 }
 
 function viewTryon(){
@@ -15666,6 +16596,10 @@ function bindAdminView(){
   if(sfl) sfl.onchange = () => addSlideFiles([...sfl.files]);
   const sln = document.getElementById('aSlideLink');
   if(sln) sln.onclick = () => slideForm(null);
+  const svn = document.getElementById('aSlideVid');
+  const svf = document.getElementById('aSlideVidFile');
+  if(svn && svf) svn.onclick = () => { svf.value = ''; svf.click(); };
+  if(svf) svf.onchange = () => { const f = svf.files && svf.files[0]; if(f) videoSlideForm(null, f); };
   const homeSave = document.getElementById('aHomeSave');
   if(homeSave) homeSave.onclick = () => {
     if(!CMS.texts) CMS.texts = {};
@@ -15984,12 +16918,13 @@ adm.addEventListener('click', e => {
   }
   if(srm){
     const id = +srm.dataset.srm;
+    const vid = isVideoSlide((CMS.slides||[]).find(x => x.id === id));
     askConfirm({
-      title:'Удалить фото с главной?',
+      title: vid ? 'Удалить видео с главной?' : 'Удалить фото с главной?',
       text:'Слайдер пересоберётся без него.',
       onOk(){
         CMS.slides = (CMS.slides||[]).filter(x => x.id !== id);
-        saveCms(); paintAdmin(); render(true); toast('Фото удалено');
+        saveCms(); paintAdmin(); render(true); toast(vid ? 'Видео удалено' : 'Фото удалено');
       }
     });
     return;

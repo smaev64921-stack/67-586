@@ -17,6 +17,8 @@ const crypto = require('crypto');
 const { db } = require('./db');
 
 const RE_DATA = /^data:(image\/[a-z0-9.+-]+);base64,([\s\S]+)$/i;
+/* /media/v/ (видео главной) сюда нарочно не входит: ролики лежат файлами, а не
+   base64 в БД, и при сохранении CMS их ссылки должны пройти как есть. */
 const RE_MEDIA = /^\/media\/(?:p\/(\d+)|cms|rv\/([A-Za-z0-9_-]+)|o\/([A-Za-z0-9_-]+))\/([0-9a-f]{16})\.[a-z0-9]+$/;
 
 const EXT = {

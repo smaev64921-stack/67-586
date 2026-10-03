@@ -744,8 +744,19 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
     const c = delivery || {};
     const city = String(c.city || '').trim();
     const street = String(c.street || '').trim();
-    const flat = String(c.flat || '').trim();
-    const comment = String(c.comment || '').trim().slice(0, 300);
+    const flat = String(c.flat || '').trim().slice(0, 40);
+    /* Подъезд, этаж и домофон приходят отдельными полями — курьеру же они
+       нужны одной строкой рядом с адресом, поэтому склеиваем их сюда. */
+    const entrance = String(c.entrance || '').trim().slice(0, 10);
+    const floor = String(c.floor || '').trim().slice(0, 10);
+    const intercom = String(c.intercom || '').trim().slice(0, 20);
+    const note = String(c.comment || '').trim();
+    const comment = [
+      entrance && ('подъезд ' + entrance),
+      floor && ('этаж ' + floor),
+      intercom && ('домофон ' + intercom),
+      note
+    ].filter(Boolean).join(', ').slice(0, 300);
     if (city.length < 2) throw Object.assign(new Error('Укажите город доставки'), { status: 400 });
     if (street.length < 5) throw Object.assign(new Error('Укажите улицу и дом'), { status: 400 });
     /* Точка с карты — подсказка курьеру, а не адрес: едут по строке. */
@@ -753,7 +764,7 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
     const lng = +c.lng;
     const geoOk = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
     courierAddr = {
-      city, street, flat, comment,
+      city, street, flat, entrance, floor, intercom, comment,
       lat: geoOk ? lat : 0,
       lng: geoOk ? lng : 0,
       text: [city, street, flat && ('кв./офис ' + flat)].filter(Boolean).join(', ')
@@ -772,6 +783,9 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
     addr: courierAddr.text,
     street: courierAddr.street,
     flat: courierAddr.flat,
+    entrance: courierAddr.entrance,
+    floor: courierAddr.floor,
+    intercom: courierAddr.intercom,
     addressComment: courierAddr.comment,
     hours: '',
     lat: courierAddr.lat,

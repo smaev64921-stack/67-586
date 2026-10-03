@@ -50,6 +50,8 @@ const cdek = require('./cdek');
 const cdekOpen = require('./cdek-open');
 const reviews = require('./reviews');
 const media = require('./media');
+/* Видео на главной — файлами на диске, а не base64 в базе (см. video.js) */
+const video = require('./video');
 const { jsonCompression, serveTextFile } = require('./compress');
 
 seedIfEmpty();
@@ -388,6 +390,27 @@ app.put('/api/cms', adminRequired, (req, res) => {
   media.invalidateCms();
   res.json({ cms: media.cmsToPublic(sanitizeCms(clean)) });
 });
+
+/* -------- видео на главной --------
+   Загрузка кусками: начать → куски по 8 МБ → готово. Тело куска — сырые
+   байты (application/octet-stream): express.json его не трогает, и он
+   потоком уходит прямо в файл. Ролик не пережимается — качество то же,
+   что у оригинала. */
+const videoLimit = (req, res, next) => {
+  const rl = hit('video-up', req.user.id, { limit: 30, windowMs: 60 * 60 * 1000, label: 'Слишком много загрузок видео' });
+  if (!rl.ok) return res.status(429).json({ error: rl.error });
+  next();
+};
+const videoChunkLimit = (req, res, next) => {
+  /* 300 МБ — это ~40 кусков; с запасом на повторы после обрывов связи */
+  const rl = hit('video-chunk', req.user.id, { limit: 3000, windowMs: 60 * 60 * 1000, label: 'Слишком много кусков видео' });
+  if (!rl.ok) return res.status(429).json({ error: rl.error });
+  next();
+};
+app.post('/api/admin/video', adminRequired, videoLimit, video.start);
+app.put('/api/admin/video/:id', adminRequired, videoChunkLimit, video.chunk);
+app.post('/api/admin/video/:id/done', adminRequired, video.finish);
+app.delete('/api/admin/video/:id', adminRequired, video.cancel);
 
 /* -------- отзывы -------- */
 app.get('/api/reviews', (req, res) => {
@@ -1205,6 +1228,11 @@ app.get('/media/o/:num/:file', (req, res) => {
   sendImage(res, media.findOrderImage(req.params.num, hash));
 });
 
+/* Видео на главной лежат файлами (см. video.js). Range обязателен: без
+   ответа 206 Safari на iPhone ролик не играет вовсе, а остальные браузеры
+   не могут перемотать и качают файл целиком. */
+app.get('/media/v/:file', video.serve);
+
 /* static */
 const publicDir = path.join(__dirname, '..', 'public');
 const indexHandler = serveTextFile(path.join(publicDir, 'index.html'));
@@ -1305,6 +1333,11 @@ app.listen(PORT, '0.0.0.0', () => {
     `Ошибки → ${errors.enabled() ? 'Telegram, чат ' + errors.chatId() : 'только data/errors.log'}`
   );
   startBackupSchedule();
+  /* Уборка роликов, которые убрали с главной. Не на каждом сохранении:
+     удаляем только то, на что CMS не ссылается уже неделю (см. video.gc). */
+  const videoGc = () => video.gc(getCms);
+  setTimeout(videoGc, 60 * 1000).unref?.();
+  setInterval(videoGc, 6 * 3600 * 1000).unref?.();
   /* Справочник ПВЗ поднимаем сразу: первая же карта в оформлении должна
      показать точки, а не спиннер на 16 мегабайт. Загрузка идёт фоном и
      старт сервера не задерживает. */
