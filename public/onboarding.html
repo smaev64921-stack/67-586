@@ -239,6 +239,9 @@ html.is-final .skip{opacity:0;visibility:hidden}
 .tn.is-on{background-color:rgba(255,255,255,.14);padding:0 15px 0 8px}
 .tn.is-on .tn__n{max-width:88px;margin-left:9px;opacity:1;transition-delay:0s,0s,.12s}
 .hero.is-auto .tn.is-on::before{animation:tnRun 4s linear both}
+/* Цвет выбран, а его снимок ещё грузится — плашка мягко «дышит». */
+.tn.is-wait::before{transform:none;animation:tnWait 1s ease-in-out infinite alternate}
+@keyframes tnWait{from{opacity:.15}to{opacity:.9}}
 @keyframes tnRun{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .tn:active .tn__c{transform:scale(.86)}
 @media (hover:hover){ .tn:not(.is-on):hover .tn__c{transform:scale(1.12)} }
@@ -1191,22 +1194,36 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
      У каждого цвета свой слой (и у чёрного — иначе к нему нечем было бы
      вернуться шторкой). Раз в STEP новый слой проходит шторкой ПОВЕРХ
      прежнего, а прежний снимаем, только когда шторка дошла до конца, — так
-     под ней всегда целый снимок. Слои грузим после холста; пока цвет не
-     загрузился, на него не переключаемся. Касание по цвету переключает сразу
-     и заново заводит отсчёт. Экран ушёл из виду или вкладка скрыта — смена стоит. */
+     под ней всегда целый снимок.
+     Цвета идут строго по порядку. Слои качаются по одному, в порядке показа
+     (с сервера каждый идёт секунды, а пятеро разом мешали друг другу). Если
+     следующий цвет ещё не скачан, текущий ждёт его, а не перескакивает на
+     другой: раньше из-за этого порядок сбивался — чёрный, шоколад, голубой,
+     снова шоколад. Касание по цвету сразу подсвечивает его (плашка «дышит»,
+     пока снимок грузится), ставит его загрузку вперёд очереди и включает,
+     как только он готов. Экран ушёл из виду или вкладка скрыта — смена стоит. */
   var hero = document.getElementById('intro');
   if(hero && hero.classList.contains('hero')) (function(){
     var STEP = 4000, WIPE = 1250;
+    var ORDER = [1, 2, 3, 4, 0];          /* порядок загрузки; чёрный последним — его и так видно на холсте */
     var tns = [].slice.call(hero.querySelectorAll('.tn'));
     var lay = [].slice.call(hero.querySelectorAll('.hero__tone'));
-    var ok = lay.map(function(){ return false; });
+    var ok = lay.map(function(){ return false; });     /* скачан и распакован */
+    var bad = lay.map(function(){ return false; });    /* не скачался и после повтора — пропускаем */
+    var begun = lay.map(function(){ return false; });
     var jolt = hero.querySelector('.hero__jolt');
     var bg = document.getElementById('heroBg');
-    var cur = 0, z = 1, want = -1, tm = 0, cutT = 0, vis = true, on = false, shown = false;
+    var cur = 0, z = 1, want = -1, tm = 0, cutT = 0, loading = 0, vis = true, on = false, shown = false;
 
-    function pick(n){
-      if(n === cur) return true;
-      if(!ok[n]){ want = n; return false; }
+    function mark(n, wait){
+      tns.forEach(function(b, i){
+        b.classList.toggle('is-on', i === n);
+        b.classList.toggle('is-wait', i === n && !!wait);
+        b.setAttribute('aria-pressed', i === n ? 'true' : 'false');
+      });
+    }
+    /* шторка нового цвета — только для уже готового слоя */
+    function show(n){
       want = -1;
       clearTimeout(cutT);
       var el = lay[n];
@@ -1217,50 +1234,78 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       cutT = setTimeout(function(){
         lay.forEach(function(o, i){ if(i !== n) o.classList.remove('is-on'); });
       }, reduce ? 0 : WIPE + 60);
-      tns.forEach(function(b, i){
-        b.classList.toggle('is-on', i === n);
-        b.setAttribute('aria-pressed', i === n ? 'true' : 'false');
-      });
+      mark(n, false);
       cur = n;
       if(!reduce){ jolt.classList.remove('is-jolt'); void jolt.offsetWidth; jolt.classList.add('is-jolt'); }
-      return true;
     }
-    function nextTone(){
-      for(var k = 1; k < tns.length; k++){ var n = (cur + k) % tns.length; if(ok[n]) return n; }
-      return cur;
+    function nextOf(c){
+      for(var k = 1; k < tns.length; k++){ var n = (c + k) % tns.length; if(!bad[n]) return n; }
+      return c;
+    }
+    /* к цвету n: готов — шторка сразу; нет — ждём именно его */
+    function go(n, hand){
+      if(bad[n]) return;
+      if(n === cur){ want = -1; mark(cur, false); plan(); return; }
+      if(ok[n]){ show(n); plan(); return; }
+      want = n;
+      clearTimeout(tm);
+      hero.classList.remove('is-auto');    /* отсчёт стоит, пока ждём снимок */
+      if(hand) mark(n, true);
+      fetchTone(n);
     }
     function plan(){
       clearTimeout(tm);
-      var run = on && vis && !document.hidden && !reduce;
+      var run = on && vis && !document.hidden && !reduce && want < 0;
       /* Заливка отсчёта на плашке цвета идёт, пока идёт смена: снимаем и
          ставим класс заново — так она начинается с нуля вместе с таймером. */
       hero.classList.remove('is-auto');
       if(!run) return;
       void hero.offsetWidth;
       hero.classList.add('is-auto');
-      tm = setTimeout(function(){ pick(nextTone()); plan(); }, STEP);
+      tm = setTimeout(function(){ go(nextOf(cur), false); }, STEP);
     }
     tns.forEach(function(b, i){
-      b.addEventListener('click', function(){ if(pick(i)) plan(); });
+      b.addEventListener('click', function(){ go(i, true); });
     });
 
-    function loadTones(){
-      lay.forEach(function(el, i){
-        var im = el.querySelector('img');
-        if(!im || !im.getAttribute('data-src')) return;
-        /* Цвет готов, когда картинка не только скачана, но и распакована:
-           иначе распаковка случалась в первом кадре шторки, и её мягкий край
-           проскакивал рывком. */
-        var ready = function(){
-          ok[i] = true;
-          if(want === i){ pick(i); plan(); }
-        };
-        im.addEventListener('load', function(){
-          if(im.decode) im.decode().then(ready, ready); else ready();
-        });
-        im.src = im.getAttribute('data-src');
-        im.removeAttribute('data-src');
-      });
+    /* Слой готов, когда картинка не только скачана, но и распакована: иначе
+       распаковка случалась в первом кадре шторки, и её край проскакивал рывком.
+       Не скачалась — одна повторная попытка, потом цвет пропускаем. */
+    function fetchTone(i){
+      if(begun[i] || ok[i] || bad[i]) return;
+      var im = lay[i].querySelector('img');
+      var src = im && im.getAttribute('data-src');
+      if(!src) return;
+      begun[i] = true;
+      loading++;
+      var tries = 0;
+      var fin = function(good){
+        loading--;
+        if(good) ok[i] = true; else bad[i] = true;
+        if(want === i){
+          if(good){ show(i); plan(); }
+          else { want = -1; mark(cur, false); plan(); }
+        }
+        pump();
+      };
+      im.onload = function(){
+        if(im.decode) im.decode().then(function(){ fin(true); }, function(){ fin(true); });
+        else fin(true);
+      };
+      im.onerror = function(){
+        if(++tries < 2){ setTimeout(function(){ im.src = src + '?r=' + tries; }, 2500); return; }
+        fin(false);
+      };
+      im.removeAttribute('data-src');
+      im.src = src;
+    }
+    /* следующий по очереди — когда предыдущий докачался */
+    function pump(){
+      if(loading) return;
+      for(var k = 0; k < ORDER.length; k++){
+        var i = ORDER[k];
+        if(!begun[i] && !ok[i] && !bad[i]){ fetchTone(i); return; }
+      }
     }
     /* Под заставкой запуска снимок проявляется сразу, пока его не видно: когда
        она уйдёт, он уже на месте, а не всплывает на пустом фоне. */
@@ -1269,7 +1314,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       if(shown || !(on || early)) return;
       shown = true;
       hero.classList.add('is-ph');
-      loadTones();
+      pump();
     }
     function start(){
       if(on) return;
