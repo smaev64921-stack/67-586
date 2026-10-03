@@ -29,7 +29,7 @@ const {
   expireUnpaidOrders, expireUnpaidOrdersChecked, settleOverdueOrder, syncCdekOrderStatuses
 } = require('./orders');
 const yookassa = require('./yookassa');
-const { sanitizeCms, scrubCmsInput, tryonServerConfigured } = require('./cms-safe');
+const { sanitizeCms, scrubCmsInput, moveVideoSlides, tryonServerConfigured } = require('./cms-safe');
 const { runTryon } = require('./tryon');
 const telegramBot = require('./telegram-bot');
 const { resolvePublicUrl, logPublicUrlDebug, isValidPublicHttps, isLocal } = require('./public-url');
@@ -113,6 +113,26 @@ require('./photo-swap').runPhotoSwaps();
     if (changed) console.log('[BRAND] Canvas → Luxe Canvas');
   } catch (e) {
     console.warn('brand migrate:', e.message);
+  }
+})();
+
+/* Видео с главной — в каталог, один раз: владелец решил, что на главной
+   ролики другой пропорции смотрятся плохо (см. moveVideoSlides). */
+(() => {
+  try {
+    const KEY = 'migrate:videos-to-catalog';
+    if (db.prepare('SELECT v FROM meta WHERE k = ?').get(KEY)) return;
+    const cms = getCms();
+    const moved = cms ? moveVideoSlides(cms) : 0;
+    if (moved) {
+      saveCms(scrubCmsInput(cms));
+      media.invalidateCms();
+      console.log(`[CMS] видео с главной перенесены в каталог: ${moved}`);
+    }
+    db.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v')
+      .run(KEY, JSON.stringify({ at: new Date().toISOString(), moved }));
+  } catch (e) {
+    console.warn('videos migrate:', e.message);
   }
 })();
 
@@ -429,6 +449,8 @@ app.put('/api/cms', adminRequired, (req, res) => {
   if (body.texts) next.texts = Object.assign({}, cur.texts, body.texts);
   if (body.shipping) next.shipping = Object.assign({}, cur.shipping, body.shipping);
   if (body.tryon) next.tryon = Object.assign({}, cur.tryon || {}, body.tryon);
+  /* старая вкладка админки кладёт новое видео в слайды главной — переносим в каталог */
+  moveVideoSlides(next);
   /* на всякий случай ещё раз вычистить секреты */
   const clean = scrubCmsInput(next);
   saveCms(clean);

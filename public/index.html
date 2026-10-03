@@ -112,6 +112,28 @@ html.lc-leaving .lcc{opacity:0}
   color:rgba(255,255,255,.5);opacity:0;animation:lccHint .5s ease 5s forwards
 }
 @keyframes lccHint{to{opacity:1}}
+/* Полоса загрузки под знаком: знак рисуется свои три секунды, а по полосе
+   видно, что магазин грузится, а не завис. Сама ползёт вперёд и к концу всё
+   медленнее; страница загрузилась — добегает до конца (is-loaded, скрипт
+   ниже), и только потом занавес уходит. По заполненной части бежит блик. */
+.lcc__bar{
+  position:absolute;left:50%;top:calc(50% + 116px);width:136px;height:2px;margin-left:-68px;
+  border-radius:2px;background:rgba(255,255,255,.13);overflow:hidden;
+  opacity:0;animation:lccHint .5s ease .3s forwards
+}
+.lcc__bar i{
+  position:absolute;inset:0;border-radius:inherit;background:rgba(255,255,255,.88);
+  transform-origin:0 50%;transform:scaleX(0);animation:lccFill 10s cubic-bezier(.25,.8,.3,1) .3s forwards
+}
+.lcc__bar i::after{
+  content:'';position:absolute;top:0;bottom:0;left:0;width:46px;
+  background:linear-gradient(90deg,rgba(255,255,255,0),#fff,rgba(255,255,255,0));
+  transform:translateX(-46px);animation:lccGleam 1.3s ease-in-out .6s infinite
+}
+@keyframes lccFill{0%{transform:scaleX(0)}18%{transform:scaleX(.5)}40%{transform:scaleX(.74)}100%{transform:scaleX(.94)}}
+@keyframes lccGleam{to{transform:translateX(140px)}}
+.lcc__bar.is-loaded i{animation:none;transform:scaleX(1);transition:transform .45s cubic-bezier(.2,.7,.2,1)}
+@media (max-width:359px){ .lcc__bar{top:calc(50% + 104px)} }
 /* Страховка без единой строчки скрипта: оборвётся загрузка на середине —
    заставка всё равно уйдёт через 12 секунд, а не оставит чёрный экран. */
 .lcc.is-splash{animation:lccBail .6s ease 12s forwards}
@@ -287,9 +309,25 @@ html.lc-leaving .lcc{opacity:0}
     var cur = document.createElement('div');
     cur.className = 'lcc' + (play ? ' is-splash' : '');
     cur.innerHTML = '<div class="lcs' + (play ? '' : ' is-play is-done') + '" aria-hidden="true">' + LOCKUP + '</div>' +
+      /* полоса — только на заставке: при переходе из знакомства занавес должен
+         совпасть с его последним кадром до пикселя, лишнего там нет */
+      (play ? '<div class="lcc__bar" role="progressbar" aria-label="Магазин загружается"><i></i></div>' : '') +
       (play || app ? '<div class="lcc__hint">Долго грузится — проверьте связь</div>' : '');
     root.appendChild(cur);
-    var box = cur.firstChild, started = Date.now(), loaded = false, opened = false;
+    var box = cur.firstChild, bar = cur.querySelector('.lcc__bar'), started = Date.now(), loaded = false, opened = false;
+    /* Полоса добегает до конца с того места, где была: текущую ширину
+       фиксируем, снимаем анимацию — и дальше её ведёт переход. */
+    function barDone(){
+      if(!bar) return;
+      try{
+        var fill = bar.firstChild;
+        fill.style.transform = getComputedStyle(fill).transform;
+        fill.style.animation = 'none';
+        void fill.offsetWidth;
+        bar.classList.add('is-loaded');
+        fill.style.transform = '';
+      }catch(_){}
+    }
     /* Запускаем в первом кадре — анимация стартует вместе с первой отрисовкой
        и не «проскочит» начало, пока страница ещё разбирается. Дальше её ведёт
        сам браузер: шторки и буквы двигаются только transform/opacity. */
@@ -307,6 +345,7 @@ html.lc-leaving .lcc{opacity:0}
     /* Заставка уходит, когда и магазин загрузился, и знак доиграл до конца. */
     window.addEventListener('load', function(){
       loaded = true;
+      barDone();   /* добегает, пока занавес тает, — его открытие не задерживаем */
       setTimeout(open, play ? Math.max(200, SPLASH_MS - (Date.now() - started)) : 200);
     });
     if(play) cur.addEventListener('click', open);
@@ -894,6 +933,37 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
   background:var(--ink);color:#fff;min-width:18px;height:18px;padding:0 5px;border-radius:var(--r-pill);
   font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center
 }
+
+/* ---- Видео в каталоге: скруглённый блок под заголовком ----
+   Слот раскрывается (grid-строка 0fr → 1fr), только когда первый ролик
+   скачан целиком; до этого его на странице нет — ни рамки, ни заглушки.
+   Внутри два <video> друг на друге: новый проявляется поверх старого. */
+.cv{display:grid;grid-template-rows:0fr;padding:0 var(--pad);transition:grid-template-rows .75s var(--ease),margin .75s var(--ease)}
+.cv.is-open{grid-template-rows:1fr;margin-bottom:16px}
+.cv.no-anim,.cv.no-anim .cvb{transition:none}
+.cv__in{min-height:0;overflow:hidden}
+.cvb{
+  position:relative;aspect-ratio:var(--ar,16/9);max-height:min(46svh,440px);margin:0 auto;
+  border-radius:18px;overflow:hidden;isolation:isolate;background:#0f0e0d;
+  /* Safari без этого не обрезает видео по скруглению */
+  -webkit-mask-image:-webkit-radial-gradient(#fff,#000);
+  opacity:0;transform:translateY(10px) scale(.985);transition:opacity .8s var(--ease) .1s,transform 1s var(--ease) .1s
+}
+.cv.is-open .cvb{opacity:1;transform:none}
+.cvb__v{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity .9s ease-in-out;pointer-events:none
+}
+.cvb__v.is-on{opacity:1}
+/* Автозапуск запрещён (энергосбережение, «уменьшить движение») — кнопка ▶ */
+.cvb__play{
+  position:absolute;left:50%;top:50%;z-index:3;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
+  display:none;align-items:center;justify-content:center;color:#fff;
+  background:rgba(0,0,0,.38);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)
+}
+.cvb.is-blocked .cvb__play,.cvb.is-still .cvb__play{display:flex}
+.cvb__play .ic{width:22px;height:22px;margin-left:3px}
+@media (prefers-reduced-motion:reduce){ .cv,.cvb,.cvb__v{transition-duration:.01s} }
 
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 12px;padding:4px var(--pad) 20px}
 /* товар — цельная белая карточка: фото сверху, под ним название и цена */
@@ -3614,6 +3684,8 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   .hd{max-width:760px;margin-left:auto;margin-right:auto}
   .grid{grid-template-columns:repeat(4,1fr);gap:30px 18px;max-width:1200px;margin:0 auto;padding-left:32px;padding-right:32px}
   .crumbs,.ph,.gen,.ctrl,.sec__h{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
+  .cv{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
+  .cvb{max-width:640px;margin:0}
   .sec,.ord,.plist,.pcard,.form,.stabs{max-width:760px;margin-left:auto;margin-right:auto}
   /* На широком экране — две колонки: кадр слева, описание справа.
      В один столбец portrait-кадр не помещался: max-height перебивал пропорцию,
@@ -8127,6 +8199,7 @@ function scrCatalog(){
     })()}</h1>
     ${MARK('ph__m')}
   </div>
+  <div class="cv" id="cvSlot"><div class="cv__in"></div></div>
   <div class="gen">
     <button class="gen__b" data-a="gen:u" ${S.gender === 'u' ? 'aria-current="page"' : ''}>Унисекс</button>
     <button class="gen__b" data-a="gen:w" ${S.gender === 'w' ? 'aria-current="page"' : ''}>Женское</button>
@@ -8141,6 +8214,282 @@ function scrCatalog(){
     : '<p class="none">Ничего не нашлось.<br>Попробуйте сбросить фильтры.</p>'}</div>
   ${siteFooter()}
   <button class="fab" data-a="chat" aria-label="Написать нам">${svg('chat')}</button>`;
+}
+
+/* ==========================================================
+   ВИДЕО В КАТАЛОГЕ (CMS.vids, правятся в админке → Каталог)
+   Небольшой скруглённый блок под заголовком каталога: ролики идут по
+   очереди и плавно перетекают друг в друга.
+   — Ролик качаем ЦЕЛИКОМ (fetch → Blob) и показываем, только когда он весь
+     у покупателя: посреди показа он не встанет на догрузку. Пока первый не
+     скачался, блока на странице нет вовсе.
+   — Качаем после загрузки магазина (или сразу, если открыли каталог), по
+     одному. В памяти держим текущий и следующий; ссылки на ролики вечные,
+     повторно они придут из кэша браузера.
+   — Узел плеера живёт вне экрана: перерисовка каталога (фильтры, лайк)
+     возвращает его в слот в том же такте, и ролик не начинается заново.
+   — Играет, только пока блок видно, вкладка открыта и админка закрыта.
+   ========================================================== */
+const MAX_CAT_VIDS = 12;      // совпадает с MAX_CAT_VIDS в server/cms-safe.js
+const CV_FADE = 900;          // мс перетекания, как transition у .cvb__v
+const CV = {
+  key: '', list: [], ar: '16/9',
+  blob: new Map(),            // ссылка → blob: URL (скачан целиком)
+  fails: new Map(),           // ссылка → неудачи; после трёх ролик пропускаем
+  busy: '', started: false, startT: 0,
+  el: null, vs: [], top: 0,   // блок, два <video>, какой из них сейчас на виду
+  playing: '', shown: false, vis: false, switching: false, hand: false
+};
+
+function catVideos(){
+  const list = (typeof CMS !== 'undefined' && Array.isArray(CMS.vids)) ? CMS.vids : [];
+  return list.filter(v => v && VIDEO_URL_RE.test(String(v.video || ''))).slice(0, MAX_CAT_VIDS);
+}
+function cvSaver(){ try{ return !!(navigator.connection && navigator.connection.saveData); }catch(_){ return false; } }
+function cvStill(){ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){ return false; } }
+const cvDead = u => (CV.fails.get(u) || 0) >= 3;
+/* следующий живой ролик после u (по кругу), не сам u */
+function cvNext(u){
+  const L = CV.list, i = L.indexOf(u);
+  for(let k = 1; k < L.length; k++){
+    const n = L[(i + k + L.length) % L.length];
+    if(n !== u && !cvDead(n)) return n;
+  }
+  return '';
+}
+
+/* Список роликов из CMS поменялся — пересобираем очередь. */
+function cvSync(){
+  const vids = cvSaver() ? [] : catVideos();
+  const key = vids.map(v => v.video).join('|');
+  if(key === CV.key) return;
+  CV.key = key;
+  CV.list = vids.map(v => v.video);
+  const f = vids[0];
+  CV.ar = f && +f.vw > 0 && +f.vh > 0 ? `${+f.vw}/${+f.vh}` : '16/9';
+  if(CV.el) CV.el.style.setProperty('--ar', CV.ar);
+  for(const [u, b] of CV.blob) if(!CV.list.includes(u)){ URL.revokeObjectURL(b); CV.blob.delete(u); }
+  if(!CV.list.length || (CV.playing && !CV.list.includes(CV.playing))) cvReset();
+  cvStep();
+}
+/* Всё с нуля: блок убираем со страницы, следующий показ — снова после загрузки. */
+function cvReset(){
+  CV.playing = ''; CV.shown = false; CV.switching = false;
+  CV.vs.forEach(v => {
+    try{ v.pause(); }catch(_){}
+    v.removeAttribute('src'); v.classList.remove('is-on');
+    delete v.dataset.u; delete v.dataset.ready;
+    try{ v.load(); }catch(_){}
+  });
+  const slot = document.getElementById('cvSlot');
+  if(slot) slot.classList.remove('is-open');
+  if(CV.el && CV.el.parentNode) CV.el.parentNode.removeChild(CV.el);
+}
+
+/* Что делать дальше: показать первый скачанный, подготовить следующий,
+   скачать недостающий. Вызывается после каждого события. */
+function cvStep(){
+  if(!CV.list.length) return;
+  if(!CV.playing){
+    const u = CV.list.find(x => !cvDead(x));
+    if(u && CV.blob.has(u)) cvShowFirst(u);
+  } else {
+    const n = cvNext(CV.playing);
+    if(n && CV.blob.has(n)) cvPrepare(n);
+  }
+  cvKick();
+}
+/* Качать начинаем, когда магазин уже загрузился (не отнимаем у него связь),
+   или сразу, если покупатель открыл каталог. */
+function cvKick(){
+  if(CV.busy || !CV.list.length) return;
+  if(!CV.started){
+    if(document.getElementById('cvSlot')) CV.started = true;
+    else {
+      if(!CV.startT){
+        const later = () => { CV.startT = setTimeout(() => { CV.started = true; cvKick(); }, 1500); };
+        if(document.readyState === 'complete') later();
+        else { CV.startT = -1; window.addEventListener('load', later, {once:true}); }
+      }
+      return;
+    }
+  }
+  const want = !CV.playing ? CV.list.find(x => !cvDead(x)) : cvNext(CV.playing);
+  if(want && !CV.blob.has(want)) cvFetch(want);
+}
+async function cvFetch(u){
+  CV.busy = u;
+  let ok = false;
+  try{
+    const r = await fetch(u, {credentials:'same-origin'});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    let b = await r.blob();
+    /* iPhone играет blob, только если у него правильный тип */
+    if(!/^video\//.test(b.type)) b = new Blob([b], {type: /\.webm$/.test(u) ? 'video/webm' : 'video/mp4'});
+    if(CV.list.includes(u)){ CV.blob.set(u, URL.createObjectURL(b)); ok = true; }
+  }catch(e){
+    CV.fails.set(u, (CV.fails.get(u) || 0) + 1);
+  }finally{
+    CV.busy = '';
+  }
+  if(ok || cvDead(u)) cvStep();
+  else setTimeout(cvKick, 15000);   // связь вернётся — докачаем
+}
+/* Ролик не играется (например, HEVC в Chrome) — пропускаем его насовсем. */
+function cvBroken(v){
+  const u = v.dataset.u;
+  if(!u) return;
+  CV.fails.set(u, 3);
+  const b = CV.blob.get(u);
+  if(b){ URL.revokeObjectURL(b); CV.blob.delete(u); }
+  v.removeAttribute('src'); delete v.dataset.u; delete v.dataset.ready; v.classList.remove('is-on');
+  if(u === CV.playing){
+    CV.playing = '';
+    if(CV.shown){
+      CV.shown = false;
+      const slot = document.getElementById('cvSlot');
+      if(slot) slot.classList.remove('is-open');
+    }
+  }
+  cvStep();
+}
+
+function cvEl(){
+  if(CV.el) return CV.el;
+  const el = document.createElement('div');
+  el.className = 'cvb';
+  el.setAttribute('aria-hidden', 'true');
+  const vtag = '<video class="cvb__v" muted playsinline webkit-playsinline disablepictureinpicture disableremoteplayback preload="auto"></video>';
+  el.innerHTML = vtag + vtag + `<button class="cvb__play" type="button" tabindex="-1" aria-label="Смотреть видео">${svg('play','ic')}</button>`;
+  el.style.setProperty('--ar', CV.ar);
+  CV.vs = [...el.querySelectorAll('video')];
+  CV.vs.forEach(v => {
+    v.muted = true; v.defaultMuted = true; v.playsInline = true;
+    v.addEventListener('timeupdate', () => cvTick(v));
+    v.addEventListener('ended', () => {
+      /* доиграл, а следующего ещё нет — крутим этот же */
+      if(v === CV.vs[CV.top] && !CV.switching){ try{ v.currentTime = 0; }catch(_){} cvPlay(); }
+    });
+    v.addEventListener('loadeddata', () => { if(v !== CV.vs[CV.top]){ v.dataset.ready = '1'; cvLoop(); } });
+    v.addEventListener('error', () => { if(v.getAttribute('src')) cvBroken(v); });
+  });
+  el.querySelector('.cvb__play').onclick = () => {
+    CV.hand = true;
+    el.classList.remove('is-blocked', 'is-still');
+    cvPlay();
+  };
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(r => { CV.vis = r[0].isIntersecting; cvPlay(); }, {threshold: .2}).observe(el);
+  } else CV.vis = true;
+  document.addEventListener('visibilitychange', cvPlay);
+  CV.el = el;
+  return el;
+}
+/* Следующего нет (один ролик или ещё качается) — текущий крутится по кругу. */
+function cvLoop(){
+  const a = CV.vs[CV.top], b = CV.vs[1 - CV.top];
+  if(a) a.loop = !(b && b.dataset.ready === '1');
+}
+function cvShowFirst(u){
+  cvEl();
+  const v = CV.vs[CV.top];
+  if(v.dataset.u === u) return;
+  CV.playing = u;
+  v.dataset.u = u;
+  v.addEventListener('loadeddata', function on(){
+    v.removeEventListener('loadeddata', on);
+    if(v.dataset.u !== u) return;
+    v.classList.add('is-on');
+    v.style.zIndex = 2;
+    CV.shown = true;
+    cvLoop();
+    cvMount(true);
+    cvStep();
+  });
+  v.src = CV.blob.get(u);
+  try{ v.load(); }catch(_){}
+}
+function cvPrepare(n){
+  const b = CV.vs[1 - CV.top];
+  if(!b || CV.switching || b.dataset.u === n) return;
+  b.dataset.u = n;
+  delete b.dataset.ready;
+  b.src = CV.blob.get(n);
+  try{ b.load(); }catch(_){}
+}
+/* За CV_FADE до конца текущего ролика следующий начинает играть поверх
+   и проявляется — переход без чёрного кадра между роликами. */
+function cvTick(v){
+  if(v !== CV.vs[CV.top] || CV.switching || !v.duration) return;
+  const b = CV.vs[1 - CV.top];
+  if(!b || b.dataset.ready !== '1') return;
+  if(v.duration - v.currentTime > CV_FADE / 1000 + .15) return;
+  CV.switching = true;
+  try{ b.currentTime = 0; }catch(_){}
+  b.style.zIndex = 2; v.style.zIndex = 1;
+  const p = b.play(); if(p && p.catch) p.catch(() => {});
+  b.classList.add('is-on');
+  setTimeout(() => {
+    v.classList.remove('is-on');
+    try{ v.pause(); }catch(_){}
+    /* Ушедший ролик остаётся загруженным: при двух-трёх роликах он же и
+       следующий — начнётся с нуля без новой загрузки (cvTick: currentTime = 0) */
+    if(v.getAttribute('src')) v.dataset.ready = '1';
+    const old = v.dataset.u;
+    CV.top = 1 - CV.top;
+    CV.playing = b.dataset.u;
+    CV.switching = false;
+    /* роликов много — прошлый отпускаем из памяти; вернётся из кэша */
+    if(CV.list.length > 3 && old && old !== cvNext(CV.playing)){
+      const ob = CV.blob.get(old);
+      if(ob){
+        v.removeAttribute('src'); delete v.dataset.u; delete v.dataset.ready;
+        try{ v.load(); }catch(_){}
+        URL.revokeObjectURL(ob); CV.blob.delete(old);
+      }
+    }
+    cvLoop();
+    cvStep();
+  }, CV_FADE);
+}
+function cvPlay(){
+  if(!CV.el || !CV.shown) return;
+  const still = cvStill() && !CV.hand;
+  CV.el.classList.toggle('is-still', still);
+  const can = CV.el.isConnected && CV.vis && !document.hidden && !still
+    && !document.body.classList.contains('adm-on');
+  if(!can){ CV.vs.forEach(v => { if(!v.paused) v.pause(); }); return; }
+  const go = v => {
+    if(!v || !v.paused || !v.getAttribute('src')) return;
+    const p = v.play();
+    if(p && p.catch) p.catch(e => { if(e && e.name === 'NotAllowedError') CV.el.classList.add('is-blocked'); });
+  };
+  go(CV.vs[CV.top]);
+  if(CV.switching) go(CV.vs[1 - CV.top]);
+}
+/* Каталог нарисован заново — возвращаем живой блок в его слот. first —
+   ролик только что скачался: тогда блок раскрывается плавно (если каталог
+   на экране), а не появляется сразу. */
+function cvMount(first){
+  if(!first) cvSync();
+  const slot = document.getElementById('cvSlot');
+  if(!slot) return;
+  if(!CV.started) cvKick();
+  if(!CV.el || !CV.shown) return;
+  const box = slot.firstElementChild;
+  if(CV.el.parentNode !== box) box.appendChild(CV.el);
+  if(!slot.classList.contains('is-open')){
+    const above = slot.getBoundingClientRect().top < 0;
+    if(!first || above){
+      slot.classList.add('no-anim', 'is-open');
+      /* раскрылся выше того места, где человек читает, — не сдвигаем ему страницу */
+      if(first && above) window.scrollBy(0, slot.offsetHeight);
+      requestAnimationFrame(() => slot.classList.remove('no-anim'));
+    } else {
+      slot.classList.add('is-open');
+    }
+  }
+  cvPlay();
 }
 
 /* ==========================================================
@@ -9326,8 +9675,11 @@ const MAX_SLIDES = 10;
 
 function homeSlides(){
   const list = (typeof CMS !== 'undefined' && Array.isArray(CMS.slides)) ? CMS.slides : [];
-  /* видео-слайд может прийти и без обложки — показываем и его */
-  return list.filter(s => s && (s.img || isVideoSlide(s))).slice(0, MAX_SLIDES);
+  /* Видео на главной больше не показываем — они живут в каталоге (см. «ВИДЕО
+     В КАТАЛОГЕ»): у владельца ролики горизонтальные, а первый экран телефона
+     вытянут вверх, и ролик обрезался и мылился. Видео-слайды переносит в
+     каталог сервер (moveVideoSlides), здесь — страховка на старые данные. */
+  return list.filter(s => s && s.img && !isVideoSlide(s)).slice(0, MAX_SLIDES);
 }
 /* Видео-слайд: в поле video — ссылка на наш файл /media/v/… (см. server/video.js) */
 const VIDEO_URL_RE = /^\/media\/v\/[0-9a-f]{16}\.(mp4|webm)$/;
@@ -11206,6 +11558,8 @@ function render(keepScroll){
       if(keepHeroTrack && keepHeroTrack.scrollLeft !== keepHeroLeft) keepHeroTrack.scrollLeft = keepHeroLeft;
     }
   }
+  /* живой блок видео каталога — обратно в свой слот, в том же такте */
+  cvMount(false);
   scr.dataset.screen = S.screen;
   _paintKey = paintKey;
   if(!keepScroll){
@@ -14474,6 +14828,7 @@ function defaultCms(){
       zones:[]
     },
     slides: [],
+    vids: [],
     /* Страница «О бренде» блоками: фото-ряд и текст в любом порядке.
        Правится в админке → Контент → «О бренде». Пустой список — страница
        показывает текст из texts.aboutLead / texts.aboutBody, как раньше. */
@@ -14530,7 +14885,8 @@ function loadCms(){
       usp: uspMerge(base.usp, d.usp),
       customers: d.customers || {},
       promos: Array.isArray(d.promos) ? d.promos : base.promos,
-      slides: Array.isArray(d.slides) ? d.slides.filter(s => s && (s.img || s.video)).slice(0, MAX_SLIDES) : base.slides
+      slides: Array.isArray(d.slides) ? d.slides.filter(s => s && (s.img || s.video)).slice(0, MAX_SLIDES) : base.slides,
+      vids: Array.isArray(d.vids) ? d.vids : []
     });
     /* Первый заход после переименования: стоковые тексты/промо SAS → Canvas */
     if(!d.brand){
@@ -14808,6 +15164,37 @@ function adRows(){
   }).join('');
 }
 
+/* Видео в каталоге: список роликов с обложкой, порядком и удалением.
+   Обложка в списке — картинка, не <video>: список перерисовывается часто. */
+function catVideosAdminHTML(){
+  const list = (CMS.vids || []).slice(0, MAX_CAT_VIDS);
+  const full = list.length >= MAX_CAT_VIDS;
+  const rows = list.map((v, i) => `
+    <div class="ad__row">
+      <span class="ad__vth">${v.img ? `<img class="ad__th ad__th--wide" src="${esc(v.img)}" alt="">` : `<span class="ad__th ad__th--wide"></span>`}<span class="ad__vth-b">${svg('play','ic')}</span></span>
+      <div class="ad__i">
+        <span class="ad__n">Видео ${i + 1}${i === 0 ? ' · показывается первым' : ''}</span>
+        <span class="ad__m">${esc(videoMeta(v))}</span>
+      </div>
+      <div class="ad__acts">
+        <button class="ad__ib" data-cvmv="${v.id}:-1" aria-label="Выше"${i === 0 ? ' disabled' : ''}>${svg('chevU','ic')}</button>
+        <button class="ad__ib" data-cvmv="${v.id}:1" aria-label="Ниже"${i === list.length - 1 ? ' disabled' : ''}>${svg('chevD','ic')}</button>
+        <button class="ad__ib" data-cved="${v.id}" aria-label="Заменить видео">${svg('pencil','ic')}</button>
+        <button class="ad__ib ad__ib--d" data-cvrm="${v.id}" aria-label="Удалить">${svg('trash','ic')}</button>
+      </div>
+    </div>`).join('');
+  return `<div class="ad__chart-box ad__cvids">
+    <div class="ad__box-t">Видео в каталоге · ${list.length} из ${MAX_CAT_VIDS}</div>
+    <p class="ad__hint" style="margin-top:0">Небольшой блок со скруглёнными краями над товарами. Ролики идут по очереди
+      и плавно перетекают друг в друга. Каждый показывается, только когда скачался у покупателя целиком, —
+      поэтому не тормозит.</p>
+    ${photoSpecHTML('catvideo')}
+    <div class="ad__list">${rows || `<div class="ad__empty"><b>Видео пока нет</b>Загрузите ролик — блок появится в каталоге.</div>`}</div>
+    <button class="ad__b ad__b--pri" id="aCatVid" style="width:100%;margin-top:10px"${full ? ' disabled' : ''}>+ Загрузить видео</button>
+    <input type="file" id="aCatVidFile" accept="${VIDEO_ACCEPT}" hidden>
+  </div>`;
+}
+
 function viewCatalog(){
   const hasChart = !!(CMS.sizeChart);
   return `
@@ -14827,6 +15214,7 @@ function viewCatalog(){
       <button class="ad__pick-b" data-ag="w" aria-pressed="${adG==='w'}">Женское</button>
       <button class="ad__pick-b" data-ag="m" aria-pressed="${adG==='m'}">Мужское</button>
     </div>
+    ${catVideosAdminHTML()}
     <div class="ad__list" id="aList">${adRows()}</div>
     <div class="ad__chart-box">
       <div class="ad__box-t">Таблица размеров</div>
@@ -15061,6 +15449,18 @@ const PHOTO_SPECS = {
       'MP4, MOV или WebM, до 300 МБ. Чем легче файл, тем быстрее он начнёт играть у покупателя.'
     ]
   },
+  catvideo: {
+    title: 'Какое видео загружать',
+    size: '1920 × 1080 или 1280 × 720',
+    ratio: 'горизонтальное, 16:9',
+    lines: [
+      'Видео <b>не сжимается</b>: на сайт уходит ваш файл байт в байт — качество как в оригинале.',
+      'Блок в каталоге — 16:9, как ваши ролики. Другая пропорция тоже покажется, но края обрежутся.',
+      '<b>MP4 (H.264)</b> играет везде. Видео с iPhone в HEVC (.mov) Chrome и Android могут не показать — сохраняйте в MP4.',
+      'Звук не нужен: видео всегда идёт без звука, иначе телефон не запустит его сам.',
+      'Ролик показывается, когда скачался у покупателя целиком. Чем легче файл, тем раньше он появится: лучше до 20 МБ.'
+    ]
+  },
   about: {
     title: 'Какое фото загружать',
     size: '1200 × 1600 px',
@@ -15125,32 +15525,27 @@ function viewSlider(){
       </div>
     </div>`;
   }).join('')
-    : `<div class="ad__empty"><b>Фото пока нет</b>Добавьте до ${MAX_SLIDES} снимков или видео — они откроют главную страницу.</div>`;
+    : `<div class="ad__empty"><b>Фото пока нет</b>Добавьте до ${MAX_SLIDES} снимков — они откроют главную страницу.</div>`;
 
   return `
   <div class="ad__panel">
     <div class="ad__hrow"><div>
       <h1 class="ad__h">Главная</h1>
-      <p class="ad__sub">Фото, видео и текст на первом экране · ${list.length} из ${MAX_SLIDES}</p>
+      <p class="ad__sub">Фото и текст на первом экране · ${list.length} из ${MAX_SLIDES}</p>
     </div></div>
 
     <div class="ad__step">
       <div class="ad__step-h"><span class="ad__step-n">1</span>
-        <div><b>Фото и видео первого экрана</b>
-          <span>Показываются по очереди, первое — сверху. Фото стоит 4,5 секунды, видео — пока не доиграет. Ничего не обрезается.</span></div>
+        <div><b>Фото первого экрана</b>
+          <span>Показываются по очереди, первое — сверху, каждое по 4,5 секунды. Ничего не обрезается.
+            Видео теперь живут в каталоге — вкладка «Каталог», раздел «Видео в каталоге».</span></div>
       </div>
       ${photoSpecHTML('hero')}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <button class="ad__b ad__b--pri" id="aSlideNew"${full ? ' disabled' : ''}>+ Загрузить фото</button>
-        <button class="ad__b ad__b--pri" id="aSlideVid"${full ? ' disabled' : ''}>+ Загрузить видео</button>
         <button class="ad__b" id="aSlideLink"${full ? ' disabled' : ''}>Добавить ссылкой</button>
         <input type="file" id="aSlideFiles" accept="image/*" multiple hidden>
-        <input type="file" id="aSlideVidFile" accept="${VIDEO_ACCEPT}" hidden>
       </div>
-      <!-- требования к видео — до выбора файла: иначе владелец узнаёт про
-           HEVC и 300 МБ, когда загрузка уже идёт -->
-      <p class="ad__hint" style="margin:-4px 0 12px">Видео: <b>MP4 (H.264)</b>, до 300 МБ — уходит без сжатия.
-        HEVC (.mov с iPhone) в Chrome и на Android не играет — экспортируйте в MP4 H.264.</p>
       <div class="ad__list">${rows}</div>
     </div>
 
@@ -15425,14 +15820,18 @@ function videoPoster(file){
 /**
  * Новое видео (s = null, file — выбранный файл) или правка существующего.
  * Загрузка начинается сразу после выбора файла — подпись можно набирать,
- * пока ролик едет на сервер.
+ * пока ролик едет на сервер. opt.cat — видео каталога (CMS.vids): без
+ * надписей поверх, обложка нужна только для списка в админке.
  */
-function videoSlideForm(s, file){
+function videoSlideForm(s, file, opt){
+  const cat = !!(opt && opt.cat);
+  const KEY = cat ? 'vids' : 'slides';
+  const MAX = cat ? MAX_CAT_VIDS : MAX_SLIDES;
   const d = s || {video:'', img:'', cap:'', kick:'', sub:''};
   const w = document.createElement('div');
   w.className = 'ad__form';
   w.innerHTML = `<div class="ad__card">
-    <h2 class="ad__ct">${s ? 'Видео на главной' : 'Новое видео'}</h2>
+    <h2 class="ad__ct">${cat ? (s ? 'Видео в каталоге' : 'Новое видео для каталога') : (s ? 'Видео на главной' : 'Новое видео')}</h2>
     <div class="ad__slidepv ad__vidpv">
       <video id="vsPrev" class="hide" controls muted playsinline preload="metadata"></video>
       <span id="vsNone">Выберите видео — оно появится здесь</span>
@@ -15442,24 +15841,25 @@ function videoSlideForm(s, file){
       <span id="vsUpT">Готовим загрузку…</span>
     </div>
     <p class="ad__hint ad__vwarn hide" id="vsWarn"></p>
-    ${photoSpecHTML('video')}
+    ${photoSpecHTML(cat ? 'catvideo' : 'video')}
     <label class="ad__l">${s ? 'Заменить видео' : 'Файл видео'}</label>
     <input type="file" id="vsFile" accept="${VIDEO_ACCEPT}" class="ad__f">
-    <p class="ad__hint">${s ? 'Новый файл заменит ролик; надписи останутся.' : 'Загрузка начнётся сразу — подписи можно заполнять, пока она идёт.'}</p>
-    <label class="ad__l">Обложка — видна, пока видео грузится</label>
+    <p class="ad__hint">${cat ? (s ? 'Новый файл заменит ролик на том же месте в очереди.' : 'Загрузка начнётся сразу после выбора файла.')
+      : (s ? 'Новый файл заменит ролик; надписи останутся.' : 'Загрузка начнётся сразу — подписи можно заполнять, пока она идёт.')}</p>
+    <label class="ad__l">${cat ? 'Обложка — только для списка в админке' : 'Обложка — видна, пока видео грузится'}</label>
     <div class="ad__vcover">
       <img id="vsCover" class="${d.img ? '' : 'hide'}" src="${esc(d.img || '')}" alt="">
       <span id="vsCoverT">${d.img ? 'кадр из видео' : 'появится после выбора видео'}</span>
       <button class="ad__b" id="vsCoverBtn" type="button">Заменить фото</button>
       <input type="file" id="vsCoverFile" accept="image/*" hidden>
     </div>
-    <label class="ad__l">Надпись сверху (не обязательно)</label>
+    ${cat ? '' : `<label class="ad__l">Надпись сверху (не обязательно)</label>
     <input class="ad__f" id="vsKick" value="${esc(d.kick || '')}" placeholder="NEW COLLECTION">
     <label class="ad__l">Заголовок поверх видео</label>
     <input class="ad__f" id="vsCap" value="${esc(d.cap || '')}" placeholder="Новая летняя коллекция">
     <label class="ad__l">Подзаголовок (не обязательно)</label>
     <input class="ad__f" id="vsSub" value="${esc(d.sub || '')}" placeholder="Стиль, который говорит за тебя">
-    <p class="ad__hint">Кнопка «${esc(heroBtnText())}» появляется под текстом сама — её надпись меняется на вкладке «Главная».</p>
+    <p class="ad__hint">Кнопка «${esc(heroBtnText())}» появляется под текстом сама — её надпись меняется на вкладке «Главная».</p>`}
     <div class="ad__foot">
       <button class="ad__b" id="vsX">Отмена</button>
       <button class="ad__b ad__b--pri" id="vsSave"${s ? '' : ' disabled'}>${s ? 'Сохранить' : 'Добавить'}</button>
@@ -15692,16 +16092,14 @@ function videoSlideForm(s, file){
 
   saveBtn.onclick = async () => {
     if(uploading || saving || posterWait || cropping || !out.video) return;
-    const vals = {
-      video: out.video, img: out.img, vw: out.vw, vh: out.vh, dur: out.dur, size: out.size,
-      cap: $('#vsCap').value.trim(), kick: $('#vsKick').value.trim(), sub: $('#vsSub').value.trim()
-    };
-    const list = Array.isArray(CMS.slides) ? CMS.slides : [];
+    const vals = {video: out.video, img: out.img, vw: out.vw, vh: out.vh, dur: out.dur, size: out.size};
+    if(!cat) Object.assign(vals, {cap: $('#vsCap').value.trim(), kick: $('#vsKick').value.trim(), sub: $('#vsSub').value.trim()});
+    const list = Array.isArray(CMS[KEY]) ? CMS[KEY] : [];
     /* Ищем слайд заново по id: пока форма была открыта, живое обновление
        могло заменить весь массив слайдов, и старый объект s уже не в CMS. */
     const cur = s ? list.find(x => x.id === s.id) : null;
-    if(s && !cur){ toast('Этот слайд уже удалили в другой вкладке'); return; }
-    if(!s && list.length >= MAX_SLIDES){ toast(`Больше ${MAX_SLIDES} слайдов нельзя`); return; }
+    if(s && !cur){ toast(cat ? 'Это видео уже удалили в другой вкладке' : 'Этот слайд уже удалили в другой вкладке'); return; }
+    if(!s && list.length >= MAX){ toast(cat ? `Больше ${MAX} видео нельзя` : `Больше ${MAX} слайдов нельзя`); return; }
     /* CMS не трогаем, пока сервер не ответил. Не сохранилось — в памяти и
        в localStorage не должно остаться слайда, которого на сервере нет
        (его тихо унесло бы следующее сохранение админки), а повторное
@@ -15716,20 +16114,21 @@ function videoSlideForm(s, file){
     let slides = next;
     try{
       if(window.LC && S.user && S.user.admin){
-        const saved = await LC.saveCms(Object.assign({}, CMS, {slides: next}));
-        if(saved && Array.isArray(saved.slides)) slides = saved.slides;
+        const saved = await LC.saveCms(Object.assign({}, CMS, {[KEY]: next}));
+        if(saved && Array.isArray(saved[KEY])) slides = saved[KEY];
       }
     }catch(e){
       saving = false; canSave();
       upLine(`Не сохранилось: ${e && e.message ? e.message : 'нет связи с сервером'}. Нажмите «${saveBtn.textContent}» ещё раз.`, 'is-err');
       return;
     }
-    CMS.slides = slides;
+    CMS[KEY] = slides;
     try{ localStorage.setItem(CMS_KEY, JSON.stringify(CMS)); }catch(e){}
     saving = false;
     dispose();
     paintAdmin(); render(true);
-    toast(s ? 'Видео обновлено' : 'Видео добавлено');
+    if(cat) cvSync();
+    toast(s ? 'Видео обновлено' : (cat ? 'Видео добавлено в каталог' : 'Видео добавлено'));
   };
 
   if(file) take(file);
@@ -16652,10 +17051,11 @@ function bindAdminView(){
   if(sfl) sfl.onchange = () => addSlideFiles([...sfl.files]);
   const sln = document.getElementById('aSlideLink');
   if(sln) sln.onclick = () => slideForm(null);
-  const svn = document.getElementById('aSlideVid');
-  const svf = document.getElementById('aSlideVidFile');
-  if(svn && svf) svn.onclick = () => { svf.value = ''; svf.click(); };
-  if(svf) svf.onchange = () => { const f = svf.files && svf.files[0]; if(f) videoSlideForm(null, f); };
+  /* видео каталога: файл выбирают до открытия формы — загрузка стартует сразу */
+  const cvn = document.getElementById('aCatVid');
+  const cvf = document.getElementById('aCatVidFile');
+  if(cvn && cvf) cvn.onclick = () => { cvf.value = ''; cvf.click(); };
+  if(cvf) cvf.onchange = () => { const f = cvf.files && cvf.files[0]; if(f) videoSlideForm(null, f, {cat:true}); };
   const homeSave = document.getElementById('aHomeSave');
   if(homeSave) homeSave.onclick = () => {
     if(!CMS.texts) CMS.texts = {};
@@ -16967,6 +17367,36 @@ adm.addEventListener('click', e => {
   const sed = e.target.closest('[data-sed]');
   const srm = e.target.closest('[data-srm]');
   const smv = e.target.closest('[data-smv]');
+  const vmv = e.target.closest('[data-cvmv]');
+  const ved = e.target.closest('[data-cved]');
+  const vrm = e.target.closest('[data-cvrm]');
+  if(ved){
+    const v = (CMS.vids||[]).find(x => x.id === +ved.dataset.cved);
+    if(v) videoSlideForm(v, null, {cat:true});
+    return;
+  }
+  if(vrm){
+    const id = +vrm.dataset.cvrm;
+    askConfirm({
+      title:'Удалить видео из каталога?',
+      text:'Остальные ролики продолжат идти по очереди.',
+      onOk(){
+        CMS.vids = (CMS.vids||[]).filter(x => x.id !== id);
+        saveCms(); paintAdmin(); cvSync(); toast('Видео удалено');
+      }
+    });
+    return;
+  }
+  if(vmv){
+    const [id, dir] = vmv.dataset.cvmv.split(':');
+    const arr = CMS.vids || [];
+    const i = arr.findIndex(x => x.id === +id), j = i + (+dir);
+    if(i > -1 && j > -1 && j < arr.length){
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      saveCms(); paintAdmin(); cvSync();
+    }
+    return;
+  }
   if(sed){
     const s = (CMS.slides||[]).find(x => x.id === +sed.dataset.sed);
     if(s) slideForm(s);
@@ -17607,6 +18037,7 @@ async function bootFromServer(){
           pvz: (Array.isArray(cms.pvz) && cms.pvz.length) ? cms.pvz : defaultCms().pvz,
           promos: Array.isArray(cms.promos) ? cms.promos : defaultCms().promos,
           slides: Array.isArray(cms.slides) ? cms.slides : [],
+          vids: Array.isArray(cms.vids) ? cms.vids : [],
           about: {blocks: (cms.about && Array.isArray(cms.about.blocks)) ? cms.about.blocks : []},
           usp: uspMerge(defaultCms().usp, cms.usp)
         });
@@ -18005,9 +18436,10 @@ bootFromServer().catch((err) => {
           if(prev !== JSON.stringify(CMS.shipping || {}) + JSON.stringify(CMS.reviews || {})) dirty = true;
           /* главная (фото, тексты, плашки) — иначе правки из админки
              доезжали до покупателя только после перезагрузки страницы */
-          const homeKey = () => JSON.stringify([CMS.slides || [], CMS.texts || {}, CMS.usp || {}, CMS.about || {}]);
+          const homeKey = () => JSON.stringify([CMS.slides || [], CMS.vids || [], CMS.texts || {}, CMS.usp || {}, CMS.about || {}]);
           const beforeHome = homeKey();
           if(Array.isArray(cms.slides)) CMS.slides = cms.slides;
+          if(Array.isArray(cms.vids)) CMS.vids = cms.vids;
           CMS.texts = Object.assign({}, CMS.texts || {}, cms.texts || {});
           CMS.usp = uspMerge(defaultCms().usp, cms.usp);
           if(cms.about && Array.isArray(cms.about.blocks)) CMS.about = cms.about;
