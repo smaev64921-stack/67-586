@@ -16,7 +16,7 @@
 <!-- Отдельный файл, а не сам логотип: iOS кладёт иконку на сплошную подложку,
      и чёрный знак по прозрачному фону там просто исчезал. -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" as="image" href="/onboarding/ob-hero-dasha-blue.jpg" fetchpriority="high">
+<link rel="preload" as="image" href="/onboarding/ob-t-hero-dasha-blue.jpg" fetchpriority="high">
 <!-- Греем оба русских шрифта: заголовки набраны антиквой, всё мелкое — Onest.
      crossorigin обязателен даже для своего домена, иначе браузер скачает
      файл дважды. -->
@@ -155,10 +155,10 @@ html.is-final .skip{opacity:0;visibility:hidden}
 .s{position:relative;height:100vh;height:100svh;overflow:hidden;background:var(--bg)}
 /* Снимок сверху во всю ширину и плавно уходит в фон — как на образце. */
 .s__ph{position:absolute;left:0;right:0;top:0;height:64%;overflow:hidden;background:var(--ph)}
-.s__ph img{width:100%;height:100%;object-fit:cover;object-position:50% 0}
+.s__ph img{width:100%;height:100%;object-fit:cover;object-position:50% 20%}
 .s__ph::after{
-  content:'';position:absolute;left:0;right:0;bottom:0;height:44%;pointer-events:none;
-  background:linear-gradient(to bottom,rgba(246,246,244,0) 0%,rgba(246,246,244,.72) 52%,var(--bg) 92%)
+  content:'';position:absolute;left:0;right:0;bottom:0;height:22%;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(246,246,244,0) 0%,rgba(246,246,244,.75) 55%,var(--bg) 96%)
 }
 .s__ph--duo{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--bg)}
 .s__ph--duo > div{position:relative;overflow:hidden;background:var(--ph)}
@@ -227,7 +227,7 @@ html.js .s.is-in .s__tx > :nth-child(5){transition-delay:.32s}
 
 /* ================= 06: ДОСТАВКА ================= */
 .dlv .s__ph{height:40%}
-.dlv .s__ph img{object-position:50% 12%}
+.dlv .s__ph img{object-position:50% 30%}
 .dlv__ls{margin-top:16px}
 .dlv__i{display:flex;align-items:center;gap:14px;padding:11px 0;border-top:1px solid var(--line)}
 .dlv__i:last-child{border-bottom:1px solid var(--line)}
@@ -643,7 +643,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 <!-- ====== 01: как на образце владельца, без кнопки ====== -->
 <section class="s snap" data-n="1" aria-labelledby="t1">
   <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
-  <div class="s__ph"><img src="/onboarding/ob-hero-dasha-blue.jpg" alt="Девушка в голубой футболке, руки скрещены" width="1200" height="1676" fetchpriority="high" decoding="async"></div>
+  <div class="s__ph"><img src="/onboarding/ob-t-hero-dasha-blue.jpg" alt="Девушка в голубой футболке, руки скрещены" width="1000" height="1029" fetchpriority="high" decoding="async"></div>
   <div class="s__tx">
     <h1 class="s__t" id="t1">Базовые вещи, которые носят каждый день</h1>
     <p class="s__d">Футболки из плотного полотна.<br>Свободная посадка.<br>5 цветов.</p>
@@ -655,8 +655,8 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 <section class="s snap" data-n="2" aria-labelledby="t2">
   <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__ph s__ph--duo">
-    <div><img src="/onboarding/ob-leva-black.jpg" alt="Чёрная футболка" width="853" height="1280" loading="lazy" decoding="async" style="object-position:50% 4%"></div>
-    <div><img src="/onboarding/ob-leva-white-front.jpg" alt="Белая футболка" width="800" height="1299" loading="lazy" decoding="async" style="object-position:38% 2%"></div>
+    <div><img src="/onboarding/ob-t-leva-black.jpg" alt="Чёрная футболка" width="1000" height="1100" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-leva-white.jpg" alt="Белая футболка" width="1000" height="1017" loading="lazy" decoding="async"></div>
   </div>
   <div class="s__tx">
     <p class="s__k">02 / 07</p>
@@ -682,9 +682,9 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 <section class="s snap" data-n="4" aria-labelledby="t4">
   <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__col">
-    <div><img src="/onboarding/ob-leva-white-side.jpg" alt="Белая футболка в профиль" width="900" height="1697" loading="lazy" decoding="async"></div>
-    <div><img src="/onboarding/ob-leva-black.jpg" alt="Чёрная футболка спереди" width="853" height="1280" loading="lazy" decoding="async" style="object-position:50% 6%"></div>
-    <div><img src="/onboarding/ob-fin-leva-choc.jpg" alt="Шоколадная футболка спереди" width="700" height="1070" loading="lazy" decoding="async" style="object-position:50% 0"></div>
+    <div><img src="/onboarding/ob-t-leva-white-side.jpg" alt="Белая футболка в профиль" width="1000" height="1244" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-leva-black.jpg" alt="Чёрная футболка спереди" width="1000" height="1100" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-leva-choc.jpg" alt="Шоколадная футболка спереди" width="1000" height="1092" loading="lazy" decoding="async"></div>
   </div>
   <div class="s__tx">
     <p class="s__k">04 / 07</p>
@@ -712,11 +712,11 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
     </div>
   </div>
   <div class="pal__strip" aria-hidden="true">
-    <div><img src="/onboarding/ob-fin-dasha-black.jpg" alt="" width="700" height="1265" loading="lazy" decoding="async"></div>
-    <div><img src="/onboarding/ob-fin-leva-white.jpg" alt="" width="700" height="933" loading="lazy" decoding="async"></div>
-    <div><img src="/onboarding/ob-fin-dasha-red.jpg" alt="" width="700" height="1239" loading="lazy" decoding="async"></div>
-    <div><img src="/onboarding/ob-fin-dasha-blue.jpg" alt="" width="700" height="1094" loading="lazy" decoding="async"></div>
-    <div><img src="/onboarding/ob-fin-leva-choc.jpg" alt="" width="700" height="1070" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-dasha-black.jpg" alt="" width="1000" height="896" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-leva-white.jpg" alt="" width="1000" height="1017" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-dasha-red.jpg" alt="" width="1000" height="875" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-hero-dasha-blue.jpg" alt="" width="1000" height="1029" loading="lazy" decoding="async"></div>
+    <div><img src="/onboarding/ob-t-leva-choc.jpg" alt="" width="1000" height="1092" loading="lazy" decoding="async"></div>
   </div>
   <div class="s__ft s__ft--a"><button class="s__next" type="button" data-next aria-label="Листайте — следующий экран"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button></div>
 </section>
@@ -724,7 +724,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 <!-- ====== 06: доставка и оплата ====== -->
 <section class="s dlv snap" data-n="6" aria-labelledby="t6">
   <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
-  <div class="s__ph"><img src="/onboarding/ob-lesha-portrait2.jpg" alt="Парень в чёрном" width="1200" height="1113" loading="lazy" decoding="async"></div>
+  <div class="s__ph"><img src="/onboarding/ob-t-lesha.jpg" alt="Парень в чёрном" width="1000" height="734" loading="lazy" decoding="async"></div>
   <div class="s__tx">
     <p class="s__k">06 / 07</p>
     <h2 class="s__t" id="t6">Доставка и&nbsp;оплата</h2>
@@ -743,7 +743,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 
 <!-- ====== 07: финал — призыв в каталог ====== -->
 <section class="s fin snap" data-n="7" aria-labelledby="finT">
-  <div class="s__ph"><img src="/onboarding/ob-fin-dasha-choc.jpg" alt="Девушка в шоколадной футболке" width="1100" height="1461" loading="lazy" decoding="async"></div>
+  <div class="s__ph"><img src="/onboarding/ob-t-fin-dasha-choc.jpg" alt="Девушка в шоколадной футболке" width="1000" height="1019" loading="lazy" decoding="async"></div>
   <div class="s__tx">
     <img class="fin__mark" src="/logo.png?v=lc2" alt="" width="325" height="520" loading="lazy">
     <h2 class="s__t" id="finT">Выбирайте свой цвет</h2>
