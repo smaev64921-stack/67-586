@@ -81,11 +81,17 @@
          не рисует ничего, и пока грузится знакомство, телефон ~0,6 с показывал
          свой пустой тёмно-серый фон (видео владельца, 2026-10-03). Нарисованный
          кадр браузер держит на экране, пока не нарисуется следующая страница.
-         Остальное этой страницы не нужно — грузить и разбирать его не даём. */
-      try{ window.stop(); }catch(_){}
-      requestAnimationFrame(function(){
-        setTimeout(function(){ location.replace('/onboarding.html'); }, 0);
-      });
+         Таймер — страховка, если кадр так и не придёт: уйти надо в любом случае. */
+      var gone = false;
+      var go = function(){ if(!gone){ gone = true; location.replace('/onboarding.html'); } };
+      requestAnimationFrame(function(){ setTimeout(go, 0); });
+      setTimeout(go, 300);
+      /* Остальное этой страницы не нужно: всё, что ниже в файле, становится
+         скрытым текстом — без стилей и скриптов магазина, и чёрный кадр
+         приходит сразу, даже на медленном телефоне. Не window.stop(): после
+         него Chrome не рисует страницу совсем, кадра и ухода не было, и
+         приложение висело на сером экране (ec77263, владелец, 2026-10-04). */
+      document.write('<plaintext style="display:none">');
       return;
     }
     location.replace('/onboarding.html');
