@@ -113,7 +113,7 @@ function validateSqliteFile(filePath) {
       if (missing.length) {
         return {
           ok: false,
-          error: `В базе нет обязательных таблиц: ${missing.join(', ')}. Это не база Canvas.`
+          error: `В базе нет обязательных таблиц: ${missing.join(', ')}. Это не база Luxe Canvas.`
         };
       }
 

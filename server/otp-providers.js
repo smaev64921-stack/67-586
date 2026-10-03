@@ -265,7 +265,7 @@ async function sendViaActive(phoneDigits, code, text) {
 
   const phone = String(phoneDigits || '').replace(/\D/g, '');
   const codeStr = String(code || '').replace(/\D/g, '');
-  const msg = text || `Код Canvas: ${codeStr}`;
+  const msg = text || `Код Luxe Canvas: ${codeStr}`;
 
   if (p.type === 'sms_mobil' || p.type === 'sms_mobile') {
     const e164 = phone.startsWith('7') ? `+${phone}` : `+${phone}`;

@@ -121,7 +121,7 @@ function brandName() {
     const n = cms && cms.brand && String(cms.brand.name || '').trim();
     if (n) return n;
   } catch (_) {}
-  return 'Canvas';
+  return 'Luxe Canvas';
 }
 
 /** Записи лежат по email — ищем по секрету перебором, их всегда единицы. */

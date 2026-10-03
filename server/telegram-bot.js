@@ -818,7 +818,7 @@ async function showOwnerOrders(chatId, preferId) {
 function welcomeText() {
   const shop = shopHttps();
   return [
-    '👋 <b>Canvas</b>',
+    '👋 <b>Luxe Canvas</b>',
     '',
     'Одежда с вниманием к качеству и посадке.',
     '',
@@ -851,7 +851,7 @@ function welcomeMarkup(chatId) {
   }
 
   const url = siteUrl(chatId);
-  if (url) rows.push([urlBtn('🌐 Сайт Canvas', url)]);
+  if (url) rows.push([urlBtn('🌐 Сайт Luxe Canvas', url)]);
   if (admin) {
     const adminUrl = siteUrl(chatId, { go: 'admin' });
     if (adminUrl) rows.push([urlBtn('🛠 Админка', adminUrl)]);
@@ -1575,7 +1575,7 @@ function formatDeliveredPush(order) {
     items.length ? '' : null,
     items.join('\n'),
     '',
-    'Спасибо, что выбрали Canvas 🖤'
+    'Спасибо, что выбрали Luxe Canvas 🖤'
   ].filter((x) => x != null && x !== undefined).join('\n');
 }
 
@@ -1915,7 +1915,7 @@ async function showRegAskPhone(chatId, from = {}, mode = 'reg') {
   claimOwner(chatId, from);
   const isLogin = mode === 'log';
   const contactAskMsgId = await askShareContact(chatId, {
-    title: isLogin ? '<b>Вход в Canvas</b>' : '<b>Регистрация в Canvas</b>',
+    title: isLogin ? '<b>Вход в Luxe Canvas</b>' : '<b>Регистрация в Luxe Canvas</b>',
     hint: 'Нажмите кнопку ниже и поделитесь номером — этого достаточно.'
   });
   setAwait(chatId, {
@@ -1965,7 +1965,7 @@ async function handleContactReg(msg) {
     const r = linkOtpVerified(c.phone_number, chatId);
     await sendWithMarkupFallback(chatId, {
       text: r.ok
-        ? '✅ Номер подтверждён. Вернитесь на сайт Canvas и нажмите «Отправить код» — он придёт сюда.'
+        ? '✅ Номер подтверждён. Вернитесь на сайт Luxe Canvas и нажмите «Отправить код» — он придёт сюда.'
         : (r.error || 'Не получилось — начните вход на сайте заново.'),
       reply_markup: { remove_keyboard: true }
     });
@@ -2062,7 +2062,7 @@ async function handleContactReg(msg) {
       '',
       existed
         ? 'Вход выполнен по номеру Telegram.'
-        : 'Аккаунт в Canvas создан.',
+        : 'Аккаунт в Luxe Canvas создан.',
       '',
       'Чтобы войти с другого устройства:',
       '1) На том устройстве откройте сайт → <b>Вход по коду через Telegram</b>',
@@ -2208,7 +2208,7 @@ async function notifyNewBotAdmin(targetChatId, byChatId) {
     'Если страница уже открыта, обновите её.'
   ].join('\n');
   const rows = [];
-  if (url) rows.push([urlBtn('🌐 Сайт Canvas', url)]);
+  if (url) rows.push([urlBtn('🌐 Сайт Luxe Canvas', url)]);
   try {
     await sendWithMarkupFallback(targetChatId, {
       text,
@@ -2407,7 +2407,7 @@ async function beginDbImport(chatId) {
       'Пришли сюда файл <code>.db</code> (как документ, не сжатый архив).',
       '',
       'Что сделаю:',
-      '1) проверю, что это SQLite Canvas',
+      '1) проверю, что это SQLite Luxe Canvas',
       '2) сохраню текущую базу как страховку',
       '3) заменю файл',
       '4) если ошибка — верну старую и напишу причину',
@@ -2614,7 +2614,7 @@ async function handleMessage(msg) {
             text: [
               '✅ <b>Бот подключён</b>',
               '',
-              'Вернитесь на сайт Canvas и нажмите «Отправить код».',
+              'Вернитесь на сайт Luxe Canvas и нажмите «Отправить код».',
               'Код придёт сюда сообщением.'
             ].join('\n'),
             reply_markup: connectMarkup(chatId)

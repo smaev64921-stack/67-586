@@ -56,7 +56,7 @@ function replyTo() {
 function fromHeader(brand) {
   const raw = smtpFrom();
   if (!raw || raw.includes('<')) return raw;
-  const name = String(brand || 'Canvas').replace(/["\\]/g, '').trim();
+  const name = String(brand || 'Luxe Canvas').replace(/["\\]/g, '').trim();
   return name ? `"${name}" <${raw}>` : raw;
 }
 

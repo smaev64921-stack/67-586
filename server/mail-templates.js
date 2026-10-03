@@ -123,7 +123,7 @@ ${preheader(pre || title)}
  * предпросмотр письма в чужих руках ничего не даёт. Если публичного HTTPS
  * адреса у магазина нет, ссылка бесполезна — тогда шлём сам код.
  */
-function resetEmail({ brand = 'Canvas', link = '', code = '', ttlMin = 20, siteUrl = '', logoCid = '' } = {}) {
+function resetEmail({ brand = 'Luxe Canvas', link = '', code = '', ttlMin = 20, siteUrl = '', logoCid = '' } = {}) {
   const h1 = `<h1 style="margin:0 0 12px;font-family:${FONT};font-size:25px;
     line-height:1.25;font-weight:bold;color:${INK};letter-spacing:-0.4px">Смена пароля</h1>`;
   const p = (t, extra = '') => `<p style="margin:0 0 ${extra || '18px'};font-family:${FONT};

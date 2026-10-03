@@ -20,7 +20,7 @@ const DEMO_SKUS = new Set(DEMO.map((p) => String(p.sku)));
 
 function defaultCms() {
   return {
-    brand: { name: 'Canvas', logo: '' },
+    brand: { name: 'Luxe Canvas', logo: '' },
     contacts: { telegram: 'https://t.me/Luxe_Canvas_bot', email: '', phone: '' },
     legal: { sellerName: '', inn: '', ogrn: '', address: '', email: '', phone: '' },
     texts: {

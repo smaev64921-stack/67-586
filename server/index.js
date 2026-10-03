@@ -90,6 +90,43 @@ require('./photo-swap').runPhotoSwaps();
   } catch (_) {}
 })();
 
+/* Название магазина «Canvas» → «Luxe Canvas» — один раз. Меняем, только если
+   в CMS стоит именно старое имя (или пусто): своё имя из админки не трогаем,
+   логотип и всё остальное остаются как были. Отметка в meta: вернёт владелец
+   «Canvas» сам — следующий перезапуск этого не перепишет. */
+(() => {
+  try {
+    require('./rev');                                   // создаёт таблицу meta
+    const KEY = 'migrate:brand-luxe-canvas';
+    if (db.prepare('SELECT v FROM meta WHERE k = ?').get(KEY)) return;
+    const cms = getCms();
+    const was = cms && cms.brand ? String(cms.brand.name || '').trim() : '';
+    let changed = false;
+    if (cms && (was === 'Canvas' || was === '')) {
+      cms.brand = Object.assign({ logo: '' }, cms.brand || {}, { name: 'Luxe Canvas' });
+      saveCms(cms);
+      media.invalidateCms();
+      changed = true;
+    }
+    db.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v')
+      .run(KEY, JSON.stringify({ at: new Date().toISOString(), was, changed }));
+    if (changed) console.log('[BRAND] Canvas → Luxe Canvas');
+  } catch (e) {
+    console.warn('brand migrate:', e.message);
+  }
+})();
+
+/** Миграция имени прошла меньше 30 дней назад (см. выше и PUT /api/cms). */
+function brandRenamedRecently() {
+  try {
+    const row = db.prepare('SELECT v FROM meta WHERE k = ?').get('migrate:brand-luxe-canvas');
+    const m = row ? JSON.parse(row.v) : null;
+    return !!(m && m.changed && Date.now() - Date.parse(m.at) < 30 * 24 * 3600 * 1000);
+  } catch (_) {
+    return false;
+  }
+}
+
 const app = express();
 const PORT = +process.env.PORT || 3000;
 const PUBLIC_URL = resolvePublicUrl(PORT);
@@ -376,6 +413,14 @@ app.put('/api/cms', adminRequired, (req, res) => {
       error: 'Страница админки устарела: часть фото уже изменили в другом месте. Обновите страницу и повторите.',
       code: 'CMS_STALE'
     });
+  }
+  /* Вкладка админки, открытая ещё до переименования, хранит в памяти старое
+     «Canvas» и при любом сохранении вернула бы его. Месяц после миграции
+     такое старое имя не принимаем — переименование держится. */
+  if (body.brand && String(body.brand.name || '').trim() === 'Canvas' &&
+      cur.brand && cur.brand.name === 'Luxe Canvas' && brandRenamedRecently()) {
+    body.brand = Object.assign({}, body.brand);
+    delete body.brand.name;
   }
   const next = Object.assign({}, cur, body);
   if (body.brand) next.brand = Object.assign({}, cur.brand, body.brand);

@@ -135,7 +135,7 @@ self.addEventListener('push', (e) => {
      вниз. Ставим только если пришло: пустая строка ломает показ. */
   if (d.image) opts.image = d.image;
   opts.actions = [{ action: 'open', title: 'Открыть' }];
-  e.waitUntil(self.registration.showNotification(d.title || 'Canvas', opts));
+  e.waitUntil(self.registration.showNotification(d.title || 'Luxe Canvas', opts));
 });
 
 /* Нажали на уведомление о заказе. Открытую вкладку поднимаем и переводим на

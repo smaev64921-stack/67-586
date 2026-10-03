@@ -1013,7 +1013,7 @@ function checkoutReturnUrl(publicUrl, num, accessToken) {
 function paymentPayload({ orderId, num, price, returnUrl, email, phone, items, discount, ship }) {
   return {
     amount: price,
-    description: `Canvas · заказ №${num}`,
+    description: `Luxe Canvas · заказ №${num}`,
     orderNum: num,
     returnUrl,
     metadata: { orderId: String(orderId), orderNum: String(num) },
