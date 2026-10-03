@@ -74,7 +74,13 @@ async function getToken() {
     throw Object.assign(new Error('СДЭК не настроен: нужны CDEK_CLIENT_ID/CDEK_ACCOUNT и CDEK_CLIENT_SECRET/CDEK_SECURE_PASSWORD'), { status: 503 });
   }
   if (tokenCache.token && Date.now() < tokenCache.exp) return tokenCache.token;
+  /* Цены пункта и курьера спрашиваются разом — токен на двоих один. */
+  if (!tokenWait) tokenWait = fetchToken().finally(() => { tokenWait = null; });
+  return tokenWait;
+}
 
+let tokenWait = null;
+async function fetchToken() {
   const body = new URLSearchParams();
   body.set('grant_type', 'client_credentials');
   body.set('client_id', CLIENT_ID());
@@ -197,6 +203,57 @@ async function deliveryPoints({ cityCode, lat, lng, q, limit = 80 } = {}) {
   }
 
   return points.slice(0, Math.max(1, Math.min(+limit || 80, 200)));
+}
+
+/* Режимы доставки в ответе калькулятора СДЭК: 3 — склад-дверь, 4 — склад-склад. */
+const DELIVERY_MODE = { 136: 4, 137: 3 };
+
+function tariffResult(t, code) {
+  const sum = +(t && (t.total_sum != null ? t.total_sum : t.delivery_sum));
+  if (!Number.isFinite(sum) || sum <= 0) return null;
+  return {
+    sum,
+    periodMin: +(t.calendar_min || t.period_min) || 0,
+    periodMax: +(t.calendar_max || t.period_max) || 0,
+    tariff: +(t.tariff_code || code) || 0
+  };
+}
+
+/**
+ * Сколько СДЭК возьмёт за посылку из одного города в другой — по договору
+ * магазина, то есть ровно то, что потом спишут. Сначала просим нужный тариф
+ * (136 «Посылка склад-склад» или 137 «склад-дверь»). Если в этот город он
+ * не ходит, берём самый дешёвый тариф с тем же способом из списка доступных.
+ */
+async function calcTariff({ fromCode, toCode, tariffCode, packages }) {
+  const from_location = { code: +fromCode };
+  const to_location = { code: +toCode };
+  try {
+    const data = await cdekFetch('/calculator/tariff', {
+      method: 'POST',
+      body: { tariff_code: +tariffCode, from_location, to_location, packages },
+      timeout: 8000
+    });
+    const r = tariffResult(data, tariffCode);
+    if (r) return r;
+  } catch (e) {
+    /* 4xx — тариф в это направление не ходит; сеть и 5xx — пробовать
+       список бесполезно, он упадёт так же. */
+    if (!(e && e.status >= 400 && e.status < 500)) throw e;
+  }
+  const list = await cdekFetch('/calculator/tarifflist', {
+    method: 'POST',
+    body: { from_location, to_location, packages },
+    timeout: 8000
+  });
+  const mode = DELIVERY_MODE[+tariffCode];
+  const best = (Array.isArray(list && list.tariff_codes) ? list.tariff_codes : [])
+    .filter((t) => !mode || +t.delivery_mode === mode)
+    .map((t) => tariffResult(t))
+    .filter(Boolean)
+    .sort((a, b) => a.sum - b.sum)[0];
+  if (!best) throw Object.assign(new Error('СДЭК не возит в этот город нужным способом'), { status: 422 });
+  return best;
 }
 
 function distanceKm(a, b) {
@@ -323,6 +380,7 @@ module.exports = {
   configured,
   searchCities,
   deliveryPoints,
+  calcTariff,
   distanceKm,
   parseTrackRef,
   lookupOrder,

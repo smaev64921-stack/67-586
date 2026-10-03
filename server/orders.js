@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { db } = require('./db');
 const { getProduct, checkStock, deductStock, restoreStock } = require('./products');
 const { createPayment, configured, getPayment, lookupPayment, cancelPayment } = require('./yookassa');
+const shipLive = require('./ship-live');
 
 /* Сколько ждём оплату. Меньше — быстрее возвращается остаток на склад
    и меньше висит «мёртвых» заказов. Столько же показывает таймер на
@@ -376,21 +377,25 @@ function findZone(place) {
 
 const COURIER = 'courier';
 
-/** Единственный расчёт доставки в проекте. place = {city, region, addr}. */
-function shipQuote({ mode, place, goodsAfterDiscount, promo } = {}) {
+/** Единственный расчёт доставки в проекте. place = {city, region, addr}.
+    live — ответ калькулятора СДЭК (server/ship-live.js), если он есть. */
+function shipQuote({ mode, place, goodsAfterDiscount, promo, live, liveOn } = {}) {
   const s = getCms().shipping || {};
   const courier = String(mode) === COURIER;
   const zone = findZone(place);
 
-  const pick = (fromZone, fromBase, def) => {
-    const z = zone && fromZone != null && fromZone !== '' ? +fromZone : NaN;
-    if (Number.isFinite(z) && z >= 0) return z;
-    const b = +fromBase;
-    return Number.isFinite(b) && b >= 0 ? b : def;
-  };
-  const base = courier
-    ? pick(zone && zone.courier, s.courier, 490)
-    : pick(zone && zone.pickup, s.pickup, 190);
+  /* Цена зоны — решение владельца («по Екатеринбургу 0 ₽»), она сильнее
+     тарифа СДЭК. Тариф СДЭК сильнее базовой цены: та одна на всю страну. */
+  const zoneRaw = zone ? (courier ? zone.courier : zone.pickup) : null;
+  const zoneCost = zoneRaw != null && zoneRaw !== '' ? +zoneRaw : NaN;
+  const byZone = Number.isFinite(zoneCost) && zoneCost >= 0;
+  const byCdek = !byZone && !!(live && live.cost > 0);
+  const baseRaw = +(courier ? s.courier : s.pickup);
+  const base = byZone ? zoneCost
+    : byCdek ? live.cost
+    : Number.isFinite(baseRaw) && baseRaw >= 0 ? baseRaw : (courier ? 490 : 190);
+  const days = (byCdek && live.days) || (zone && zone.days) ||
+    (courier ? s.courierDays : s.pickupDays) || '';
 
   /* У курьера свой порог бесплатной доставки. Ноль означает «бесплатным
      не бывает»: возить до двери дороже, и общий порог тут не годится. */
@@ -405,10 +410,29 @@ function shipQuote({ mode, place, goodsAfterDiscount, promo } = {}) {
     cost,
     mode: courier ? COURIER : 'pickup',
     zone: zone ? String(zone.name || '') : '',
-    days: String((zone && zone.days) || (courier ? s.courierDays : s.pickupDays) || ''),
+    days: String(days),
     freeFrom,
-    free
+    free,
+    by: byZone ? 'zone' : byCdek ? 'cdek' : 'base',
+    liveOn: !!liveOn
   };
+}
+
+/* Тариф СДЭК спрашиваем, только когда он что-то решает: при бесплатной
+   доставке и при цене зоны его ответ всё равно не пригодится. СДЭК не
+   ответил — остаётся базовая цена, заказ из-за этого не срывается. */
+async function shipQuoteLive({ mode, place, cityCode, qty, goodsAfterDiscount, promo } = {}) {
+  const s = getCms().shipping || {};
+  const liveOn = shipLive.enabled(s);
+  const plain = shipQuote({ mode, place, goodsAfterDiscount, promo, liveOn });
+  if (!liveOn || plain.free || plain.by === 'zone') return plain;
+  if (!cityCode) {
+    /* Города ещё нет — нет и цены: базовые 190 ₽ выглядели бы настоящими. */
+    if (!String((place && place.city) || '').trim()) plain.noCity = true;
+    return plain;
+  }
+  const live = await shipLive.liveQuote({ mode, cityCode, qty, shipping: s });
+  return live ? shipQuote({ mode, place, goodsAfterDiscount, promo, live, liveOn }) : plain;
 }
 
 /* Push доходит и до закрытого приложения, и не требует Телеграма. Каналы
@@ -555,29 +579,30 @@ function claimOrdersForUser(user) {
    спрашивает цену на шаге доставки, чтобы показанная сумма совпала
    с той, что уйдёт в оплату. Товары пересчитываем по своей базе —
    присланной сумме верить нельзя. */
-function quoteForCart({ items, promoCode, delivery, pvz } = {}) {
+async function quoteForCart({ items, promoCode, delivery, pvz, hint } = {}) {
   /* Больше 50 разных позиций в одной корзине не бывает — а без предела
      открытый маршрут перебирал бы присланный массив любой длины. */
   const list = Array.isArray(items) ? items.slice(0, 50) : [];
   let goods = 0;
+  let qty = 0;
   for (const i of list) {
     const p = getProduct(i && i.id);
     if (!p) continue;
-    goods += p.price * Math.max(1, Math.round(+(i && i.qty) || 1));
+    const n = Math.max(1, Math.round(+(i && i.qty) || 1));
+    goods += p.price * n;
+    qty += Math.min(99, n);
   }
   const { discount, promo } = calcPromo(promoCode, goods);
   const after = Math.max(0, goods - discount);
 
   const mode = String((delivery && delivery.mode) || 'pickup') === COURIER ? COURIER : 'pickup';
-  let place = { city: '', region: '', addr: '' };
-  if (mode === COURIER) {
-    place = {
-      city: String((delivery && delivery.city) || '').trim(),
-      region: '',
-      addr: String((delivery && delivery.street) || '').trim()
-    };
-  } else if (pvz) {
-    place = {
+
+  /* Пункт — по справочнику, как при оформлении: присланным городу и
+     адресу верим, только если кода в справочнике нет. */
+  let pvzPlace = null;
+  let pvzCity = 0;
+  if (pvz) {
+    pvzPlace = {
       city: String(pvz.city || '').trim(),
       region: String(pvz.region || '').trim(),
       addr: String(pvz.addr || '').trim()
@@ -587,13 +612,51 @@ function quoteForCart({ items, promoCode, delivery, pvz } = {}) {
       try {
         const dir = require('./cdek-open');
         const found = dir.deliveryPoints({ q: code, limit: 40 }).find((p) => p.code === code);
-        if (found) place = { city: found.city, region: found.region, addr: found.addr };
+        if (found) {
+          pvzPlace = { city: found.city, region: found.region, addr: found.addr };
+          pvzCity = found.cityCode;
+        }
       } catch (_) {}
     }
+    if (!pvzCity) pvzCity = shipLive.cityCodeByName(pvzPlace.city, pvzPlace.region);
+  }
+  const courierPlace = {
+    city: String((delivery && delivery.city) || (hint && hint.courierCity) || '').trim(),
+    region: '',
+    addr: String((delivery && delivery.street) || (hint && hint.courierStreet) || '').trim()
+  };
+  const courierCity = shipLive.cityCodeByName(courierPlace.city);
+
+  /* Город, который человек смотрит на карте, пока пункт не выбран, — чтобы
+     цена появилась сразу после выбора города. Только для показа: при
+     оформлении цену считает createCheckout по самому пункту. */
+  let hintCity = 0;
+  let hintName = '';
+  const hc = +(hint && hint.cityCode) || 0;
+  if (hc) {
+    try {
+      const c = require('./cdek-open').cities().find((x) => x.code === hc);
+      if (c) { hintCity = c.code; hintName = c.city; }
+    } catch (_) {}
   }
 
-  const q = shipQuote({ mode, place, goodsAfterDiscount: after, promo });
-  return Object.assign({}, q, { goods, discount, total: after + q.cost });
+  const base = { goodsAfterDiscount: after, promo, qty };
+  const pickupArgs = pvzPlace
+    ? { mode: 'pickup', place: pvzPlace, cityCode: pvzCity }
+    : { mode: 'pickup', place: { city: hintName || courierPlace.city, region: '', addr: '' }, cityCode: hintCity || courierCity };
+  /* Курьер без вписанного города — в том же городе, что и пункт: вкладка
+     показывает, сколько стоит привезти туда же, только до двери. */
+  const courierArgs = courierCity || courierPlace.city
+    ? { mode: COURIER, place: courierPlace, cityCode: courierCity }
+    : { mode: COURIER, place: { city: (pvzPlace && pvzPlace.city) || hintName, region: '', addr: '' }, cityCode: pvzCity || hintCity };
+
+  const [pick, door] = await Promise.all([
+    shipQuoteLive(Object.assign({}, base, pickupArgs)),
+    shipQuoteLive(Object.assign({}, base, courierArgs))
+  ]);
+  const q = mode === COURIER ? door : pick;
+  const alt = mode === COURIER ? pick : door;
+  return Object.assign({}, q, { goods, discount, total: after + q.cost, alt });
 }
 
 async function createCheckout({ items, guest, pvz, delivery, promoCode, user, publicUrl }) {
@@ -737,12 +800,14 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
      регион и адрес его данными. Клиент мог прислать настоящий код
      владивостокского пункта и приписать ему «Екатеринбург», чтобы
      доставка посчиталась по дешёвой зоне. */
+  let pvzKnown = false;
   if (shipMode !== COURIER && cleanPvz.code && !cleanPvz.manual) {
     try {
       const dir = require('./cdek-open');
       const found = dir.deliveryPoints({ q: cleanPvz.code, limit: 40 })
         .find((p) => p.code === cleanPvz.code);
       if (found) {
+        pvzKnown = true;
         cleanPvz.city = found.city;
         cleanPvz.region = found.region;
         cleanPvz.cityCode = found.cityCode;
@@ -761,12 +826,23 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
   /* Место доставки берём из уже проверенных данных, а не из того, что
      прислал клиент отдельным полем: иначе к владивостокскому пункту
      подставят «Екатеринбург» и уедут по дешёвому тарифу. */
-  const quote = shipQuote({
+  /* Код города для тарифа СДЭК — тоже только из проверенного: у пункта из
+     справочника он свой, у курьера и адреса «руками» ищем по названию. */
+  const cityCode = shipMode === COURIER
+    ? shipLive.cityCodeByName(cleanPvz.city)
+    : pvzKnown ? cleanPvz.cityCode : shipLive.cityCodeByName(cleanPvz.city, cleanPvz.region);
+  const quote = await shipQuoteLive({
     mode: shipMode,
     place: { city: cleanPvz.city, region: cleanPvz.region || '', addr: cleanPvz.addr },
+    cityCode,
+    qty: normalized.reduce((n, i) => n + i.qty, 0),
     goodsAfterDiscount: after,
     promo
   });
+  /* Пока ждали ответ СДЭК, другой покупатель мог забрать последний размер.
+     Сверяем склад ещё раз: отсюда до списания ожиданий уже нет. */
+  const stockLate = checkStock(normalized);
+  if (stockLate) throw Object.assign(new Error(stockLate), { status: 409 });
   const ship = quote.cost;
   const price = after + ship;
   const num = nextOrderNum();

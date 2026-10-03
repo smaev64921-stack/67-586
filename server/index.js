@@ -449,18 +449,19 @@ app.delete('/api/admin/reviews/:id', adminRequired, (req, res) => {
 /* Сколько будет стоить доставка при таком способе и в такой город.
    Витрина показывает эту цифру ещё до оплаты, и она обязана совпасть
    с той, что уйдёт в ЮKassa, — поэтому считает сервер, а не браузер. */
-app.post('/api/delivery/quote', (req, res) => {
+app.post('/api/delivery/quote', async (req, res) => {
   /* Маршрут открыт без входа и перебирает присланный список товаров —
      без лимита им можно было загрузить сервер одним скриптом. Живой
      человек на шаге доставки делает десятки запросов, не сотни. */
   const rl = hit('delivery-quote', clientIp(req), { limit: 240, windowMs: 10 * 60 * 1000, label: 'Слишком часто' });
   if (!rl.ok) return res.status(429).json({ error: rl.error });
   try {
-    res.json(quoteForCart({
+    res.json(await quoteForCart({
       items: req.body.items,
       promoCode: req.body.promoCode,
       delivery: req.body.delivery,
-      pvz: req.body.pvz
+      pvz: req.body.pvz,
+      hint: req.body.hint
     }));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Не удалось рассчитать доставку' });

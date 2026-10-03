@@ -4796,11 +4796,11 @@ function setPvzAddr(raw){
 function deliveryTabsHTML(){
   const tab = (k, name) => {
     const on = S.checkout.delivery === k;
-    const q = localShipQuote(k);
+    const q = tabQuote(k);
     return `<button type="button" class="dlv__tab${on ? ' on' : ''}" data-a="dmode:${k}"
       aria-pressed="${on}">
       <span class="dlv__tab-n">${name}</span>
-      <span class="dlv__tab-p">${q.cost ? money(q.cost) : 'бесплатно'}${q.days ? ' · ' + esc(q.days) : ''}</span>
+      <span class="dlv__tab-p">${shipPriceText(q)}${q.days ? ' · ' + esc(q.days) : ''}</span>
     </button>`;
   };
   return `<div class="dlv__tabs">${tab('pickup','Пункт выдачи')}${tab('courier','Курьером до двери')}</div>`;
@@ -4902,23 +4902,68 @@ function destError(){
 /* Цену доставки считает сервер — она же уходит в оплату. Ответ
    приходит с задержкой, поэтому до него показываем свою оценку
    по тем же зонам: цифра не должна мигать при каждом тычке. */
+/* Сервер отвечает сразу за оба способа: цена выбранного и цена второй
+   вкладки. Каждая хранится со своим отпечатком — пока человек печатает
+   город курьера, цена пункта на соседней вкладке не пропадает. */
 let quoteSeq = 0;
+let quotePending = '';
+let quoteWaiting = false;
+function quoteFresh(mode){
+  const q = (S.checkout.quotes || {})[mode];
+  return !!q && q.fp === modeFingerprint(mode);
+}
 async function refreshQuote(){
+  quoteWaiting = false;
   if(!window.LC || !S.cart.length) return;
+  if(quoteFresh('pickup') && quoteFresh('courier')) return;
   const fp = quoteFingerprint();
-  if(S.checkout.quote && S.checkout.quote.fp === fp) return;
+  if(quotePending === fp) return;
+  const fps = {pickup: modeFingerprint('pickup'), courier: modeFingerprint('courier')};
   const my = ++quoteSeq;
+  quotePending = fp;
+  /* С тарифом СДЭК ответ идёт до пары секунд — показываем «считаем…». */
+  if(shipLiveOn()) paintDeliveryTotals();
   try{
     const q = await LC.deliveryQuote({
       items: S.cart.filter(i => !i.gone).map(i => ({id:i.id, size:i.size, qty:i.qty})),
       promoCode: S.promo ? S.promo.code : S.promoCode,
       delivery: deliveryPayload(),
-      pvz: S.checkout.pvz
+      pvz: S.checkout.pvz,
+      hint: quoteHint()
     });
     if(my !== quoteSeq) return;
-    S.checkout.quote = Object.assign({}, q, {fp});
-    paintDeliveryTotals();
-  }catch(e){ /* не ответил — остаёмся на своей оценке */ }
+    const quotes = {};
+    [q, q.alt].forEach(x => {
+      if(x && fps[x.mode]) quotes[x.mode] = Object.assign({}, x, {fp: fps[x.mode]});
+    });
+    S.checkout.quotes = quotes;
+    S.checkout.quote = quotes[S.checkout.delivery] || null;
+    if(typeof q.liveOn === 'boolean') S.checkout.liveOn = q.liveOn;
+  }catch(e){
+    /* не ответил — остаёмся на своей оценке */
+    if(my !== quoteSeq) return;
+    S.checkout.quoteFailed = fp;
+  }finally{
+    if(my === quoteSeq) quotePending = '';
+  }
+  if(my === quoteSeq) paintDeliveryTotals();
+}
+/* Город курьера печатают по букве — спрашиваем сервер, когда рука остановилась. */
+let quoteTimer = null;
+function quoteSoon(){
+  clearTimeout(quoteTimer);
+  quoteWaiting = true;
+  quoteTimer = setTimeout(refreshQuote, 700);
+}
+/* Что ещё нужно серверу для цены вкладок: город, который смотрят на карте
+   (цена появляется до выбора пункта), и адрес курьера, если его вписали. */
+function quoteHint(){
+  const c = S.checkout.courier || {};
+  return {
+    cityCode: pvzView.city ? +pvzView.city.code || 0 : 0,
+    courierCity: String(c.city || '').trim(),
+    courierStreet: String(c.street || '').trim()
+  };
 }
 
 /** Сумма на кнопке и строка про срок. Только они, без карты. */
@@ -4929,7 +4974,7 @@ function paintDeliveryTotals(){
   const tabs = document.querySelector('#dlvBox .dlv__tabs');
   if(tabs) tabs.outerHTML = deliveryTabsHTML();
   const btn = document.getElementById('coGo');
-  if(btn) btn.innerHTML = `Продолжить · ${money(orderTotal())}`;
+  if(btn) btn.innerHTML = `Продолжить${totalTail()}`;
   const note = document.getElementById('dlvNote');
   if(note) note.innerHTML = deliveryNoteHTML();
   const sum = document.getElementById('coSum');
@@ -4938,6 +4983,12 @@ function paintDeliveryTotals(){
 
 function deliveryNoteHTML(){
   const q = shipQuoteNow();
+  if(q.unknown){
+    const msg = q.pending ? 'считаем стоимость…'
+      : S.checkout.delivery === 'courier' ? 'впишите город — посчитаем по тарифу СДЭК'
+      : 'выберите город — посчитаем по тарифу СДЭК';
+    return `${svg('box','ic ic--xs')}<span>${esc(shipModeName() + ' · ' + msg)}</span>`;
+  }
   const r = shipRates();
   const free = S.checkout.delivery === 'courier' ? (+r.freeFromCourier || 0) : (+r.freeFrom || 0);
   const parts = [shipModeName()];
@@ -4985,7 +5036,8 @@ function bindDelivery(){
         S.checkout.courier[key] = el.value;
         el.classList.remove('f__err');
         saveUser();
-        if(key === 'city'){ suggestCities(el.value); paintDeliveryTotals(); }
+        if(key === 'city') suggestCities(el.value);
+        if(key === 'city' || key === 'street'){ quoteSoon(); paintDeliveryTotals(); }
       };
     });
 }
@@ -5348,6 +5400,7 @@ function pvzNorm(s){
 async function pvzLoadPoints(){
   if(!window.LC) return pvzSetError('API сайта недоступен');
   if(!pvzView.city && !pvzView.byGeo) return pvzSetError('Сначала выберите город');
+  quoteSoon();
   const req = ++pvzView.req;
   pvzView.loading = true;
   pvzView.error = '';
@@ -6358,6 +6411,7 @@ function resetPersonalState(){
   if(S.checkout){
     S.checkout.pvz = null;
     S.checkout.quote = null;
+    S.checkout.quotes = null;
     S.checkout.delivery = 'pickup';
     S.checkout.courier = {city:'', street:'', flat:'', comment:''};
     S.checkout.guest = {name:'', phone:'', email:''};
@@ -6798,22 +6852,76 @@ function localShipQuote(mode){
 }
 
 /* Отпечаток «за что посчитали»: пока он не менялся, ответ сервера годен. */
-function quoteFingerprint(){
-  const p = deliveryPlace();
+/* Всё, от чего сервер считает цену этого способа, — тем же порядком,
+   что в quoteForCart: пункт, иначе город на карте, иначе город курьера. */
+function modeFingerprint(mode){
+  const c = S.checkout.courier || {};
+  const p = S.checkout.pvz;
+  const h = quoteHint();
+  const pv = p ? [p.code, p.city, p.region, p.addr].join('~') : '';
+  const where = mode === 'courier'
+    ? [h.courierCity, h.courierStreet, h.courierCity ? '' : (pv || h.cityCode)]
+    : [pv || h.cityCode || h.courierCity];
   return [
-    S.checkout.delivery,
-    S.checkout.pvz ? S.checkout.pvz.code : '',
-    p.city, p.addr,
+    mode, ...where,
     cartTotal(),
+    /* тариф СДЭК зависит от веса, то есть от числа вещей */
+    S.cart.reduce((n, i) => n + (i.gone ? 0 : +i.qty || 0), 0),
     S.promo ? S.promo.code : ''
   ].join('|');
 }
+function quoteFingerprint(){
+  return modeFingerprint('pickup') + '#' + modeFingerprint('courier');
+}
+
+/* ==========================================================
+   ЦЕНА ПО ТАРИФУ СДЭК
+   Когда у сервера есть ключи СДЭК, доставку считает калькулятор СДЭК:
+   от Екатеринбурга до города пункта (или до двери). Своей оценки тут
+   нет — базовые 190 ₽ выглядели бы настоящими, — поэтому до ответа
+   сервера пишем «считаем…» или «по тарифу СДЭК», а не цифру.
+   ========================================================== */
+function shipLiveOn(){
+  if(typeof S.checkout.liveOn === 'boolean') return S.checkout.liveOn;
+  return !!shipRates().live;
+}
+function unknownQuote(mode){
+  return {
+    cost:0, unknown:true, days:'', zone:'', free:'',
+    pending: quoteWaiting || quotePending === quoteFingerprint(),
+    mode: mode || S.checkout.delivery
+  };
+}
+/* Без ответа сервера своя оценка годится, только если цену решает зона
+   или порог бесплатной. Иначе при тарифе СДЭК цены пока нет. */
+function guessQuote(mode){
+  const q = localShipQuote(mode);
+  if(!shipLiveOn() || q.free) return q;
+  if(S.checkout.quoteFailed === quoteFingerprint()) return q;
+  const m = mode || S.checkout.delivery;
+  const z = shipZone(deliveryPlace(m));
+  const zp = z ? (m === 'courier' ? z.courier : z.pickup) : null;
+  if(zp != null && zp !== '' && +zp >= 0) return q;
+  return unknownQuote(m);
+}
 
 /** Расчёт, который показываем: серверный, если он про эту же доставку. */
+function tabQuote(mode){
+  const q = (S.checkout.quotes || {})[mode];
+  if(q && q.fp === modeFingerprint(mode)) return q.noCity ? unknownQuote(mode) : q;
+  return guessQuote(mode);
+}
 function shipQuoteNow(){
-  const q = S.checkout.quote;
-  if(q && q.fp === quoteFingerprint()) return q;
-  return localShipQuote();
+  return tabQuote(S.checkout.delivery);
+}
+function shipPriceText(q){
+  if(q.unknown) return q.pending ? 'считаем…' : 'по тарифу СДЭК';
+  return q.cost ? money(q.cost) : 'бесплатно';
+}
+/* Сумма на кнопке — только когда доставка уже посчитана: иначе на ней
+   стояли бы одни товары, а в оплату ушло бы больше. */
+function totalTail(sep = ' · '){
+  return shipQuoteNow().unknown ? '' : sep + money(orderTotal());
 }
 /* Порог бесплатной доставки считаем от суммы со скидкой —
    иначе промокод «дотягивал» заказ до бесплатной доставки бесплатно. */
@@ -6984,6 +7092,16 @@ function contactError(){
 function deliveryMeta(){
   const cost = shipCost();
   const inCartScreen = S.screen === 'cart';
+  const q = shipQuoteNow();
+  if(q.unknown) return {
+    label: 'Доставка',
+    value: shipPriceText(q),
+    free: false,
+    unknown: true,
+    hint: inCartScreen
+      ? shipModeName() + ' · посчитаем по адресу на следующем шаге'
+      : shipModeName()
+  };
   return {
     label: 'Доставка',
     value: cost ? money(cost) : 'Бесплатно',
@@ -7016,7 +7134,7 @@ function cartSummaryHTML(opts = {}){
       <span class="row__v${d.free ? ' row__v--free' : ''}">${d.value}</span>
     </div>
     <div class="row row--total">
-      <span class="row__l">${pay ? 'К оплате' : 'Итого'}</span>
+      <span class="row__l">${pay ? 'К оплате' : 'Итого'}${d.unknown ? '<span class="row__hint">без доставки</span>' : ''}</span>
       <span class="row__v">${money(orderTotal())}</span>
     </div>
     ${!pay && free && left && !isFreeShipPromo(S.promo) ? `<div class="freebar">
@@ -7501,7 +7619,7 @@ function scrCart(){
       ? `<p class="cart__block">${svg('info','ic ic--sm')} Заказ не оформить: часть товаров закончилась. Уберите их из корзины — остальное сохранится.</p>
          <button class="btn" disabled>Оформить заказ</button>
          <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
-      : `<button class="btn" data-a="checkout">Оформить заказ · ${money(orderTotal())}</button>`}
+      : `<button class="btn" data-a="checkout">Оформить заказ${totalTail()}</button>`}
     ${!hasLiveSession() ? `<p class="gform__n" style="padding:10px 0 0">В корзину можно без аккаунта. Оформить заказ — после регистрации.</p>` : ''}
     <p class="safe">${svg('lock')} Безопасная оплата</p>
   </div>`;
@@ -7565,7 +7683,7 @@ function scrPay(){
       ? `<p class="cart__block">${svg('info','ic ic--sm')} Оформление недоступно: пока вы оформляли заказ, часть товаров разобрали. Уберите их — и продолжим.</p>
          <button class="btn" disabled>${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}</button>
          <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
-      : `<button class="btn" data-a="paynow">${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'} ${money(orderTotal())}</button>`}
+      : `<button class="btn" data-a="paynow">${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}${totalTail(' ')}</button>`}
     <p class="safe">${window.__LC_YK
       ? svg('lock') + ' Безопасная оплата · данные защищены'
       : svg('info','ic ic--sm') + ' Онлайн-оплата пока не подключена — заказ уйдёт в обработку'}</p>
@@ -7629,7 +7747,7 @@ function scrDelivery(){
   </div>
 
   <div style="padding:4px var(--pad) 0">
-    <button class="btn" id="coGo" data-a="topay">Продолжить · ${money(orderTotal())}</button>
+    <button class="btn" id="coGo" data-a="topay">Продолжить${totalTail()}</button>
   </div>`;
 }
 
@@ -12426,7 +12544,6 @@ document.addEventListener('click', e => {
       const m = a === 'courier' ? 'courier' : 'pickup';
       if(S.checkout.delivery === m) break;
       S.checkout.delivery = m;
-      S.checkout.quote = null;
       saveUser();
       deliveryRender();
       break;
@@ -14427,6 +14544,22 @@ function viewContent(){
     </div>
 
     <div class="ad__box" style="margin-top:12px">
+      <div class="ad__box-t">Доставка — тариф СДЭК</div>
+      <p class="ad__m" style="margin-top:0">${sh.liveKeys
+        ? 'Ключи API СДЭК подключены. Цену до пункта и до двери считает калькулятор СДЭК: от Екатеринбурга до города покупателя, по весу заказа.'
+        : 'Ключей API СДЭК на сервере нет — пока считаем по базовым ценам ниже. Ключи выдаёт личный кабинет СДЭК (Интеграция → ключи), их вписывают на Bothost в переменные CDEK_CLIENT_ID и CDEK_CLIENT_SECRET.'}</p>
+      <label class="ad__sw"><input type="checkbox" id="shLive" ${sh.cdekOff === true ? '' : 'checked'}> Считать доставку по тарифу СДЭК</label>
+      <div class="ad__g2">
+        <div><label class="ad__l">Вес одной вещи с пакетом, г</label>
+          <input class="ad__f" id="shW" type="number" min="50" max="5000" step="10" value="${+sh.itemWeight || 300}"></div>
+        <div><label class="ad__l">Наценка к тарифу, ₽</label>
+          <input class="ad__f" id="shM" type="number" min="0" step="10" value="${+sh.cdekMarkup || 0}"></div>
+      </div>
+      <p class="ad__m" style="margin-top:10px">Наценка — если хотите вложить в доставку упаковку или дорогу до отделения.
+        Цена зоны ниже сильнее тарифа СДЭК; порог бесплатной доставки работает как раньше.</p>
+    </div>
+
+    <div class="ad__box" style="margin-top:12px">
       <div class="ad__box-t">Доставка — базовые тарифы</div>
       <div class="ad__g2">
         <div><label class="ad__l">До пункта выдачи, ₽</label>
@@ -14446,8 +14579,8 @@ function viewContent(){
         <div><label class="ad__l">Курьер бесплатно от, ₽ (0 — выкл.)</label>
           <input class="ad__f" id="shFC" type="number" min="0" step="100" value="${+sh.freeFromCourier || 0}"></div>
       </div>
-      <p class="ad__m" style="margin-top:10px">Базовый тариф берётся, когда город не подошёл ни к одной зоне ниже.
-        Порог бесплатной считается от суммы со скидкой.</p>
+      <p class="ad__m" style="margin-top:10px">Базовый тариф берётся, когда город не подошёл ни к одной зоне ниже,
+        а СДЭК не посчитал (нет ключей или он не ответил). Порог бесплатной считается от суммы со скидкой.</p>
     </div>
 
     <div class="ad__box" style="margin-top:12px">
@@ -15099,6 +15232,9 @@ function bindAdminView(){
     CMS.shipping.freeFromCourier = num('shFC', CMS.shipping.freeFromCourier || 0);
     CMS.shipping.pickupDays  = document.getElementById('shPD').value.trim() || CMS.shipping.pickupDays;
     CMS.shipping.courierDays = document.getElementById('shCD').value.trim() || CMS.shipping.courierDays;
+    CMS.shipping.cdekOff = !document.getElementById('shLive').checked;
+    CMS.shipping.itemWeight = Math.min(5000, Math.max(50, num('shW', CMS.shipping.itemWeight || 300)));
+    CMS.shipping.cdekMarkup = num('shM', CMS.shipping.cdekMarkup || 0);
     const zones = shipZonesFromDom();
     if(zones) CMS.shipping.zones = zones;
     CMS.texts.returnsNote = document.getElementById('txRet').value.trim();
