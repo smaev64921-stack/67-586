@@ -74,43 +74,130 @@
      Занавес рисуем псевдоэлементами на самом html: скрипт работает до <body>,
      вешать что-то в разметку ещё некуда. -->
 <style>
-/* Антиква только ради слова CANVAS под знаком. Латиница — 6 КБ, и после
-   знакомства она уже в кэше. block, а не swap: в занавесе лучше миг без
-   букв, чем буквы чужим шрифтом, которые потом прыгнут. */
-@font-face{
-  font-family:'Prata';font-style:normal;font-weight:400;font-display:block;
-  src:url(/fonts/prata-400-latin.woff2) format('woff2');unicode-range:U+0000-00FF
-}
+/* Чернота под занавесом — поднимается с первым же кадром, раньше разметки. */
 html.lc-enter::before{
   content:'';position:fixed;inset:0;pointer-events:none;z-index:99998;
   background:#0b0b0b;opacity:1;transition:opacity .55s ease
 }
 html.lc-leaving::before{opacity:0}
 /* Сам занавес — элемент, а не ::after: в нём знак и название. Его вешает
-   скрипт ниже прямо на <html>, пока <body> ещё нет. */
+   скрипт ниже прямо на <html>, пока <body> ещё нет. Два режима:
+   — пришли из знакомства: стоит последний кадр анимации, что доиграла там;
+   — обновили страницу (и любой запуск приложения): заставка играет целиком.
+   Заставку можно пропустить касанием. */
 .lcc{
   position:fixed;inset:0;z-index:99999;pointer-events:none;
   display:flex;align-items:center;justify-content:center;
   background:#0b0b0b;transition:opacity .45s ease
 }
+.lcc.is-splash{pointer-events:auto;cursor:pointer}
 html.lc-leaving .lcc{opacity:0}
-/* Знак с названием — последний кадр анимации со страницы знакомства. Размеры
-   совпадают с onboarding.html до пикселя: поправили там — поправить здесь. */
-.lcs{position:relative;width:132px;height:182px;flex:none}
-.lcs__mark{position:absolute;left:24.83px;top:0;width:82.34px;height:132px}
-.lcs__mark svg{display:block;width:100%;height:100%;overflow:visible}
-.lcs__name{
-  position:absolute;left:-60px;right:-60px;top:154px;height:28px;
-  display:flex;justify-content:center;align-items:center;gap:6px
+/* Если за пять секунд магазин не поднялся — говорим об этом словами.
+   Молчащий чёрный экран люди принимают за зависание. */
+.lcc__hint{
+  position:absolute;bottom:calc(46px + env(safe-area-inset-bottom));left:24px;right:24px;
+  text-align:center;font:400 12.5px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  color:rgba(255,255,255,.5);opacity:0;animation:lccHint .5s ease 5s forwards
 }
-.lcs__name span{font:400 20px/28px 'Prata',Georgia,'Times New Roman',serif;color:#fff}
+@keyframes lccHint{to{opacity:1}}
+/* Страховка без единой строчки скрипта: оборвётся загрузка на середине —
+   заставка всё равно уйдёт через 12 секунд, а не оставит чёрный экран. */
+.lcc.is-splash{animation:lccBail .6s ease 12s forwards}
+@keyframes lccBail{to{opacity:0;visibility:hidden;pointer-events:none}}
 @media (prefers-reduced-motion:reduce){
   html.lc-enter::before,.lcc{transition-duration:.001s}
 }
+/* ===== Знак LC + CANVAS (заставка, занавес, уход из знакомства) =====
+   Всё движение — только transform и opacity: такие анимации браузер ведёт
+   сам, без скрипта, и они не замирают, пока страница грузится. Перо здесь —
+   это чёрные шторки поверх белого знака: каждая уезжает вдоль своего куска
+   (засечка в стороны, косая L вниз, ножка вправо, C — по дуге от нижнего
+   конца к верхнему). Шаги шторок посчитаны по одной кривой скорости пера,
+   поэтому оно идёт ровно, без рывков на стыках. Буквы — контуры антиквы
+   Prata, а не текст: им не нужен шрифт, и на переходе между страницами они
+   не пропадают ни на кадр. Разметку собирает lcsMarkup(). */
+.lcs{position:relative;width:132px;height:182px;flex:none}
+.lcs__mark{position:absolute;left:24.83px;top:0;width:82.34px;height:132px;transform-origin:50% 50%}
+.lcs__mark svg,.lcs__glow{position:absolute;left:0;top:0;width:82.34px;height:132px;overflow:visible}
+.lcs__glow{opacity:0;filter:blur(5px)}
+.lcs__cv{position:absolute;left:0;top:0;width:0;height:0}
+.lcs__cv div{position:absolute}
+.lcs__r{overflow:hidden}
+.lcs__cv .k{background:#0b0b0b}
+.lcs__name{position:absolute;left:-60px;right:-60px;top:154px;height:28px;display:flex;justify-content:center;align-items:center;gap:6px;transform-origin:50% 50%}
+.lcs__l{position:relative;height:28px;flex:none}
+.lcs__l svg{position:absolute;left:0;top:0;height:28px;overflow:visible}
+.lcs__lb{filter:blur(1.8px);opacity:0}
+.lcs.is-play .lcs__ls{opacity:0}
+.lcs.is-still .lcs__cv{display:none}
+.lcs.is-still .lcs__lb{display:none}
+.lcs.is-play .lcs__mark,.lcs.is-play .lcs__name,.lcs.is-play .lcs__l,.lcs.is-play .lcs__cv .k,.lcs.is-play .lcs__glow{will-change:transform,opacity}
+/* Готовый знак (занавес магазина) — это та же анимация, промотанная до конца:
+   class="lcs is-play is-done". Тот же набор слоёв и те же значения, что в
+   последнем кадре на странице знакомства, — на переходе ничего не дрогнет. */
+.lcs.is-done,.lcs.is-done *{animation-delay:-9s !important}
+@keyframes lcs-c1l{0.0%{transform:translateX(-0.024px)}10.0%{transform:translateX(-2.729px)}20.0%{transform:translateX(-5.581px)}30.0%{transform:translateX(-8.584px)}40.0%{transform:translateX(-11.741px)}50.0%{transform:translateX(-15.055px)}60.0%{transform:translateX(-18.531px)}70.0%{transform:translateX(-22.170px)}80.0%{transform:translateX(-25.977px)}90.0%{transform:translateX(-29.955px)}100.0%{transform:translateX(-33.860px)}}
+@keyframes lcs-c1r{0.0%{transform:translateX(0.023px)}10.0%{transform:translateX(2.835px)}20.0%{transform:translateX(5.815px)}30.0%{transform:translateX(8.967px)}40.0%{transform:translateX(12.294px)}50.0%{transform:translateX(15.802px)}60.0%{transform:translateX(19.494px)}70.0%{transform:translateX(23.375px)}80.0%{transform:translateX(27.448px)}90.0%{transform:translateX(31.718px)}100.0%{transform:translateX(35.740px)}}
+@keyframes lcs-c2{0.0%{transform:rotate(18.214deg) translateY(-7.574px)}7.14%{transform:rotate(18.214deg) translateY(-7.164px)}14.29%{transform:rotate(18.214deg) translateY(-5.909px)}21.43%{transform:rotate(18.214deg) translateY(-3.706px)}28.57%{transform:rotate(18.214deg) translateY(-0.438px)}35.71%{transform:rotate(18.214deg) translateY(4.025px)}42.86%{transform:rotate(18.214deg) translateY(9.827px)}50.0%{transform:rotate(18.214deg) translateY(17.115px)}57.14%{transform:rotate(18.214deg) translateY(26.033px)}64.29%{transform:rotate(18.214deg) translateY(36.702px)}71.43%{transform:rotate(18.214deg) translateY(49.182px)}78.57%{transform:rotate(18.214deg) translateY(63.441px)}85.71%{transform:rotate(18.214deg) translateY(79.311px)}92.86%{transform:rotate(18.214deg) translateY(96.468px)}100.0%{transform:rotate(18.214deg) translateY(114.113px)}}
+@keyframes lcs-c3{0.0%{transform:translateX(-0.467px)}10.0%{transform:translateX(-3.500px)}20.0%{transform:translateX(-6.538px)}30.0%{transform:translateX(-9.582px)}40.0%{transform:translateX(-12.632px)}50.0%{transform:translateX(-15.687px)}60.0%{transform:translateX(-18.745px)}70.0%{transform:translateX(-21.808px)}80.0%{transform:translateX(-24.874px)}90.0%{transform:translateX(-27.942px)}100.0%{transform:translateX(-30.832px)}}
+@keyframes lcs-c4{0.0%{transform:translateX(0.524px)}8.33%{transform:translateX(7.665px)}16.67%{transform:translateX(14.825px)}25.0%{transform:translateX(21.989px)}33.33%{transform:translateX(29.145px)}41.67%{transform:translateX(36.281px)}50.0%{transform:translateX(43.385px)}58.33%{transform:translateX(50.446px)}66.67%{transform:translateX(57.454px)}75.0%{transform:translateX(64.399px)}83.33%{transform:translateX(71.273px)}91.67%{transform:translateX(78.070px)}100.0%{transform:translateX(84.568px)}}
+@keyframes lcs-pa{0.0%{transform:rotate(0.032deg)}6.25%{transform:rotate(57.579deg)}12.5%{transform:rotate(107.361deg)}18.75%{transform:rotate(149.757deg)}25.0%{transform:rotate(185.612deg)}31.25%{transform:rotate(205.000deg)}37.5%{transform:rotate(205.000deg)}43.75%{transform:rotate(205.000deg)}50.0%{transform:rotate(205.000deg)}56.25%{transform:rotate(205.000deg)}62.5%{transform:rotate(205.000deg)}68.75%{transform:rotate(205.000deg)}75.0%{transform:rotate(205.000deg)}81.25%{transform:rotate(205.000deg)}87.5%{transform:rotate(205.000deg)}93.75%{transform:rotate(205.000deg)}100.0%{transform:rotate(205.000deg)}}
+@keyframes lcs-pb{0.0%{transform:rotate(0.000deg)}6.25%{transform:rotate(0.000deg)}12.5%{transform:rotate(0.000deg)}18.75%{transform:rotate(0.000deg)}25.0%{transform:rotate(5.612deg)}31.25%{transform:rotate(35.829deg)}37.5%{transform:rotate(61.216deg)}43.75%{transform:rotate(82.459deg)}50.0%{transform:rotate(100.125deg)}56.25%{transform:rotate(114.681deg)}62.5%{transform:rotate(126.511deg)}68.75%{transform:rotate(135.936deg)}75.0%{transform:rotate(143.223deg)}81.25%{transform:rotate(148.595deg)}87.5%{transform:rotate(152.244deg)}93.75%{transform:rotate(154.332deg)}100.0%{transform:rotate(155.000deg)}}
+@keyframes lcs-hb{0.0%{opacity:1}100.0%{opacity:0}}
+@keyframes lcs-mark{0.0%{transform:translateX(0.000px) scale(1.0400)}1.79%{transform:translateX(0.000px) scale(1.0400)}3.57%{transform:translateX(0.000px) scale(1.0330)}5.36%{transform:translateX(0.000px) scale(1.0268)}7.14%{transform:translateX(0.000px) scale(1.0213)}8.93%{transform:translateX(0.000px) scale(1.0168)}10.71%{transform:translateX(0.000px) scale(1.0130)}12.5%{transform:translateX(0.000px) scale(1.0100)}14.29%{transform:translateX(0.000px) scale(1.0077)}16.07%{transform:translateX(0.000px) scale(1.0058)}17.86%{transform:translateX(0.000px) scale(1.0044)}19.64%{transform:translateX(0.000px) scale(1.0033)}21.43%{transform:translateX(0.000px) scale(1.0025)}23.21%{transform:translateX(0.000px) scale(1.0018)}25.0%{transform:translateX(0.000px) scale(1.0013)}26.79%{transform:translateX(0.000px) scale(1.0009)}28.57%{transform:translateX(0.000px) scale(1.0007)}30.36%{transform:translateX(0.000px) scale(1.0004)}32.14%{transform:translateX(0.000px) scale(1.0003)}33.93%{transform:translateX(0.000px) scale(1.0002)}35.71%{transform:translateX(0.000px) scale(1.0001)}37.5%{transform:translateX(0.000px) scale(1.0001)}39.29%{transform:translateX(0.000px) scale(1.0000)}41.07%{transform:translateX(0.000px) scale(1.0000)}42.86%{transform:translateX(0.000px) scale(1.0000)}44.64%{transform:translateX(-0.322px) scale(1.0000)}46.43%{transform:translateX(-2.778px) scale(1.0000)}48.21%{transform:translateX(-9.464px) scale(1.0000)}50.0%{transform:translateX(-25.745px) scale(1.0000)}51.79%{transform:translateX(-53.037px) scale(1.0000)}53.57%{transform:translateX(-70.812px) scale(1.0000)}55.36%{transform:translateX(-80.504px) scale(1.0000)}57.14%{transform:translateX(-86.226px) scale(1.0000)}58.93%{transform:translateX(-89.660px) scale(1.0000)}60.71%{transform:translateX(-91.597px) scale(1.0000)}62.5%{transform:translateX(-92.471px) scale(1.0000)}64.29%{transform:translateX(-92.600px) scale(1.0000)}66.07%{transform:translateX(-92.600px) scale(1.0000)}67.86%{transform:translateX(-92.600px) scale(1.0000)}69.64%{transform:translateX(-92.600px) scale(1.0000)}71.43%{transform:translateX(-92.600px) scale(1.0000)}73.21%{transform:translateX(-92.600px) scale(1.0000)}75.0%{transform:translateX(-92.600px) scale(1.0000)}76.79%{transform:translateX(-92.600px) scale(1.0000)}78.57%{transform:translateX(-92.600px) scale(1.0000)}80.36%{transform:translateX(-92.600px) scale(1.0000)}82.14%{transform:translateX(-92.600px) scale(1.0000)}83.93%{transform:translateX(-92.292px) scale(1.0000)}85.71%{transform:translateX(-90.067px) scale(1.0000)}87.5%{transform:translateX(-84.598px) scale(1.0000)}89.29%{transform:translateX(-73.331px) scale(1.0000)}91.07%{transform:translateX(-51.770px) scale(1.0000)}92.86%{transform:translateX(-26.446px) scale(1.0000)}94.64%{transform:translateX(-11.593px) scale(1.0000)}96.43%{transform:translateX(-4.232px) scale(1.0000)}98.21%{transform:translateX(-0.904px) scale(1.0000)}100.0%{transform:translateX(0.000px) scale(1.0000)}}
+@keyframes lcs-glow{0.0%{opacity:0.000}7.14%{opacity:0.075}14.29%{opacity:0.164}21.43%{opacity:0.194}28.57%{opacity:0.200}35.71%{opacity:0.193}42.86%{opacity:0.169}50.0%{opacity:0.120}57.14%{opacity:0.073}64.29%{opacity:0.043}71.43%{opacity:0.024}78.57%{opacity:0.012}85.71%{opacity:0.005}92.86%{opacity:0.001}100.0%{opacity:0.000}}
+@keyframes lcs-name{0.0%{transform:translate(53.170px,-98.000px) scale(1.3000)}1.79%{transform:translate(53.170px,-98.000px) scale(1.3000)}3.57%{transform:translate(53.170px,-98.000px) scale(1.3000)}5.36%{transform:translate(53.170px,-98.000px) scale(1.3000)}7.14%{transform:translate(53.170px,-98.000px) scale(1.3000)}8.93%{transform:translate(53.170px,-98.000px) scale(1.3000)}10.71%{transform:translate(53.170px,-98.000px) scale(1.3000)}12.5%{transform:translate(53.170px,-98.000px) scale(1.3000)}14.29%{transform:translate(53.170px,-98.000px) scale(1.3000)}16.07%{transform:translate(53.170px,-98.000px) scale(1.3000)}17.86%{transform:translate(53.170px,-98.000px) scale(1.3000)}19.64%{transform:translate(53.170px,-98.000px) scale(1.3000)}21.43%{transform:translate(53.170px,-98.000px) scale(1.3000)}23.21%{transform:translate(53.170px,-98.000px) scale(1.3000)}25.0%{transform:translate(53.170px,-98.000px) scale(1.3000)}26.79%{transform:translate(53.170px,-98.000px) scale(1.3000)}28.57%{transform:translate(53.170px,-98.000px) scale(1.3000)}30.36%{transform:translate(53.170px,-98.000px) scale(1.3000)}32.14%{transform:translate(53.170px,-98.000px) scale(1.3000)}33.93%{transform:translate(53.170px,-98.000px) scale(1.3000)}35.71%{transform:translate(53.170px,-98.000px) scale(1.3000)}37.5%{transform:translate(53.170px,-98.000px) scale(1.3000)}39.29%{transform:translate(53.170px,-98.000px) scale(1.3000)}41.07%{transform:translate(53.170px,-98.000px) scale(1.3000)}42.86%{transform:translate(53.170px,-98.000px) scale(1.3000)}44.64%{transform:translate(53.170px,-98.000px) scale(1.3000)}46.43%{transform:translate(53.170px,-98.000px) scale(1.3000)}48.21%{transform:translate(53.170px,-98.000px) scale(1.3000)}50.0%{transform:translate(53.170px,-98.000px) scale(1.3000)}51.79%{transform:translate(53.170px,-98.000px) scale(1.3000)}53.57%{transform:translate(53.170px,-98.000px) scale(1.3000)}55.36%{transform:translate(53.170px,-98.000px) scale(1.3000)}57.14%{transform:translate(53.170px,-98.000px) scale(1.3000)}58.93%{transform:translate(53.170px,-98.000px) scale(1.3000)}60.71%{transform:translate(53.170px,-98.000px) scale(1.3000)}62.5%{transform:translate(53.170px,-98.000px) scale(1.3000)}64.29%{transform:translate(53.170px,-98.000px) scale(1.3000)}66.07%{transform:translate(53.170px,-98.000px) scale(1.3000)}67.86%{transform:translate(53.170px,-98.000px) scale(1.3000)}69.64%{transform:translate(53.170px,-98.000px) scale(1.3000)}71.43%{transform:translate(53.170px,-98.000px) scale(1.3000)}73.21%{transform:translate(53.170px,-98.000px) scale(1.3000)}75.0%{transform:translate(53.170px,-98.000px) scale(1.3000)}76.79%{transform:translate(53.170px,-97.701px) scale(1.2994)}78.57%{transform:translate(53.170px,-95.555px) scale(1.2953)}80.36%{transform:translate(53.170px,-90.355px) scale(1.2861)}82.14%{transform:translate(53.170px,-79.876px) scale(1.2690)}83.93%{transform:translate(52.993px,-59.897px) scale(1.2395)}85.71%{transform:translate(51.716px,-33.157px) scale(1.1899)}87.5%{transform:translate(48.575px,-15.430px) scale(1.1228)}89.29%{transform:translate(42.106px,-6.279px) scale(1.0686)}91.07%{transform:translate(29.726px,-1.817px) scale(1.0357)}92.86%{transform:translate(15.185px,-0.130px) scale(1.0166)}94.64%{transform:translate(6.656px,0.000px) scale(1.0060)}96.43%{transform:translate(2.430px,0.000px) scale(1.0011)}98.21%{transform:translate(0.519px,0.000px) scale(1.0000)}100.0%{transform:translate(0.000px,0.000px) scale(1.0000)}}
+@keyframes lcs-lx0{0.0%{transform:translateX(8.000px)}10.0%{transform:translateX(4.045px)}20.0%{transform:translateX(1.983px)}30.0%{transform:translateX(0.983px)}40.0%{transform:translateX(0.482px)}50.0%{transform:translateX(0.226px)}60.0%{transform:translateX(0.096px)}70.0%{transform:translateX(0.035px)}80.0%{transform:translateX(0.009px)}90.0%{transform:translateX(0.001px)}100.0%{transform:translateX(0.000px)}}
+@keyframes lcs-lb0{0.0%{opacity:0.000}11.11%{opacity:0.425}22.22%{opacity:0.766}33.33%{opacity:0.848}44.44%{opacity:0.804}55.56%{opacity:0.514}66.67%{opacity:0.210}77.78%{opacity:0.073}88.89%{opacity:0.015}100.0%{opacity:0.000}}
+@keyframes lcs-ls0{0.0%{opacity:0.000}12.5%{opacity:0.077}25.0%{opacity:0.349}37.5%{opacity:0.624}50.0%{opacity:0.797}62.5%{opacity:0.901}75.0%{opacity:0.961}87.5%{opacity:0.991}100.0%{opacity:1.000}}
+@keyframes lcs-lx1{0.0%{transform:translateX(10.400px)}10.0%{transform:translateX(5.258px)}20.0%{transform:translateX(2.578px)}30.0%{transform:translateX(1.277px)}40.0%{transform:translateX(0.627px)}50.0%{transform:translateX(0.293px)}60.0%{transform:translateX(0.125px)}70.0%{transform:translateX(0.045px)}80.0%{transform:translateX(0.012px)}90.0%{transform:translateX(0.001px)}100.0%{transform:translateX(0.000px)}}
+@keyframes lcs-lb1{0.0%{opacity:0.000}11.11%{opacity:0.425}22.22%{opacity:0.766}33.33%{opacity:0.848}44.44%{opacity:0.804}55.56%{opacity:0.514}66.67%{opacity:0.210}77.78%{opacity:0.073}88.89%{opacity:0.015}100.0%{opacity:0.000}}
+@keyframes lcs-ls1{0.0%{opacity:0.000}12.5%{opacity:0.077}25.0%{opacity:0.349}37.5%{opacity:0.624}50.0%{opacity:0.797}62.5%{opacity:0.901}75.0%{opacity:0.961}87.5%{opacity:0.991}100.0%{opacity:1.000}}
+@keyframes lcs-lx2{0.0%{transform:translateX(12.800px)}10.0%{transform:translateX(6.472px)}20.0%{transform:translateX(3.173px)}30.0%{transform:translateX(1.572px)}40.0%{transform:translateX(0.771px)}50.0%{transform:translateX(0.361px)}60.0%{transform:translateX(0.154px)}70.0%{transform:translateX(0.055px)}80.0%{transform:translateX(0.014px)}90.0%{transform:translateX(0.002px)}100.0%{transform:translateX(0.000px)}}
+@keyframes lcs-lb2{0.0%{opacity:0.000}11.11%{opacity:0.425}22.22%{opacity:0.766}33.33%{opacity:0.848}44.44%{opacity:0.804}55.56%{opacity:0.514}66.67%{opacity:0.210}77.78%{opacity:0.073}88.89%{opacity:0.015}100.0%{opacity:0.000}}
+@keyframes lcs-ls2{0.0%{opacity:0.000}12.5%{opacity:0.077}25.0%{opacity:0.349}37.5%{opacity:0.624}50.0%{opacity:0.797}62.5%{opacity:0.901}75.0%{opacity:0.961}87.5%{opacity:0.991}100.0%{opacity:1.000}}
+@keyframes lcs-lx3{0.0%{transform:translateX(15.200px)}10.0%{transform:translateX(7.685px)}20.0%{transform:translateX(3.768px)}30.0%{transform:translateX(1.867px)}40.0%{transform:translateX(0.916px)}50.0%{transform:translateX(0.429px)}60.0%{transform:translateX(0.183px)}70.0%{transform:translateX(0.066px)}80.0%{transform:translateX(0.017px)}90.0%{transform:translateX(0.002px)}100.0%{transform:translateX(0.000px)}}
+@keyframes lcs-lb3{0.0%{opacity:0.000}11.11%{opacity:0.425}22.22%{opacity:0.766}33.33%{opacity:0.848}44.44%{opacity:0.804}55.56%{opacity:0.514}66.67%{opacity:0.210}77.78%{opacity:0.073}88.89%{opacity:0.015}100.0%{opacity:0.000}}
+@keyframes lcs-ls3{0.0%{opacity:0.000}12.5%{opacity:0.077}25.0%{opacity:0.349}37.5%{opacity:0.624}50.0%{opacity:0.797}62.5%{opacity:0.901}75.0%{opacity:0.961}87.5%{opacity:0.991}100.0%{opacity:1.000}}
+@keyframes lcs-lx4{0.0%{transform:translateX(17.600px)}10.0%{transform:translateX(8.899px)}20.0%{transform:translateX(4.363px)}30.0%{transform:translateX(2.162px)}40.0%{transform:translateX(1.060px)}50.0%{transform:translateX(0.497px)}60.0%{transform:translateX(0.212px)}70.0%{transform:translateX(0.076px)}80.0%{transform:translateX(0.020px)}90.0%{transform:translateX(0.002px)}100.0%{transform:translateX(0.000px)}}
+@keyframes lcs-lb4{0.0%{opacity:0.000}11.11%{opacity:0.425}22.22%{opacity:0.766}33.33%{opacity:0.848}44.44%{opacity:0.804}55.56%{opacity:0.514}66.67%{opacity:0.210}77.78%{opacity:0.073}88.89%{opacity:0.015}100.0%{opacity:0.000}}
+@keyframes lcs-ls4{0.0%{opacity:0.000}12.5%{opacity:0.077}25.0%{opacity:0.349}37.5%{opacity:0.624}50.0%{opacity:0.797}62.5%{opacity:0.901}75.0%{opacity:0.961}87.5%{opacity:0.991}100.0%{opacity:1.000}}
+@keyframes lcs-lx5{0.0%{transform:translateX(20.000px)}10.0%{transform:translateX(10.112px)}20.0%{transform:translateX(4.957px)}30.0%{transform:translateX(2.457px)}40.0%{transform:translateX(1.205px)}50.0%{transform:translateX(0.564px)}60.0%{transform:translateX(0.241px)}70.0%{transform:translateX(0.086px)}80.0%{transform:translateX(0.022px)}90.0%{transform:translateX(0.002px)}100.0%{transform:translateX(0.000px)}}
+@keyframes lcs-lb5{0.0%{opacity:0.000}11.11%{opacity:0.425}22.22%{opacity:0.766}33.33%{opacity:0.848}44.44%{opacity:0.804}55.56%{opacity:0.514}66.67%{opacity:0.210}77.78%{opacity:0.073}88.89%{opacity:0.015}100.0%{opacity:0.000}}
+@keyframes lcs-ls5{0.0%{opacity:0.000}12.5%{opacity:0.077}25.0%{opacity:0.349}37.5%{opacity:0.624}50.0%{opacity:0.797}62.5%{opacity:0.901}75.0%{opacity:0.961}87.5%{opacity:0.991}100.0%{opacity:1.000}}
+.lcs.is-play .lcs__c1l{animation:lcs-c1l 0.040s linear 0.144s both}
+.lcs.is-play .lcs__c1r{animation:lcs-c1r 0.043s linear 0.144s both}
+.lcs.is-play .lcs__c2{animation:lcs-c2 0.270s linear 0.050s both}
+.lcs.is-play .lcs__c3{animation:lcs-c3 0.015s linear 0.312s both}
+.lcs.is-play .lcs__c4{animation:lcs-c4 0.060s linear 0.320s both}
+.lcs.is-play .lcs__pa{animation:lcs-pa 0.589s linear 0.391s both}
+.lcs.is-play .lcs__pb{animation:lcs-pb 0.589s linear 0.391s both}
+.lcs.is-play .lcs__hb{animation:lcs-hb 0.061s linear 0.979s both}
+.lcs.is-play .lcs__mark{animation:lcs-mark 2.800s linear 0.000s both}
+.lcs.is-play .lcs__glow{animation:lcs-glow 0.730s linear 0.920s both}
+.lcs.is-play .lcs__name{animation:lcs-name 2.800s linear 0.000s both}
+.lcs.is-play .lcs__l:nth-child(1){animation:lcs-lx0 0.500s linear 1.420s both}
+.lcs.is-play .lcs__l:nth-child(1) .lcs__lb{animation:lcs-lb0 0.450s linear 1.420s both}
+.lcs.is-play .lcs__l:nth-child(1) .lcs__ls{animation:lcs-ls0 0.340s linear 1.500s both}
+.lcs.is-play .lcs__l:nth-child(2){animation:lcs-lx1 0.500s linear 1.460s both}
+.lcs.is-play .lcs__l:nth-child(2) .lcs__lb{animation:lcs-lb1 0.450s linear 1.460s both}
+.lcs.is-play .lcs__l:nth-child(2) .lcs__ls{animation:lcs-ls1 0.340s linear 1.540s both}
+.lcs.is-play .lcs__l:nth-child(3){animation:lcs-lx2 0.500s linear 1.500s both}
+.lcs.is-play .lcs__l:nth-child(3) .lcs__lb{animation:lcs-lb2 0.450s linear 1.500s both}
+.lcs.is-play .lcs__l:nth-child(3) .lcs__ls{animation:lcs-ls2 0.340s linear 1.580s both}
+.lcs.is-play .lcs__l:nth-child(4){animation:lcs-lx3 0.500s linear 1.540s both}
+.lcs.is-play .lcs__l:nth-child(4) .lcs__lb{animation:lcs-lb3 0.450s linear 1.540s both}
+.lcs.is-play .lcs__l:nth-child(4) .lcs__ls{animation:lcs-ls3 0.340s linear 1.620s both}
+.lcs.is-play .lcs__l:nth-child(5){animation:lcs-lx4 0.500s linear 1.580s both}
+.lcs.is-play .lcs__l:nth-child(5) .lcs__lb{animation:lcs-lb4 0.450s linear 1.580s both}
+.lcs.is-play .lcs__l:nth-child(5) .lcs__ls{animation:lcs-ls4 0.340s linear 1.660s both}
+.lcs.is-play .lcs__l:nth-child(6){animation:lcs-lx5 0.500s linear 1.620s both}
+.lcs.is-play .lcs__l:nth-child(6) .lcs__lb{animation:lcs-lb5 0.450s linear 1.620s both}
+.lcs.is-play .lcs__l:nth-child(6) .lcs__ls{animation:lcs-ls5 0.340s linear 1.700s both}
 </style>
 <script>
 (function(){
-  /* Знак с названием: нужен и занавесу, и заставке приложения ниже. */
+  /* Контур знака LC: для занавеса, заставки и пера в шапке. */
   var G = 'M0 131.2L0 130.39L0.85 130.39C4.5 130.39 6.86 128.97 8.37 125.86C8.93 124.73 16.08 103.52 16.08 103.01C16.08 102.95 15.02 101.87 13.73 100.61C10.01 96.98 7.96 94.24 5.79 89.94C2.07 82.58 0.76 73.36 2.22 64.84C4.73 50.12 14.81 38.83 29.2 34.58C31.61 33.88 35 33.16 37.43 32.85L39.06 32.65L43.04 20.57C45.24 13.92 47.18 7.93 47.36 7.25C48.27 3.84 47.26 2.06 44.19 1.61C43.51 1.52 42.49 1.43 41.91 1.43C41.03 1.43 40.88 1.38 40.97 1.15C41.03 0.99 41.08 0.67 41.08 0.43L41.08 0L54.85 0L68.61 0L68.56 0.67L68.5 1.34L66.27 1.45C63.66 1.58 63.31 1.65 61.92 2.38C60.67 3.03 59.75 4.04 58.86 5.73C58.46 6.49 56.53 11.98 54.02 19.52C51.72 26.41 49.83 32.11 49.83 32.19C49.83 32.27 50.15 32.33 50.54 32.33C51.68 32.33 54.65 32.97 56.67 33.64C59.14 34.47 61.62 35.73 64.32 37.53C66.7 39.12 67.51 39.49 68.29 39.35C69.29 39.16 70.27 37.72 70.73 35.77C70.94 34.84 70.96 34.83 71.62 34.83L72.29 34.83L72.4 36.57C72.47 37.53 72.52 42.47 72.52 47.56L72.52 56.8L71.74 56.8L70.96 56.8L70.84 55.77C69.78 46.7 65.58 40.23 58.44 36.63C55.98 35.4 51.52 34.12 49.67 34.12C49.05 34.12 49.72 32.23 42.53 54.03C36.98 70.87 35.88 74.23 32.24 85.47C31.29 88.42 30.2 91.77 29.81 92.93C27.55 99.74 26.09 104.36 26.16 104.48C26.34 104.78 29.02 106.72 30.34 107.51C32.87 109.04 36.92 110.62 39.3 111.02C39.64 111.07 40.25 111.19 40.64 111.28C42.53 111.71 46.24 111.88 48.74 111.66C52.98 111.29 56.1 110.45 59.57 108.77C65.65 105.83 70.29 100.45 72.51 93.8C73.16 91.83 73.9 88.3 74.06 86.38L74.18 85.02L74.97 85.02L75.75 85.02L75.65 88.73C75.43 96.24 75.2 105.69 75.2 107.04L75.2 108.42L74.5 108.42L73.79 108.42L73.59 107.44C73.26 105.84 72.18 104.85 70.76 104.85C69.92 104.85 68.86 105.38 66.27 107.11C60.74 110.79 55.4 112.65 48.58 113.26C41.62 113.88 33.42 112.45 26.63 109.43C25.61 108.97 24.75 108.62 24.73 108.64C24.71 108.67 24.21 110.18 23.62 111.99C23.03 113.81 21.89 117.29 21.1 119.72C20.3 122.15 19.57 124.67 19.47 125.32C19.09 127.68 19.73 128.94 21.64 129.59C22.39 129.85 25.39 129.88 50.8 129.87C69.76 129.87 79.24 129.81 79.47 129.69C80.38 129.2 80.96 127.44 81.29 124.15C81.5 122.06 81.51 122 81.93 122L82.35 122L82.3 126.95L82.25 131.91L41.13 131.96L0 132L0 131.2ZM20.59 89.49C21.53 86.59 23.72 79.84 25.45 74.48C30.2 59.85 38.36 34.79 38.51 34.4C38.63 34.09 38.57 34.08 37.76 34.19C33.81 34.77 29.37 36.64 26.23 39.05C19.77 44.02 15.03 53.4 13.67 63.95C12.86 70.15 13.22 78.06 14.58 84.04C15.48 88.02 18.3 95.41 18.73 94.92C18.81 94.83 19.65 92.39 20.59 89.49Z';
   window.__lcGlyph = G;
   /* Перо, которым знак рисуется на выходе из знакомства (там же LC_PEN), —
@@ -124,21 +211,43 @@ html.lc-leaving .lcc{opacity:0}
     ['M13.03 127.18L84.31 127.18', 18, 154.46, 71.28]   /* ножка вправо */,
     ['M74.66 83.95C74.66 84.99 74.81 87.46 74.66 90.20C74.51 92.94 74.54 98.21 73.77 100.38C73.00 102.56 71.60 102.14 70.02 103.24C68.44 104.34 66.45 105.77 64.30 106.99C62.16 108.21 59.54 109.70 57.16 110.57C54.78 111.43 52.40 111.88 50.01 112.17C47.63 112.47 45.25 112.56 42.87 112.35C40.49 112.14 38.11 111.64 35.72 110.92C33.34 110.21 31.11 109.43 28.58 108.06C26.05 106.70 22.71 104.55 20.54 102.71C18.37 100.86 17.00 98.99 15.54 96.99C14.08 95.00 12.86 92.82 11.79 90.74C10.72 88.65 9.79 86.63 9.11 84.49C8.42 82.34 7.98 80.05 7.68 77.88C7.38 75.71 7.32 73.59 7.32 71.45C7.32 69.30 7.35 67.19 7.68 65.02C8.01 62.84 8.57 60.55 9.29 58.41C10.00 56.27 10.90 54.18 11.97 52.16C13.04 50.13 14.44 47.99 15.72 46.26C17.00 44.54 18.40 43.08 19.65 41.80C20.90 40.52 22.03 39.50 23.22 38.58C24.41 37.66 25.60 36.91 26.79 36.26C27.98 35.60 28.88 35.16 30.37 34.65C31.85 34.15 33.34 33.70 35.72 33.22C38.11 32.75 41.68 31.82 44.65 31.79C47.63 31.76 50.91 32.45 53.59 33.04C56.27 33.64 58.59 34.74 60.73 35.37C62.87 35.99 64.72 36.59 66.45 36.80C68.17 37.00 70.26 35.31 71.09 36.62C71.92 37.93 71.39 41.17 71.45 44.65C71.51 48.14 71.45 55.37 71.45 57.52', 22, 237.74, 219.31]   /* C от нижнего конца к верхнему */
   ];
-  window.__lcLockup =
-    '<div class="lcs" aria-hidden="true"><div class="lcs__mark"><svg viewBox="0 0 82.34 132">' +
-    '<path fill="#fff" fill-rule="evenodd" d="' + G + '"/></svg></div>' +
-    '<div class="lcs__name"><span>C</span><span>A</span><span>N</span><span>V</span><span>A</span><span>S</span></div></div>';
+  /* Знак с названием CANVAS. Тот же блок стоит в onboarding.html — менять
+     только через генератор, иначе последний кадр там и занавес здесь
+     перестанут совпадать до пикселя. */
+  var LOCKUP = '<div class="lcs__mark"><svg class="lcs__glow" viewBox="0 0 82.34 132"><path fill="#fff" fill-rule="evenodd" d="M0 131.2L0 130.39L0.85 130.39C4.5 130.39 6.86 128.97 8.37 125.86C8.93 124.73 16.08 103.52 16.08 103.01C16.08 102.95 15.02 101.87 13.73 100.61C10.01 96.98 7.96 94.24 5.79 89.94C2.07 82.58 0.76 73.36 2.22 64.84C4.73 50.12 14.81 38.83 29.2 34.58C31.61 33.88 35 33.16 37.43 32.85L39.06 32.65L43.04 20.57C45.24 13.92 47.18 7.93 47.36 7.25C48.27 3.84 47.26 2.06 44.19 1.61C43.51 1.52 42.49 1.43 41.91 1.43C41.03 1.43 40.88 1.38 40.97 1.15C41.03 0.99 41.08 0.67 41.08 0.43L41.08 0L54.85 0L68.61 0L68.56 0.67L68.5 1.34L66.27 1.45C63.66 1.58 63.31 1.65 61.92 2.38C60.67 3.03 59.75 4.04 58.86 5.73C58.46 6.49 56.53 11.98 54.02 19.52C51.72 26.41 49.83 32.11 49.83 32.19C49.83 32.27 50.15 32.33 50.54 32.33C51.68 32.33 54.65 32.97 56.67 33.64C59.14 34.47 61.62 35.73 64.32 37.53C66.7 39.12 67.51 39.49 68.29 39.35C69.29 39.16 70.27 37.72 70.73 35.77C70.94 34.84 70.96 34.83 71.62 34.83L72.29 34.83L72.4 36.57C72.47 37.53 72.52 42.47 72.52 47.56L72.52 56.8L71.74 56.8L70.96 56.8L70.84 55.77C69.78 46.7 65.58 40.23 58.44 36.63C55.98 35.4 51.52 34.12 49.67 34.12C49.05 34.12 49.72 32.23 42.53 54.03C36.98 70.87 35.88 74.23 32.24 85.47C31.29 88.42 30.2 91.77 29.81 92.93C27.55 99.74 26.09 104.36 26.16 104.48C26.34 104.78 29.02 106.72 30.34 107.51C32.87 109.04 36.92 110.62 39.3 111.02C39.64 111.07 40.25 111.19 40.64 111.28C42.53 111.71 46.24 111.88 48.74 111.66C52.98 111.29 56.1 110.45 59.57 108.77C65.65 105.83 70.29 100.45 72.51 93.8C73.16 91.83 73.9 88.3 74.06 86.38L74.18 85.02L74.97 85.02L75.75 85.02L75.65 88.73C75.43 96.24 75.2 105.69 75.2 107.04L75.2 108.42L74.5 108.42L73.79 108.42L73.59 107.44C73.26 105.84 72.18 104.85 70.76 104.85C69.92 104.85 68.86 105.38 66.27 107.11C60.74 110.79 55.4 112.65 48.58 113.26C41.62 113.88 33.42 112.45 26.63 109.43C25.61 108.97 24.75 108.62 24.73 108.64C24.71 108.67 24.21 110.18 23.62 111.99C23.03 113.81 21.89 117.29 21.1 119.72C20.3 122.15 19.57 124.67 19.47 125.32C19.09 127.68 19.73 128.94 21.64 129.59C22.39 129.85 25.39 129.88 50.8 129.87C69.76 129.87 79.24 129.81 79.47 129.69C80.38 129.2 80.96 127.44 81.29 124.15C81.5 122.06 81.51 122 81.93 122L82.35 122L82.3 126.95L82.25 131.91L41.13 131.96L0 132L0 131.2ZM20.59 89.49C21.53 86.59 23.72 79.84 25.45 74.48C30.2 59.85 38.36 34.79 38.51 34.4C38.63 34.09 38.57 34.08 37.76 34.19C33.81 34.77 29.37 36.64 26.23 39.05C19.77 44.02 15.03 53.4 13.67 63.95C12.86 70.15 13.22 78.06 14.58 84.04C15.48 88.02 18.3 95.41 18.73 94.92C18.81 94.83 19.65 92.39 20.59 89.49Z"/></svg><svg viewBox="0 0 82.34 132"><path fill="#fff" fill-rule="evenodd" d="M0 131.2L0 130.39L0.85 130.39C4.5 130.39 6.86 128.97 8.37 125.86C8.93 124.73 16.08 103.52 16.08 103.01C16.08 102.95 15.02 101.87 13.73 100.61C10.01 96.98 7.96 94.24 5.79 89.94C2.07 82.58 0.76 73.36 2.22 64.84C4.73 50.12 14.81 38.83 29.2 34.58C31.61 33.88 35 33.16 37.43 32.85L39.06 32.65L43.04 20.57C45.24 13.92 47.18 7.93 47.36 7.25C48.27 3.84 47.26 2.06 44.19 1.61C43.51 1.52 42.49 1.43 41.91 1.43C41.03 1.43 40.88 1.38 40.97 1.15C41.03 0.99 41.08 0.67 41.08 0.43L41.08 0L54.85 0L68.61 0L68.56 0.67L68.5 1.34L66.27 1.45C63.66 1.58 63.31 1.65 61.92 2.38C60.67 3.03 59.75 4.04 58.86 5.73C58.46 6.49 56.53 11.98 54.02 19.52C51.72 26.41 49.83 32.11 49.83 32.19C49.83 32.27 50.15 32.33 50.54 32.33C51.68 32.33 54.65 32.97 56.67 33.64C59.14 34.47 61.62 35.73 64.32 37.53C66.7 39.12 67.51 39.49 68.29 39.35C69.29 39.16 70.27 37.72 70.73 35.77C70.94 34.84 70.96 34.83 71.62 34.83L72.29 34.83L72.4 36.57C72.47 37.53 72.52 42.47 72.52 47.56L72.52 56.8L71.74 56.8L70.96 56.8L70.84 55.77C69.78 46.7 65.58 40.23 58.44 36.63C55.98 35.4 51.52 34.12 49.67 34.12C49.05 34.12 49.72 32.23 42.53 54.03C36.98 70.87 35.88 74.23 32.24 85.47C31.29 88.42 30.2 91.77 29.81 92.93C27.55 99.74 26.09 104.36 26.16 104.48C26.34 104.78 29.02 106.72 30.34 107.51C32.87 109.04 36.92 110.62 39.3 111.02C39.64 111.07 40.25 111.19 40.64 111.28C42.53 111.71 46.24 111.88 48.74 111.66C52.98 111.29 56.1 110.45 59.57 108.77C65.65 105.83 70.29 100.45 72.51 93.8C73.16 91.83 73.9 88.3 74.06 86.38L74.18 85.02L74.97 85.02L75.75 85.02L75.65 88.73C75.43 96.24 75.2 105.69 75.2 107.04L75.2 108.42L74.5 108.42L73.79 108.42L73.59 107.44C73.26 105.84 72.18 104.85 70.76 104.85C69.92 104.85 68.86 105.38 66.27 107.11C60.74 110.79 55.4 112.65 48.58 113.26C41.62 113.88 33.42 112.45 26.63 109.43C25.61 108.97 24.75 108.62 24.73 108.64C24.71 108.67 24.21 110.18 23.62 111.99C23.03 113.81 21.89 117.29 21.1 119.72C20.3 122.15 19.57 124.67 19.47 125.32C19.09 127.68 19.73 128.94 21.64 129.59C22.39 129.85 25.39 129.88 50.8 129.87C69.76 129.87 79.24 129.81 79.47 129.69C80.38 129.2 80.96 127.44 81.29 124.15C81.5 122.06 81.51 122 81.93 122L82.35 122L82.3 126.95L82.25 131.91L41.13 131.96L0 132L0 131.2ZM20.59 89.49C21.53 86.59 23.72 79.84 25.45 74.48C30.2 59.85 38.36 34.79 38.51 34.4C38.63 34.09 38.57 34.08 37.76 34.19C33.81 34.77 29.37 36.64 26.23 39.05C19.77 44.02 15.03 53.4 13.67 63.95C12.86 70.15 13.22 78.06 14.58 84.04C15.48 88.02 18.3 95.41 18.73 94.92C18.81 94.83 19.65 92.39 20.59 89.49Z"/></svg><div class="lcs__cv"><div class="lcs__r" style="left:29.2px;top:-16.8px;width:51.6px;height:29.6px"><div class="k lcs__c1l" style="left:-5.0px;top:-2px;width:33.86px;height:33.6px;background:linear-gradient(to left,transparent,#0b0b0b 4.0px)"></div><div class="k lcs__c1r" style="left:20.86px;top:-2px;width:35.74px;height:33.6px;background:linear-gradient(to right,transparent,#0b0b0b 4.0px)"></div></div><div style="left:0;top:0;width:110px;height:140px;clip-path:polygon(43.82px 11.2px,58.05px 11.2px,23.5px 117.8px,9.27px 117.8px)"><div class="k lcs__c2" style="left:34.93px;top:12px;width:32px;height:126.69px;transform-origin:16px 0;transform:rotate(18.214deg) translateY(-7.574px);background:linear-gradient(to bottom,transparent,#0b0b0b 4.0px)"></div></div><div class="lcs__r" style="left:-12.8px;top:116.2px;width:26.63px;height:24.6px"><div class="k lcs__c3" style="left:0;top:-1px;width:30.83px;height:26.6px;background:linear-gradient(to left,transparent,#0b0b0b 4.0px)"></div></div><div class="lcs__r" style="left:12.23px;top:116.2px;width:78.57px;height:24.6px"><div class="k lcs__c4" style="left:-5.0px;top:-1px;width:88.57px;height:26.6px;background:linear-gradient(to right,transparent,#0b0b0b 4.0px)"></div></div><div style="left:0;top:0;width:110px;height:160px;clip-path:path(evenodd,&quot;M-25 -25H110V160H-25ZM30 -16H80V12H57.25L22.7 117H90V140H-12V117H10.07L44.62 12H30Z&quot;)"><div class="lcs__r" style="left:38.4px;top:71.45px;width:0;height:0;overflow:visible;transform:rotate(10.0deg)"><div class="lcs__r" style="left:-62px;top:-0.8px;width:124px;height:62.8px"><div class="k lcs__pa" style="left:0;top:-4.0px;width:124px;height:66.8px;transform-origin:62px 4.8px;background:linear-gradient(to right,#0b0b0b 50%,transparent 50%),linear-gradient(to bottom,transparent,#0b0b0b 4.0px);background-color:transparent"></div></div></div><div class="lcs__r lcs__hb" style="left:38.4px;top:71.45px;width:0;height:0;overflow:visible;transform:rotate(190.0deg)"><div class="lcs__r" style="left:-62px;top:-0.8px;width:124px;height:62.8px"><div class="k lcs__pb" style="left:0;top:-4.0px;width:124px;height:66.8px;transform-origin:62px 4.8px;background:linear-gradient(to right,#0b0b0b 50%,transparent 50%),linear-gradient(to bottom,transparent,#0b0b0b 4.0px);background-color:transparent"></div></div></div></div></div></div><div class="lcs__name"><span class="lcs__l" style="width:14.9px"><svg class="lcs__lb" viewBox="0 0 745 1400.0" style="width:14.9px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M54 400Q54 524 99.5 619.5Q145 715 228.5 767.5Q312 820 421 820Q464 820 508.5 805.0Q553 790 589 763L656 820H677V572H656L594 727Q559 759 512.5 778.0Q466 797 421 797Q351 797 297.5 761.0Q244 725 214.0 656.0Q184 587 184 492V309Q184 214 213.0 145.0Q242 76 294.0 39.5Q346 3 416 3Q467 3 518.0 25.5Q569 48 603 86L661 247H682V-10H661L589 41Q553 12 507.0 -4.0Q461 -20 416 -20Q307 -20 225.0 33.0Q143 86 98.5 181.0Q54 276 54 400Z"/></svg><svg class="lcs__ls" viewBox="0 0 745 1400.0" style="width:14.9px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M54 400Q54 524 99.5 619.5Q145 715 228.5 767.5Q312 820 421 820Q464 820 508.5 805.0Q553 790 589 763L656 820H677V572H656L594 727Q559 759 512.5 778.0Q466 797 421 797Q351 797 297.5 761.0Q244 725 214.0 656.0Q184 587 184 492V309Q184 214 213.0 145.0Q242 76 294.0 39.5Q346 3 416 3Q467 3 518.0 25.5Q569 48 603 86L661 247H682V-10H661L589 41Q553 12 507.0 -4.0Q461 -20 416 -20Q307 -20 225.0 33.0Q143 86 98.5 181.0Q54 276 54 400Z"/></svg></span><span class="lcs__l" style="width:14.38px"><svg class="lcs__lb" viewBox="0 0 719 1400.0" style="width:14.38px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M-28 0V21L70 61L359 820H375L648 36L740 21V0H446V21L528 34L443 271H177L96 61L186 21V0ZM185 292H436L316 644Z"/></svg><svg class="lcs__ls" viewBox="0 0 719 1400.0" style="width:14.38px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M-28 0V21L70 61L359 820H375L648 36L740 21V0H446V21L528 34L443 271H177L96 61L186 21V0ZM185 292H436L316 644Z"/></svg></span><span class="lcs__l" style="width:16.28px"><svg class="lcs__lb" viewBox="0 0 814 1400.0" style="width:16.28px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M43 0V21L136 61V739L43 778V800H229L660 196V739L567 778V800H780V778L685 739V0H660L161 701V61L257 21V0Z"/></svg><svg class="lcs__ls" viewBox="0 0 814 1400.0" style="width:16.28px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M43 0V21L136 61V739L43 778V800H229L660 196V739L567 778V800H780V778L685 739V0H660L161 701V61L257 21V0Z"/></svg></span><span class="lcs__l" style="width:13.62px"><svg class="lcs__lb" viewBox="0 0 681 1400.0" style="width:13.62px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M339 -20 51 764 -29 778V800H264V778L170 766L390 167L606 733L491 778V800H706V778L633 734L347 -20Z"/></svg><svg class="lcs__ls" viewBox="0 0 681 1400.0" style="width:13.62px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M339 -20 51 764 -29 778V800H264V778L170 766L390 167L606 733L491 778V800H706V778L633 734L347 -20Z"/></svg></span><span class="lcs__l" style="width:14.38px"><svg class="lcs__lb" viewBox="0 0 719 1400.0" style="width:14.38px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M-28 0V21L70 61L359 820H375L648 36L740 21V0H446V21L528 34L443 271H177L96 61L186 21V0ZM185 292H436L316 644Z"/></svg><svg class="lcs__ls" viewBox="0 0 719 1400.0" style="width:14.38px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M-28 0V21L70 61L359 820H375L648 36L740 21V0H446V21L528 34L443 271H177L96 61L186 21V0ZM185 292H436L316 644Z"/></svg></span><span class="lcs__l" style="width:13.32px"><svg class="lcs__lb" viewBox="0 0 666 1400.0" style="width:13.32px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M174 33 89 -10H67V247H89L175 61Q258 2 365 2Q453 2 510.5 48.5Q568 95 568 179Q568 240 531.0 275.5Q494 311 411 332L245 375Q158 398 114.0 453.5Q70 509 70 585Q70 654 97.5 707.5Q125 761 178.0 790.5Q231 820 304 820Q395 820 467 789L540 820H562V616H540L468 762Q393 798 305 798Q218 798 168.0 753.5Q118 709 118 636Q118 582 153.5 551.0Q189 520 258 502L437 455Q524 433 566.5 379.5Q609 326 609 217Q609 106 540.5 43.0Q472 -20 357 -20Q264 -20 174 33Z"/></svg><svg class="lcs__ls" viewBox="0 0 666 1400.0" style="width:13.32px"><path fill="#fff" transform="matrix(1 0 0 -1 0 1015.5)" d="M174 33 89 -10H67V247H89L175 61Q258 2 365 2Q453 2 510.5 48.5Q568 95 568 179Q568 240 531.0 275.5Q494 311 411 332L245 375Q158 398 114.0 453.5Q70 509 70 585Q70 654 97.5 707.5Q125 761 178.0 790.5Q231 820 304 820Q395 820 467 789L540 820H562V616H540L468 762Q393 798 305 798Q218 798 168.0 753.5Q118 709 118 636Q118 582 153.5 551.0Q189 520 258 502L437 455Q524 433 566.5 379.5Q609 326 609 217Q609 106 540.5 43.0Q472 -20 357 -20Q264 -20 174 33Z"/></svg></span></div>';
+  var SPLASH_MS = 3100;   /* анимация целиком, с паузой на готовом знаке */
   try{
-    if(!sessionStorage.getItem('lc_enter')) return;
-    /* Снимаем сразу: обновление страницы не должно поднимать занавес заново. */
-    sessionStorage.removeItem('lc_enter');
     var root = document.documentElement;
+    var handoff = sessionStorage.getItem('lc_enter');
+    /* Снимаем сразу: обновление страницы не должно поднимать этот занавес заново. */
+    if(handoff) sessionStorage.removeItem('lc_enter');
+    var mm = function(q){ try{ return matchMedia(q).matches; }catch(_){ return false; } };
+    var app = mm('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)') || navigator.standalone === true;
+    var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    var reload = nav.type === 'reload' || (performance.navigation && performance.navigation.type === 1);
+    /* Скрипт выше сейчас уведёт на знакомство — тогда заставку не поднимаем,
+       иначе она мелькнула бы перед ним. */
+    var q = new URLSearchParams(location.search);
+    var toIntro = !location.hash && !sessionStorage.getItem('shop_place_v1') && !q.get('tg_admin') && !q.get('paid');
+    var play;
+    if(handoff) play = false;                          /* продолжение анимации со знакомства */
+    else if(toIntro) return;
+    else if(reload || (app && !location.hash)) play = !mm('(prefers-reduced-motion: reduce)');
+    else if(app) play = false;                         /* приложение открыли по ссылке на товар */
+    else return;
+
     root.classList.add('lc-enter');
     var cur = document.createElement('div');
-    cur.className = 'lcc';
-    cur.innerHTML = window.__lcLockup;
+    cur.className = 'lcc' + (play ? ' is-splash' : '');
+    cur.innerHTML = '<div class="lcs' + (play ? '' : ' is-play is-done') + '" aria-hidden="true">' + LOCKUP + '</div>' +
+      (play || app ? '<div class="lcc__hint">Долго грузится — проверьте связь</div>' : '');
     root.appendChild(cur);
-    var opened = false;
+    var box = cur.firstChild, started = Date.now(), loaded = false, opened = false;
+    /* Запускаем в первом кадре — анимация стартует вместе с первой отрисовкой
+       и не «проскочит» начало, пока страница ещё разбирается. Дальше её ведёт
+       сам браузер: шторки и буквы двигаются только transform/opacity. */
+    if(play) requestAnimationFrame(function(){ box.classList.add('is-play'); started = Date.now(); });
+
     function open(){
       if(opened) return;
       opened = true;
@@ -148,12 +257,16 @@ html.lc-leaving .lcc{opacity:0}
         if(cur.parentNode) cur.parentNode.removeChild(cur);
       }, 650);
     }
-    /* Открываем, когда магазин отрисовался. Но обязательно и по таймауту, и по
-       любой ошибке: занавес, который не убрался, — это чёрный экран вместо сайта. */
-    window.addEventListener('load', function(){ setTimeout(open, 200); });
-    window.addEventListener('error', open);
-    setTimeout(open, 2500);
-  }catch(e){}   /* приватный режим без sessionStorage — просто без перехода */
+    /* Заставка уходит, когда и магазин загрузился, и знак доиграл до конца. */
+    window.addEventListener('load', function(){
+      loaded = true;
+      setTimeout(open, play ? Math.max(200, SPLASH_MS - (Date.now() - started)) : 200);
+    });
+    if(play) cur.addEventListener('click', open);
+    /* Занавес, который не убрался, — это чёрный экран вместо сайта: снимаем
+       по таймауту в любом случае. */
+    setTimeout(open, play ? SPLASH_MS + 6000 : 3000);
+  }catch(e){}   /* приватный режим без sessionStorage — просто без занавеса */
 })();
 </script>
 
@@ -173,38 +286,8 @@ html.lc-leaving .lcc{opacity:0}
 
 <style>
 /* ============ ПРИЛОЖЕНИЕ: ЗАСТАВКА, УСТАНОВКА, ОБНОВЛЕНИЕ ============ */
-/* Заставку показываем только в установленном приложении. В браузере она не
-   нужна: там человек и так видит, что страница грузится. */
-#boot{display:none}
-@media (display-mode:standalone),(display-mode:fullscreen),(display-mode:minimal-ui){
-  #boot{
-    position:fixed;inset:0;z-index:100000;background:#0b0b0b;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;
-    transition:opacity .5s cubic-bezier(.4,0,.2,1)
-  }
-  /* Тот же знак с названием, что в занавесе. Прорисовки здесь нет нарочно:
-     заставка висит, пока грузится магазин, и перо дёргалось бы под этой
-     загрузкой. Рисуется знак на выходе из знакомства — там страница свободна. */
-  #boot .lcs{animation:bootMark 1s cubic-bezier(.16,1,.3,1) both}
-  html.boot-done #boot{opacity:0;pointer-events:none}
-  /* Страховка без единой строчки скрипта. Снимает заставку только код в самом
-     конце файла на 14 тысяч строк; оборвётся загрузка на середине — и в
-     установленном приложении остался бы чёрный экран навсегда. Эта анимация
-     отработает в любом случае, потому что она чистый CSS. Шесть секунд — с
-     запасом больше обычной загрузки, так что при нормальном старте её никто
-     не увидит: скрипт успеет убрать заставку раньше. */
-  /* Если за пять секунд магазин не поднялся — говорим об этом словами.
-     Молчащий чёрный экран люди принимают за зависание. */
-  #boot b{
-    position:absolute;bottom:calc(46px + env(safe-area-inset-bottom));left:24px;right:24px;
-    text-align:center;font-size:12.5px;font-weight:400;line-height:1.4;
-    color:rgba(255,255,255,.5);opacity:0;animation:bootHint .5s ease 5s forwards
-  }
-  @keyframes bootHint{to{opacity:1}}
-  #boot{animation:bootBail .6s ease 12s forwards}
-  @keyframes bootBail{to{opacity:0;visibility:hidden;pointer-events:none}}
-}
-@keyframes bootMark{from{opacity:0;transform:translateY(16px) scale(.9)}to{opacity:1;transform:none}}
+/* Заставка приложения теперь общая с занавесом — см. .lcc в <head>: при запуске
+   и обновлении знак рисуется целиком, и только потом открывается магазин. */
 
 /* Предложение установить и сообщение об обновлении — одна и та же полоса снизу */
 .pwa{
@@ -3551,11 +3634,6 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   <p>Для работы магазина включите JavaScript в браузере.
      Связаться с нами: <a href="https://t.me/Luxe_Canvas_bot">Telegram @Luxe_Canvas_bot</a>.</p>
 </noscript>
-
-<!-- Заставка установленного приложения. Стоит первой в разметке, чтобы
-     закрыть экран ещё до того, как отрисуется магазин. В браузере скрыта. -->
-<div id="boot" aria-hidden="true"><b>Долго грузится — проверьте связь</b></div>
-<script>(function(){ var b = document.getElementById('boot'); if(b && window.__lcLockup) b.insertAdjacentHTML('afterbegin', window.__lcLockup); })();</script>
 
 <div class="app">
   <div id="hdSlot"></div>
