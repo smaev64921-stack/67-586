@@ -31,15 +31,16 @@
      плавно уходит в светлый фон, ниже крупный заголовок антиквой и пара
      строк, внизу «01 / 07» с полосой и стрелкой вниз.
 
-     Заставка: крупный знак посередине. Листаешь — знак уезжает в левый
-     верхний угол и становится знаком шапки, а снизу выезжает первый снимок.
+     Заставка — крупный знак посередине, уходит вверх вместе со страницей.
+     Маленький знак слева сверху — часть каждого экрана, а не плавающая
+     шапка: владелец не хочет, чтобы знак ехал в угол и висел там.
 
      Снимки — только одиночные (совместных нет нигде) и обрезаны по низу
      футболки: продаём футболки, а не джинсы. Низ кадра к тому же уходит в
      фон. Файлы ob-*.jpg; старые look-*.jpg не перезаписываем — кэш на неделю.
 
-     Прокрутку слушает только заставка (два числа на кадр). Появление
-     экранов — IntersectionObserver и CSS-переходы по transform/opacity.
+     Прокрутку не слушаем вовсе. Появление экранов — IntersectionObserver
+     и CSS-переходы по transform/opacity.
      ================================================================== -->
 
 <style>
@@ -112,14 +113,10 @@ img{display:block;max-width:100%}
   .snap{scroll-snap-align:start;scroll-snap-stop:always}
 }
 
-/* ================= ШАПКА =================
-   Знак слева и «Пропустить» справа стоят на месте, экраны едут под ними.
-   Знак шапки появляется, когда в угол приезжает крупный знак заставки. */
-.hd-lc{
-  position:fixed;z-index:30;left:20px;top:calc(var(--safe-t) + 14px);
-  width:auto;height:36px;opacity:0;pointer-events:none
-}
-html.is-docked .hd-lc{opacity:1}
+/* ================= ЗНАК И «ПРОПУСТИТЬ» =================
+   Знак — на каждом экране свой, едет вместе с экраном. «Пропустить» стоит
+   на месте: уйти из знакомства можно в любой момент. */
+.s__lc{position:absolute;z-index:3;left:20px;top:calc(var(--safe-t) + 14px);width:auto;height:36px}
 .skip{
   position:fixed;z-index:31;top:calc(var(--safe-t) + 14px);right:var(--skip-r,14px);
   display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 15px 0 17px;border-radius:19px;
@@ -137,16 +134,11 @@ html.is-final .skip{opacity:0;visibility:hidden}
   display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   padding:calc(var(--safe-t) + 70px) var(--gut) calc(var(--safe-b) + 110px)
 }
-.intro__mark{
-  width:auto;height:min(26vh,190px);
-  transform-origin:0 0;will-change:transform
-}
-html.is-docked .intro__mark{visibility:hidden}
+.intro__mark{width:auto;height:min(26vh,190px)}
 .intro__name{
   margin-top:26px;font-size:12px;font-weight:600;letter-spacing:.42em;text-indent:.42em;color:var(--ink)
 }
 .intro__sub{margin-top:10px;font-size:14px;color:var(--soft)}
-.intro__txt{transition:opacity .2s linear}
 .intro__go{
   position:absolute;left:50%;bottom:calc(var(--safe-b) + 26px);transform:translateX(-50%);
   display:flex;flex-direction:column;align-items:center;gap:8px;
@@ -284,7 +276,7 @@ html.js .s.is-in .s__tx > :nth-child(5){transition-delay:.32s}
 /* ================= КОМПЬЮТЕР ================= */
 @media (min-width:900px){
   :root{--gut:7vw;--t:clamp(44px,4.4vw,66px)}
-  .hd-lc{left:28px;top:24px;height:40px}
+  .s__lc{left:28px;top:24px;height:40px}
   .skip{top:22px;right:var(--skip-r,28px)}
   /* Снимок — правая половина во всю высоту, текст — слева. */
   .s__ph{left:50%;height:100%}
@@ -635,7 +627,6 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 <body>
 <script>document.documentElement.classList.add('js')</script>
 
-<img class="hd-lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
 <button class="skip" id="skip" type="button" aria-label="Пропустить знакомство и перейти в магазин">Пропустить<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg></button>
 
 <main>
@@ -651,6 +642,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 
 <!-- ====== 01: как на образце владельца, без кнопки ====== -->
 <section class="s snap" data-n="1" aria-labelledby="t1">
+  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__ph"><img src="/onboarding/ob-hero-dasha-blue.jpg" alt="Девушка в голубой футболке, руки скрещены" width="1200" height="1676" fetchpriority="high" decoding="async"></div>
   <div class="s__tx">
     <h1 class="s__t" id="t1">Базовые вещи, которые носят каждый день</h1>
@@ -661,6 +653,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 
 <!-- ====== 02: чёрное и белое ====== -->
 <section class="s snap" data-n="2" aria-labelledby="t2">
+  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__ph s__ph--duo">
     <div><img src="/onboarding/ob-leva-black.jpg" alt="Чёрная футболка" width="853" height="1280" loading="lazy" decoding="async" style="object-position:50% 4%"></div>
     <div><img src="/onboarding/ob-leva-white-front.jpg" alt="Белая футболка" width="800" height="1299" loading="lazy" decoding="async" style="object-position:38% 2%"></div>
@@ -675,6 +668,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 
 <!-- ====== 03: ткань ====== -->
 <section class="s snap" data-n="3" aria-labelledby="t3">
+  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__ph"><img src="/onboarding/ob-leva-white-pull.jpg" alt="Руки оттягивают полотно белой футболки" width="1000" height="1235" loading="lazy" decoding="async" style="object-position:50% 0"></div>
   <div class="s__tx">
     <p class="s__k">03 / 07</p>
@@ -686,6 +680,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 
 <!-- ====== 04: посадка ====== -->
 <section class="s snap" data-n="4" aria-labelledby="t4">
+  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__col">
     <div><img src="/onboarding/ob-leva-white-side.jpg" alt="Белая футболка в профиль" width="900" height="1697" loading="lazy" decoding="async"></div>
     <div><img src="/onboarding/ob-leva-black.jpg" alt="Чёрная футболка спереди" width="853" height="1280" loading="lazy" decoding="async" style="object-position:50% 6%"></div>
@@ -703,6 +698,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
      Кнопки-цвета: текст кнопки — только название, его берёт шторка «Цвет
      вживую». Порядок кнопок = порядок TONES в её скрипте. -->
 <section class="s pal snap" data-n="5" aria-labelledby="t5">
+  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__tx">
     <p class="s__k">05 / 07</p>
     <h2 class="s__t" id="t5">Пять цветов и&nbsp;один крой</h2>
@@ -727,6 +723,7 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
 
 <!-- ====== 06: доставка и оплата ====== -->
 <section class="s dlv snap" data-n="6" aria-labelledby="t6">
+  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__ph"><img src="/onboarding/ob-lesha-portrait2.jpg" alt="Парень в чёрном" width="1200" height="1113" loading="lazy" decoding="async"></div>
   <div class="s__tx">
     <p class="s__k">06 / 07</p>
@@ -798,58 +795,6 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
   var skip = document.getElementById('skip');
   var reduce = false;
   try{ reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(_){}
-
-  /* --- заставка: знак уезжает в угол и становится знаком шапки ---
-     Считаем, где знак стоит и куда ему ехать, один раз (и на resize). На
-     прокрутке — только transform: позиция между стартом и шапкой по доле
-     пролистанной заставки, плюс компенсация самой прокрутки, потому что
-     заставка уезжает вверх вместе со страницей. */
-  var mark = document.getElementById('introMark');
-  var head = document.querySelector('.hd-lc');
-  var txt = document.getElementById('introTxt');
-  var from = null, to = null, vh = 1, ticking = false;
-  function measure(){
-    if(!mark || !head) return;
-    mark.style.transform = 'none';
-    var r = mark.getBoundingClientRect();
-    var y = window.scrollY || 0;
-    from = { x: r.left, y: r.top + y, h: r.height };
-    var hr = head.getBoundingClientRect();
-    to = { x: hr.left, y: hr.top, h: hr.height };
-    vh = window.innerHeight || 1;
-    paint();
-  }
-  function paint(){
-    ticking = false;
-    if(!from) return;
-    var y = window.scrollY || 0;
-    var p = Math.max(0, Math.min(1, y / (vh * 0.9)));
-    var e = 1 - Math.pow(1 - p, 3);          /* быстро трогается, мягко встаёт */
-    var top = from.y - y;                    /* где знак стоял бы сам по себе */
-    var ty = (from.y + (to.y - from.y) * e) - top;
-    var tx = (to.x - from.x) * e;
-    var s = 1 + (to.h / from.h - 1) * e;
-    mark.style.transform = 'translate3d(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px,0) scale(' + s.toFixed(4) + ')';
-    if(txt) txt.style.opacity = String(Math.max(0, 1 - p * 2.4));
-    root.classList.toggle('is-docked', p >= 1);
-  }
-  function onScroll(){
-    if(ticking) return;
-    ticking = true;
-    requestAnimationFrame(paint);
-  }
-  if(reduce){
-    /* Без движения: знак шапки на месте сразу, заставка — просто экран. */
-    root.classList.add('is-docked');
-    if(mark) mark.style.visibility = 'visible';
-  } else {
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', measure, { passive: true });
-    window.addEventListener('load', measure);
-    if(document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
-    if(mark && !mark.complete) mark.addEventListener('load', measure);
-    measure();
-  }
 
   /* --- экраны проявляются, когда встают на место --- */
   var screens = [].slice.call(document.querySelectorAll('.s'));
