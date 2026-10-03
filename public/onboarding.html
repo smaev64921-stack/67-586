@@ -16,7 +16,7 @@
 <!-- Отдельный файл, а не сам логотип: iOS кладёт иконку на сплошную подложку,
      и чёрный знак по прозрачному фону там просто исчезал. -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" as="image" href="/onboarding/ob-t-hero-dasha-blue.jpg" fetchpriority="high">
+<link rel="preload" as="image" href="/onboarding/h1.jpg" fetchpriority="high">
 <!-- Греем оба русских шрифта: заголовки набраны антиквой, всё мелкое — Onest.
      crossorigin обязателен даже для своего домена, иначе браузер скачает
      файл дважды. -->
@@ -26,14 +26,17 @@
 <!-- ==================================================================
      ЗНАКОМСТВО С МАГАЗИНОМ  ·  /onboarding.html
 
-     Заставка и семь экранов, листаются вниз с остановкой на каждом. Вид —
-     по образцу, который утвердил владелец: снимок во всю ширину сверху
-     плавно уходит в светлый фон, ниже крупный заголовок антиквой и пара
-     строк, внизу «01 / 07» с полосой и стрелкой вниз.
+     Семь экранов, листаются вниз с остановкой на каждом.
 
-     Заставка — крупный знак посередине, уходит вверх вместе со страницей.
-     Маленький знак слева сверху — часть каждого экрана, а не плавающая
-     шапка: владелец не хочет, чтобы знак ехал в угол и висел там.
+     Первый — по макету владельца: сверху знак, LUXE CANVAS и заголовок на
+     светлой стене, ниже трое в футболках, внизу на тёмном полу пять цветов
+     и «Листайте». Каждые 4 секунды снимок чуть вздрагивает, и футболки на
+     всех троих меняют цвет — на тот, что подсвечен внизу.
+
+     Остальные — снимок во всю ширину сверху плавно уходит в светлый фон,
+     ниже крупный заголовок антиквой и пара строк. Маленький знак слева
+     сверху — часть каждого экрана, а не плавающая шапка: владелец не хочет,
+     чтобы знак ехал в угол и висел там.
 
      Снимки — только одиночные (совместных нет нигде) и обрезаны по низу
      футболки: продаём футболки, а не джинсы. Низ кадра к тому же уходит в
@@ -84,7 +87,7 @@
   --gut:22px;
   --safe-t:env(safe-area-inset-top);
   --safe-b:env(safe-area-inset-bottom);
-  /* Низ экрана: строка «01 / 07» со стрелкой. От неё считается, где кончается текст. */
+  /* Низ экрана: стрелка вниз. От неё считается, где кончается текст. */
   --ft:calc(var(--safe-b) + 74px);
   --t:clamp(31px,9.4vw,40px);
 }
@@ -117,39 +120,177 @@ img{display:block;max-width:100%}
    Знак — на каждом экране свой, едет вместе с экраном. «Пропустить» стоит
    на месте: уйти из знакомства можно в любой момент. */
 .s__lc{position:absolute;z-index:3;left:20px;top:calc(var(--safe-t) + 14px);width:auto;height:36px}
+/* «Пропустить» — просто текст со стрелкой, без подложки (так просил владелец).
+   Мягкий светлый ореол держит его читаемым и над тёмным краем снимка. */
 .skip{
-  position:fixed;z-index:31;top:calc(var(--safe-t) + 14px);right:var(--skip-r,14px);
-  display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 15px 0 17px;border-radius:19px;
-  background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-  box-shadow:0 1px 0 rgba(0,0,0,.04),0 6px 18px rgba(0,0,0,.08);
-  font-size:13.5px;font-weight:500;letter-spacing:.01em;color:var(--ink)
+  position:fixed;z-index:31;top:calc(var(--safe-t) + 10px);right:var(--skip-r,10px);
+  display:inline-flex;align-items:center;gap:7px;height:44px;padding:0 10px;
+  font-size:14px;font-weight:500;letter-spacing:.01em;color:var(--ink);
+  text-shadow:0 0 14px rgba(246,246,244,.9),0 0 3px rgba(246,246,244,.6);
+  transition:opacity .4s var(--ease)
 }
-.skip svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.skip:active{transform:scale(.97)}
+.skip svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  filter:drop-shadow(0 0 6px rgba(246,246,244,.9));transition:transform .3s var(--out)}
+.skip:active{opacity:.6}
+@media (hover:hover){ .skip:hover svg{transform:translateX(3px)} }
 html.is-final .skip{opacity:0;visibility:hidden}
 
-/* ================= ЗАСТАВКА ================= */
-.intro{
-  position:relative;height:100vh;height:100svh;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
-  padding:calc(var(--safe-t) + 70px) var(--gut) calc(var(--safe-b) + 110px)
+/* ================= 01: ПЕРВЫЙ ЭКРАН — по макету владельца =================
+   Холст h1.jpg шириной 1362 px: дорисованная стена 1100 px, снимок 1155 px,
+   тёмный пол 700 px. Слои цветов h1-*.jpg — только снимок, кладутся ровно на
+   его место (37.225% сверху, 39.086% высоты холста).
+   Размер считается в CSS, без скрипта, — первый кадр уже на месте: от макушки
+   (строка 105 снимка) до предплечий (строка 975, ниже он уходит в пол) снимок
+   встаёт между заголовком и цветами, но не шире 132% экрана — по бокам
+   срезаются лишь края плеч. */
+.hero{
+  --u:1vh;
+  --mk:clamp(50px,calc(8.4 * var(--u)),80px);                   /* знак */
+  --tt:clamp(31px,min(10.6vw,calc(5.6 * var(--u))),56px);        /* заголовок */
+  --top:calc(var(--safe-t) + 16px);
+  --hair:calc(var(--top) + var(--mk) + 30px + clamp(10px,calc(2.2 * var(--u)),24px) + var(--tt) * 2.24 + clamp(14px,calc(3 * var(--u)),34px));
+  --foot:calc(var(--safe-b) + 132px);                            /* цвета + «Листайте» */
+  --w:max(240px,min(132vw,calc((100 * var(--u) - var(--hair) - var(--foot)) * 1.5655)));
+  --s:calc(var(--w) / 1362);
+  --oy:calc(var(--hair) + 472 * var(--s));                        /* середина снимка */
+  position:relative;height:100vh;height:100svh;overflow:hidden;isolation:isolate;
+  background:linear-gradient(#e9e5df 0%,#dcd7d0 34%,#3a3632 66%,#211f1d 100%)
 }
-.intro__mark{width:auto;height:min(26vh,190px)}
-.intro__name{
-  margin-top:26px;font-size:12px;font-weight:600;letter-spacing:.42em;text-indent:.42em;color:var(--ink)
+@supports (height:1svh){ .hero{--u:1svh} }
+.hero__ph{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.hero__in,.hero__kb,.hero__jolt{position:absolute;inset:0;transform-origin:50% var(--oy)}
+.hero__st{
+  position:absolute;left:50%;top:calc(var(--hair) - 1205 * var(--s));
+  width:var(--w);height:calc(2955 * var(--s));margin-left:calc(var(--w) / -2)
 }
-.intro__sub{margin-top:10px;font-size:14px;color:var(--soft)}
-.intro__go{
-  position:absolute;left:50%;bottom:calc(var(--safe-b) + 26px);transform:translateX(-50%);
-  display:flex;flex-direction:column;align-items:center;gap:8px;
-  font-size:10.5px;font-weight:600;letter-spacing:.24em;text-indent:.24em;text-transform:uppercase;color:var(--ink-2)
+.hero__st img{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none}
+/* Слой цвета — рамка шире снимка на 28 %, правый край у неё растушёван.
+   Смена: рамка едет слева направо, а снимок внутри — навстречу, поэтому он
+   стоит на месте, и новый цвет проходит по футболкам мягкой полосой. Только
+   transform — шторку ведёт видеокарта, на телефоне она не дёргается. */
+.hero__st .hero__tone{
+  position:absolute;left:0;top:37.225%;width:128%;height:39.086%;overflow:hidden;visibility:hidden;
+  -webkit-mask-image:linear-gradient(to right,#000 78.125%,transparent);mask-image:linear-gradient(to right,#000 78.125%,transparent)
 }
-.intro__go i{
-  width:40px;height:40px;border-radius:50%;border:1px solid #cfcfcb;display:grid;place-items:center
+.hero__st .hero__tone img{position:absolute;left:0;top:0;width:78.125%;height:100%}
+.hero__st .hero__tone.is-on{visibility:visible;animation:toneWipe 1.25s cubic-bezier(.65,0,.35,1) both}
+.hero__st .hero__tone.is-on img{animation:toneHold 1.25s cubic-bezier(.65,0,.35,1) both}
+@keyframes toneWipe{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes toneHold{from{transform:translateX(128%)}to{transform:none}}
+/* Тень снизу: на ней белые подписи цветов и «Листайте» читаются на любом цвете футболок. */
+.hero__shade{
+  position:absolute;left:0;right:0;bottom:0;z-index:1;height:calc(var(--foot) + 80px);pointer-events:none;
+  background:linear-gradient(to bottom,rgba(24,22,20,0),rgba(24,22,20,.5) 38%,rgba(24,22,20,.84))
 }
-.intro__go svg{width:16px;height:16px;fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
-  animation:nudge 2.2s var(--ease) infinite}
+
+.hero__top{
+  position:absolute;z-index:2;left:var(--gut);right:var(--gut);top:var(--top);
+  display:flex;flex-direction:column;align-items:center;text-align:center
+}
+.hero__mark{width:auto;height:var(--mk)}
+.hero__name{
+  margin-top:12px;font-size:11.5px;line-height:18px;font-weight:500;white-space:nowrap;
+  letter-spacing:.46em;text-indent:.46em;color:var(--ink)
+}
+.hero__t{
+  margin-top:clamp(10px,calc(2.2 * var(--u)),24px);
+  font-family:var(--f-display);font-weight:400;font-size:var(--tt);line-height:1.04;letter-spacing:-.015em
+}
+/* Каждая строка — в своей рамке: при появлении она выезжает снизу из-под неё. */
+.hero__t > span{display:block;overflow:hidden;padding:0 .05em .08em}
+.hero__t i{display:block;font-style:normal}
+/* Вторая строка — от тёмно-серого к серому, как на макете; поверх — блик,
+   который при появлении один раз пробегает по буквам слева направо. */
+.hero__t > span + span i{
+  background-image:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.7) 50%,transparent 62%),linear-gradient(100deg,#2e2c2a 0%,#55514c 50%,#7d776f 100%);
+  background-size:260% 100%,100% 100%;background-position:130% 0,0 0;background-repeat:no-repeat;
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+
+/* ---------- пять цветов ----------
+   Одна стеклянная капсула с плоскими кружками. Текущий цвет раскрывается в
+   плашку с названием, и по ней слева направо идёт заливка — отсчёт до
+   следующей смены. Нажатие на кружок переключает сразу. */
+.hero__tones{
+  --tx:-50%;position:absolute;z-index:2;left:50%;bottom:calc(var(--safe-b) + 72px);transform:translateX(var(--tx));
+  display:flex;align-items:center;gap:2px;padding:5px;border-radius:999px;
+  background:rgba(22,20,18,.36);border:1px solid rgba(255,255,255,.14);
+  -webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3);
+  box-shadow:0 14px 34px -14px rgba(0,0,0,.6)
+}
+.tn{
+  --d:0s;position:relative;display:flex;align-items:center;height:38px;padding:0 8px;border-radius:999px;
+  overflow:hidden;isolation:isolate;color:#fff;font-size:13px;font-weight:500;letter-spacing:.01em;white-space:nowrap;
+  transition:background-color .45s var(--out),padding .45s var(--out)
+}
+.tn::before{                                   /* отсчёт до следующего цвета */
+  content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;
+  background:rgba(255,255,255,.12);transform-origin:0 50%;transform:scaleX(0)
+}
+.tn__c{
+  flex:none;width:22px;height:22px;border-radius:50%;background:var(--c);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.3);transition:transform .45s var(--out)
+}
+.tn__c--w{box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.tn__n{
+  display:block;max-width:0;margin-left:0;opacity:0;overflow:hidden;
+  transition:max-width .5s var(--out),margin-left .5s var(--out),opacity .3s var(--ease)
+}
+.tn.is-on{background-color:rgba(255,255,255,.14);padding:0 15px 0 8px}
+.tn.is-on .tn__n{max-width:88px;margin-left:9px;opacity:1;transition-delay:0s,0s,.12s}
+.hero.is-auto .tn.is-on::before{animation:tnRun 4s linear both}
+@keyframes tnRun{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.tn:active .tn__c{transform:scale(.86)}
+@media (hover:hover){ .tn:not(.is-on):hover .tn__c{transform:scale(1.12)} }
+
+/* ---------- «Листайте» ----------
+   Просто подпись и стрелка, которая еле заметно покачивается. */
+.hero__go{
+  position:absolute;z-index:2;left:50%;bottom:calc(var(--safe-b) + 14px);transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:4px 24px;
+  color:rgba(255,255,255,.78);font-size:10.5px;line-height:14px;font-weight:600;
+  letter-spacing:.3em;text-indent:.3em;text-transform:uppercase
+}
+.hero__go svg{
+  width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+  animation:nudge 2.2s var(--ease) infinite
+}
+.hero__go:active{opacity:.6}
 @keyframes nudge{0%,60%,100%{transform:none}30%{transform:translateY(4px)}}
+
+/* ---------- движение первого экрана ----------
+   is-on — экран начал появляться (сразу или после заставки запуска), is-ph —
+   холст загрузился. Снимок проявляется и медленно наезжает; знак встаёт,
+   LUXE CANVAS сходится по разрядке, строки заголовка выезжают из-под рамки,
+   по второй пробегает свет, кружки цветов выпрыгивают по очереди. Потом
+   снимок еле дышит, а при смене цвета новый цвет проходит по нему шторкой. */
+html.js .hero .hero__in{opacity:0;transform:scale(1.08)}
+html.js .hero.is-ph .hero__in{opacity:1;transform:none;transition:opacity 1.3s var(--ease),transform 2.6s var(--out)}
+.hero__kb{animation:heroBreath 18s ease-in-out 2.6s infinite alternate}
+.hero:not(.is-vis) .hero__kb{animation-play-state:paused}
+@keyframes heroBreath{from{transform:none}to{transform:scale(1.035)}}
+/* Пока идёт шторка, снимок едва заметно «вдыхает» — без рывков и поворотов. */
+.hero__jolt.is-jolt{animation:heroPulse 1.25s cubic-bezier(.45,0,.55,1)}
+@keyframes heroPulse{0%{transform:none}45%{transform:scale(1.012)}100%{transform:none}}
+
+html.js .hero .hero__mark{opacity:0;transform:translateY(12px) scale(.95)}
+html.js .hero .hero__name{opacity:0;letter-spacing:1em}
+html.js .hero .hero__t i{transform:translateY(110%)}
+html.js .hero .hero__tones{opacity:0;transform:translate(var(--tx),16px)}
+html.js .hero .tn{opacity:0;transform:scale(.6)}
+html.js .hero .hero__go{opacity:0}
+html.js .hero.is-on .hero__mark{opacity:1;transform:none;transition:opacity .9s var(--ease) .1s,transform 1.3s var(--out) .1s}
+html.js .hero.is-on .hero__name{opacity:1;letter-spacing:.46em;transition:opacity 1s var(--ease) .35s,letter-spacing 1.5s var(--out) .3s}
+html.js .hero.is-on .hero__t i{transform:none;transition:transform 1.2s var(--out) .42s}
+html.js .hero.is-on .hero__t > span + span i{transition-delay:.56s;animation:heroShine 2.4s var(--ease) 1.3s both}
+@keyframes heroShine{from{background-position:130% 0,0 0}to{background-position:-30% 0,0 0}}
+html.js .hero.is-on .hero__tones{opacity:1;transform:translateX(var(--tx));transition:opacity .7s var(--ease) .7s,transform 1s var(--out) .7s}
+html.js .hero.is-on .tn{opacity:1;transform:none;
+  transition:opacity .5s var(--ease) var(--d),transform .8s var(--out) var(--d),background-color .45s var(--out),padding .45s var(--out)}
+.tn:nth-child(1){--d:.86s}.tn:nth-child(2){--d:.93s}.tn:nth-child(3){--d:1s}.tn:nth-child(4){--d:1.07s}.tn:nth-child(5){--d:1.14s}
+html.js .hero.is-on .hero__go{opacity:1;transition:opacity .8s var(--ease) 1.3s}
+/* После заставки запуска знак уже стоит на месте — туда приехал белый знак. */
+html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;transform:none;transition:none}
 
 /* ================= ЭКРАН ================= */
 .s{position:relative;height:100vh;height:100svh;overflow:hidden;background:var(--bg)}
@@ -173,15 +314,11 @@ html.is-final .skip{opacity:0;visibility:hidden}
 .s__t{font-family:var(--f-display);font-weight:400;font-size:var(--t);line-height:1.06;letter-spacing:-.01em;text-wrap:balance}
 .s__d{margin-top:14px;max-width:34ch;font-size:15px;line-height:1.55;color:var(--soft)}
 
-/* Низ: номер, полоса и стрелка вниз. */
+/* Низ: стрелка вниз. */
 .s__ft{
   position:absolute;left:var(--gut);right:calc(var(--gut) - 6px);bottom:calc(var(--safe-b) + 18px);z-index:2;
   display:flex;align-items:center;gap:14px;height:44px
 }
-.s__n{font-size:12px;font-weight:600;letter-spacing:.08em;font-variant-numeric:tabular-nums}
-.s__n b{font-weight:600}
-.s__bar{position:relative;flex:1;height:1px;background:#d6d6d1}
-.s__bar i{position:absolute;left:0;top:-.5px;height:2px;width:100%;background:var(--ink);transform-origin:0 50%;transform:scaleX(var(--w))}
 .s__ft--a{justify-content:flex-end}
 .s__next{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none}
 .s__next svg{width:20px;height:20px;fill:none;stroke:var(--ink);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
@@ -190,14 +327,41 @@ html.is-final .skip{opacity:0;visibility:hidden}
 /* ---------- появление экрана ----------
    Только transform и opacity. Пока скрипт не отметил экран, всё видно —
    без скрипта страница не пустая. */
-html.js .s .s__ph img{transform:scale(1.05);transition:transform 1.4s var(--out)}
-html.js .s.is-in .s__ph img{transform:none}
-html.js .s .s__tx > *{opacity:0;transform:translateY(16px);transition:opacity .8s var(--ease),transform .9s var(--out)}
-html.js .s.is-in .s__tx > *{opacity:1;transform:none}
-html.js .s.is-in .s__tx > :nth-child(2){transition-delay:.08s}
-html.js .s.is-in .s__tx > :nth-child(3){transition-delay:.16s}
-html.js .s.is-in .s__tx > :nth-child(4){transition-delay:.24s}
-html.js .s.is-in .s__tx > :nth-child(5){transition-delay:.32s}
+/* Снимок открывается шторкой сверху вниз и при этом наезжает; у пар, коллажа
+   и полосы цветов плитки открываются по очереди. Текст поднимается строками,
+   черта у номера дорисовывается, строки доставки въезжают слева. */
+html.js .s .s__ph,html.js .s .s__col > div{clip-path:inset(0 0 100% 0);transition:clip-path 1.15s var(--out)}
+html.js .s .pal__strip > div{clip-path:inset(100% 0 0 0);transition:clip-path 1s var(--out)}
+html.js .s.is-in .s__ph,html.js .s.is-in .s__col > div,html.js .s.is-in .pal__strip > div{clip-path:inset(0)}
+html.js .s.is-in .s__col > div:nth-child(2){transition-delay:.12s}
+html.js .s.is-in .s__col > div:nth-child(3){transition-delay:.24s}
+html.js .s.is-in .pal__strip > div:nth-child(2){transition-delay:.07s}
+html.js .s.is-in .pal__strip > div:nth-child(3){transition-delay:.14s}
+html.js .s.is-in .pal__strip > div:nth-child(4){transition-delay:.21s}
+html.js .s.is-in .pal__strip > div:nth-child(5){transition-delay:.28s}
+html.js .s .s__ph img,html.js .s .s__col img,html.js .s .pal__strip img{transform:scale(1.14);transition:transform 1.8s var(--out)}
+html.js .s.is-in .s__ph img,html.js .s.is-in .s__col img,html.js .s.is-in .pal__strip img{transform:none}
+html.js .s.is-in .s__ph--duo > div + div img{transition-delay:.12s}
+html.js .s .s__tx > *{opacity:0;transform:translateY(22px);transition:opacity .8s var(--ease),transform 1s var(--out)}
+html.js .s.is-in .s__tx > *{opacity:1;transform:none;transition-delay:.25s}
+html.js .s.is-in .s__tx > :nth-child(2){transition-delay:.35s}
+html.js .s.is-in .s__tx > :nth-child(3){transition-delay:.45s}
+html.js .s.is-in .s__tx > :nth-child(4){transition-delay:.55s}
+html.js .s.is-in .s__tx > :nth-child(5){transition-delay:.65s}
+html.js .s .s__k::after{transform:scaleX(0);transform-origin:0 50%;transition:transform 1s var(--out)}
+html.js .s.is-in .s__k::after{transform:none;transition-delay:.55s}
+html.js .s .tone,html.js .s .dlv__i,html.js .s .fin__pro > div{opacity:0;transition:opacity .6s var(--ease),transform .8s var(--out)}
+html.js .s .tone{transform:scale(.8)}
+html.js .s .dlv__i{transform:translateX(-18px)}
+html.js .s .fin__pro > div{transform:translateY(14px)}
+html.js .s.is-in .tone,html.js .s.is-in .dlv__i,html.js .s.is-in .fin__pro > div{opacity:1;transform:none}
+html.js .s.is-in .tone:nth-child(1),html.js .s.is-in .dlv__i:nth-child(1),html.js .s.is-in .fin__pro > div:nth-child(1){transition-delay:.6s}
+html.js .s.is-in .tone:nth-child(2),html.js .s.is-in .dlv__i:nth-child(2),html.js .s.is-in .fin__pro > div:nth-child(2){transition-delay:.7s}
+html.js .s.is-in .tone:nth-child(3),html.js .s.is-in .dlv__i:nth-child(3),html.js .s.is-in .fin__pro > div:nth-child(3){transition-delay:.8s}
+html.js .s.is-in .tone:nth-child(4){transition-delay:.9s}
+html.js .s.is-in .tone:nth-child(5){transition-delay:1s}
+html.js .s .s__ft{opacity:0;transition:opacity .8s var(--ease) .8s}
+html.js .s.is-in .s__ft{opacity:1}
 
 /* ================= 04: ПОСАДКА — один крупный и два поменьше ================= */
 .s__col{
@@ -297,9 +461,46 @@ html.js .s.is-in .s__tx > :nth-child(5){transition-delay:.32s}
   .fin__pro div:first-child{padding-left:0}
 }
 
+/* Первый экран на широком (компьютер, планшет и телефон лёжа): текст слева
+   на светлой стене, снимок справа во всю высоту и мягко уходит в стену. */
+@media (min-aspect-ratio:1/1) and (min-width:640px){
+  .hero{
+    --tt:clamp(30px,4vw,72px);--mk:clamp(46px,calc(9 * var(--u)),96px);
+    --dtop:calc(50 * var(--u) - (var(--mk) + 30px + 24px + var(--tt) * 2.24 + 40px + 68px) / 2);
+    --w:max(60vw,calc(92 * var(--u) * 1.17922));
+    --oy:calc(50 * var(--u));
+    background:#e9e5df
+  }
+  .hero__ph{left:38%;-webkit-mask-image:linear-gradient(to right,transparent,#000 16%);mask-image:linear-gradient(to right,transparent,#000 16%)}
+  .hero__st{top:calc(50 * var(--u) - 1677 * var(--s))}
+  .hero__shade{left:38%;height:26%;-webkit-mask-image:linear-gradient(to right,transparent,#000 16%);mask-image:linear-gradient(to right,transparent,#000 16%)}
+  /* Знак, заголовок и цвета — один столбик по центру высоты; строки заголовка не переносятся. */
+  .hero__top{left:6vw;right:auto;width:auto;top:var(--dtop);align-items:flex-start;text-align:left}
+  .hero__t{margin-top:24px}
+  .hero__t > span{white-space:nowrap}
+  .hero__name{text-indent:0}
+  /* капсула цветов — светлое стекло на светлой стене */
+  .hero__tones{--tx:0;left:6vw;bottom:auto;top:calc(var(--dtop) + var(--mk) + 30px + 24px + var(--tt) * 2.24 + 40px);
+    background:rgba(255,255,255,.55);border-color:rgba(0,0,0,.08);box-shadow:0 12px 30px -16px rgba(0,0,0,.25)}
+  .tn{color:var(--ink)}
+  .tn::before{background:rgba(0,0,0,.07)}
+  .tn.is-on{background-color:rgba(0,0,0,.06)}
+  .tn__c{box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+  .hero__go{left:6vw;bottom:calc(var(--safe-b) + 34px);transform:none;flex-direction:row;gap:10px;padding:4px 0;color:var(--ink-2);text-indent:0}
+}
+
 @media (prefers-reduced-motion:reduce){
   html.js .s .s__ph img, html.js .s .s__tx > *{transition:none;transform:none;opacity:1}
-  .intro__go svg{animation:none}
+  html.js .s .s__ph,html.js .s .s__col > div,html.js .s .pal__strip > div{clip-path:none;transition:none}
+  html.js .s .s__col img,html.js .s .pal__strip img,html.js .s .s__k::after,
+  html.js .s .tone,html.js .s .dlv__i,html.js .s .fin__pro > div,html.js .s .s__ft{transition:none;transform:none;opacity:1}
+  html.js .hero .hero__in,html.js .hero .hero__mark,html.js .hero .hero__name,html.js .hero .hero__t i,
+  html.js .hero .tn,html.js .hero .hero__go{opacity:1;transform:none;transition:none;animation:none}
+  html.js .hero .hero__tones{opacity:1;transform:translateX(var(--tx));transition:none}
+  html.js .hero .hero__name{letter-spacing:.46em}
+  html.js .hero.is-on .hero__t > span + span i{animation:none}
+  .hero__st .hero__tone.is-on,.hero__st .hero__tone.is-on img{animation:none}
+  .hero__kb,.hero__go svg{animation:none}
 }
 
 /* ================= УХОД В МАГАЗИН =================
@@ -666,9 +867,10 @@ html.is-locked .skip{right:calc(var(--skip-r,12px) + var(--sb,0px))}
    Пока идёт заставка, страницу под ней не листают, а подпись, «Листайте» и
    «Пропустить» появляются уже после неё. */
 html.lc-splash{overflow:hidden}
-html.lc-splash .intro__txt,html.lc-splash .intro__go,html.lc-splash .skip{opacity:0}
-html.lc-after .intro__txt{animation:lcbIn .6s ease .2s both}
-html.lc-after .intro__go,html.lc-after .skip{animation:lcbIn .6s ease .35s both}
+/* Надпись, цвета и «Листайте» первого экрана ждут конца заставки сами:
+   скрипт экрана включает их появление, когда снят класс lc-splash. */
+html.lc-splash .skip{opacity:0}
+html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 @keyframes lcbIn{from{opacity:0}to{opacity:1}}
 .lcb{
   position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;
@@ -778,25 +980,38 @@ html.lc-after .intro__go,html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 <button class="skip" id="skip" type="button" aria-label="Пропустить знакомство и перейти в магазин">Пропустить<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg></button>
 
 <main>
-<!-- ====== заставка ====== -->
-<section class="intro snap" id="intro" aria-label="Luxe Canvas">
-  <img class="intro__mark" id="introMark" src="/logo.png?v=lc2" alt="Luxe Canvas" width="325" height="520" fetchpriority="high">
-  <div class="intro__txt" id="introTxt">
-    <p class="intro__name">LUXE CANVAS</p>
-    <p class="intro__sub">Базовые футболки из плотного хлопка</p>
+<!-- ====== 01: первый экран — по макету владельца ======
+     Снимок — его фото троих в футболках; холст h1.jpg собран из него
+     (сверху дорисована стена, снизу пол). Слои h1-*.jpg — те же трое в других
+     цветах, порядок слоёв = порядок кнопок после «Чёрного». #introMark —
+     сюда приезжает белый знак заставки запуска, id не менять. -->
+<section class="hero snap" id="intro" aria-labelledby="t1">
+  <div class="hero__ph" aria-hidden="true">
+    <div class="hero__in"><div class="hero__kb"><div class="hero__jolt">
+      <div class="hero__st">
+        <img class="hero__bg" id="heroBg" src="/onboarding/h1.jpg" alt="" width="1362" height="2955" fetchpriority="high" decoding="async">
+        <div class="hero__tone"><img data-src="/onboarding/h1-black.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h1-choc.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h1-red.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h1-blue.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+        <div class="hero__tone"><img data-src="/onboarding/h1-white.jpg" alt="" width="1362" height="1155" decoding="async"></div>
+      </div>
+    </div></div></div>
   </div>
-  <button class="intro__go" type="button" data-next aria-label="Листайте — следующий экран"><i><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></i>Листайте</button>
-</section>
-
-<!-- ====== 01: как на образце владельца, без кнопки ====== -->
-<section class="s snap" data-n="1" aria-labelledby="t1">
-  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
-  <div class="s__ph"><img src="/onboarding/ob-t-hero-dasha-blue.jpg" alt="Девушка в голубой футболке, руки скрещены" width="1000" height="1029" fetchpriority="high" decoding="async"></div>
-  <div class="s__tx">
-    <h1 class="s__t" id="t1">Базовые вещи, которые носят каждый день</h1>
-    <p class="s__d">Футболки из плотного полотна.<br>Свободная посадка.<br>5 цветов.</p>
+  <div class="hero__shade" aria-hidden="true"></div>
+  <div class="hero__top">
+    <img class="hero__mark" id="introMark" src="/logo.png?v=lc2" alt="Luxe Canvas" width="325" height="520" fetchpriority="high">
+    <p class="hero__name" aria-hidden="true">LUXE CANVAS</p>
+    <h1 class="hero__t" id="t1"><span><i>Базовые вещи</i></span><span><i>на&nbsp;каждый день</i></span></h1>
   </div>
-  <div class="s__ft"><span class="s__n"><b>01</b> / 07</span><span class="s__bar"><i style="--w:0.143"></i></span><button class="s__next" type="button" data-next aria-label="Листайте — следующий экран"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button></div>
+  <div class="hero__tones" role="group" aria-label="Цвет футболок на снимке">
+    <button class="tn is-on" type="button" aria-pressed="true" style="--c:#141414"><span class="tn__c"></span><span class="tn__n">Чёрный</span></button>
+    <button class="tn" type="button" aria-pressed="false" style="--c:#4a2f24"><span class="tn__c"></span><span class="tn__n">Шоколад</span></button>
+    <button class="tn" type="button" aria-pressed="false" style="--c:#c1161d"><span class="tn__c"></span><span class="tn__n">Красный</span></button>
+    <button class="tn" type="button" aria-pressed="false" style="--c:#a9c9e5"><span class="tn__c"></span><span class="tn__n">Голубой</span></button>
+    <button class="tn" type="button" aria-pressed="false" style="--c:#f3f1ec"><span class="tn__c tn__c--w"></span><span class="tn__n">Белый</span></button>
+  </div>
+  <button class="hero__go" type="button" data-next aria-label="Листайте — следующий экран">Листайте<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
 </section>
 
 <!-- ====== 02: чёрное и белое ====== -->
@@ -950,7 +1165,9 @@ html.lc-after .intro__go,html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   if('IntersectionObserver' in window){
     var io = new IntersectionObserver(function(rows){
       rows.forEach(function(r){
-        if(r.isIntersecting){ r.target.classList.add('is-in'); }
+        /* Не с первого показавшегося края, а когда экран заметно въехал:
+           иначе движение успевало пройти, пока его листали. */
+        if(r.isIntersecting && r.intersectionRatio >= .35){ r.target.classList.add('is-in'); }
         if(r.target === finSec) root.classList.toggle('is-final', r.isIntersecting && r.intersectionRatio > .6);
       });
     }, { threshold: [0, .35, .6, .9] });
@@ -969,6 +1186,118 @@ html.lc-after .intro__go,html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       if(next) next.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
     });
   });
+
+  /* --- первый экран: футболки меняют цвет ---
+     У каждого цвета свой слой (и у чёрного — иначе к нему нечем было бы
+     вернуться шторкой). Раз в STEP новый слой проходит шторкой ПОВЕРХ
+     прежнего, а прежний снимаем, только когда шторка дошла до конца, — так
+     под ней всегда целый снимок. Слои грузим после холста; пока цвет не
+     загрузился, на него не переключаемся. Касание по цвету переключает сразу
+     и заново заводит отсчёт. Экран ушёл из виду или вкладка скрыта — смена стоит. */
+  var hero = document.getElementById('intro');
+  if(hero && hero.classList.contains('hero')) (function(){
+    var STEP = 4000, WIPE = 1250;
+    var tns = [].slice.call(hero.querySelectorAll('.tn'));
+    var lay = [].slice.call(hero.querySelectorAll('.hero__tone'));
+    var ok = lay.map(function(){ return false; });
+    var jolt = hero.querySelector('.hero__jolt');
+    var bg = document.getElementById('heroBg');
+    var cur = 0, z = 1, want = -1, tm = 0, cutT = 0, vis = true, on = false, shown = false;
+
+    function pick(n){
+      if(n === cur) return true;
+      if(!ok[n]){ want = n; return false; }
+      want = -1;
+      clearTimeout(cutT);
+      var el = lay[n];
+      el.classList.remove('is-on');
+      void el.offsetWidth;                 /* шторка начинается заново, даже если слой уже стоял */
+      el.style.zIndex = ++z;
+      el.classList.add('is-on');
+      cutT = setTimeout(function(){
+        lay.forEach(function(o, i){ if(i !== n) o.classList.remove('is-on'); });
+      }, reduce ? 0 : WIPE + 60);
+      tns.forEach(function(b, i){
+        b.classList.toggle('is-on', i === n);
+        b.setAttribute('aria-pressed', i === n ? 'true' : 'false');
+      });
+      cur = n;
+      if(!reduce){ jolt.classList.remove('is-jolt'); void jolt.offsetWidth; jolt.classList.add('is-jolt'); }
+      return true;
+    }
+    function nextTone(){
+      for(var k = 1; k < tns.length; k++){ var n = (cur + k) % tns.length; if(ok[n]) return n; }
+      return cur;
+    }
+    function plan(){
+      clearTimeout(tm);
+      var run = on && vis && !document.hidden && !reduce;
+      /* Заливка отсчёта на плашке цвета идёт, пока идёт смена: снимаем и
+         ставим класс заново — так она начинается с нуля вместе с таймером. */
+      hero.classList.remove('is-auto');
+      if(!run) return;
+      void hero.offsetWidth;
+      hero.classList.add('is-auto');
+      tm = setTimeout(function(){ pick(nextTone()); plan(); }, STEP);
+    }
+    tns.forEach(function(b, i){
+      b.addEventListener('click', function(){ if(pick(i)) plan(); });
+    });
+
+    function loadTones(){
+      lay.forEach(function(el, i){
+        var im = el.querySelector('img');
+        if(!im || !im.getAttribute('data-src')) return;
+        im.addEventListener('load', function(){
+          ok[i] = true;
+          if(want === i){ pick(i); plan(); }
+        });
+        im.src = im.getAttribute('data-src');
+        im.removeAttribute('data-src');
+      });
+    }
+    /* Под заставкой запуска снимок проявляется сразу, пока его не видно: когда
+       она уйдёт, он уже на месте, а не всплывает на пустом фоне. */
+    var early = root.classList.contains('lc-splash');
+    function photo(){
+      if(shown || !(on || early)) return;
+      shown = true;
+      hero.classList.add('is-ph');
+      loadTones();
+    }
+    function start(){
+      if(on) return;
+      on = true;
+      hero.classList.add('is-on');
+      if(bg.complete && bg.naturalWidth) photo();
+      plan();
+    }
+    bg.addEventListener('load', photo);
+    bg.addEventListener('error', photo);
+    if(early && bg.complete && bg.naturalWidth) photo();
+    setTimeout(function(){ if(on || early) photo(); }, 3000);
+
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(rows){
+        vis = rows[0].isIntersecting && rows[0].intersectionRatio >= .5;
+        hero.classList.toggle('is-vis', vis);
+        plan();
+      }, { threshold: [0, .5, 1] }).observe(hero);
+    } else hero.classList.add('is-vis');
+    document.addEventListener('visibilitychange', plan);
+
+    /* После заставки запуска — когда она уйдёт; иначе сразу, но через кадр,
+       чтобы браузер успел нарисовать исходное, скрытое положение. */
+    if(root.classList.contains('lc-splash')){
+      var mo = new MutationObserver(function(){
+        if(!root.classList.contains('lc-splash')){ mo.disconnect(); start(); }
+      });
+      mo.observe(root, { attributes: true, attributeFilter: ['class'] });
+      setTimeout(start, 12500);     /* заставка сама уходит через 12 с при любом раскладе */
+    } else {
+      requestAnimationFrame(function(){ requestAnimationFrame(start); });
+    }
+  })();
 
   /* --- снимки дальних экранов — заранее, но без спешки ---
      После загрузки по одному раз в 120 мс; на «экономии трафика» не трогаем. */
