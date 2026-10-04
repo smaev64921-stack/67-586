@@ -76,6 +76,13 @@ function scrubCmsInput(cms) {
         if (Number.isFinite(n) && n >= 0) v[k] = n;
         else delete v[k];
       });
+      /* Товар для кнопки «Перейти» под роликом — только номер товара.
+         Нет товара (0, пусто, мусор) — поля нет, и кнопки у ролика нет. */
+      if (v.pid != null) {
+        const n = +v.pid;
+        if (Number.isSafeInteger(n) && n > 0) v.pid = n;
+        else delete v.pid;
+      }
     });
   }
   return out;

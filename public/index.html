@@ -988,7 +988,82 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 }
 .cvb.is-blocked .cvb__play,.cvb.is-still .cvb__play{display:flex}
 .cvb__play .ic{width:22px;height:22px;margin-left:3px}
-@media (prefers-reduced-motion:reduce){ .cv,.cvb,.cvb__v{transition-duration:.01s} }
+/* У ролика есть товар — нажатие на само видео тоже ведёт в карточку */
+.cvb.is-link{cursor:pointer}
+/* Полоски сверху, как в историях: сколько роликов и сколько осталось до
+   следующего — а с ним и до другого товара под видео. Тень сверху держит
+   белые полоски читаемыми на светлом кадре. Заполнение — только transform. */
+.cvb__seg{
+  position:absolute;left:0;right:0;top:0;z-index:3;display:flex;gap:4px;padding:10px 12px 18px;
+  background:linear-gradient(rgba(0,0,0,.26),rgba(0,0,0,0));pointer-events:none;
+  opacity:0;transition:opacity .6s var(--ease)
+}
+.cvb.has-seg .cvb__seg{opacity:1}
+.cvb__seg i{flex:1;height:2px;border-radius:2px;background:rgba(255,255,255,.38);overflow:hidden}
+.cvb__seg b{display:block;height:100%;background:#fff;transform:scaleX(0);transform-origin:0 50%}
+
+/* ---- Товар под роликом: фото, название, цена и «Перейти» ----
+   У каждого ролика свой товар (CMS.vids[].pid, задаётся в админке →
+   Каталог → «Видео в каталоге»). Ролик перетекает в следующий — товар
+   меняется вместе с ним. Карточка одна и стоит на месте, меняется её
+   содержимое, как лента: прежний товар уходит вверх и гаснет, новый
+   поднимается снизу, его фото, текст и кнопка проявляются по очереди;
+   края карточки обрезают ленту, двух карточек внахлёст не бывает.
+   Ширина — как у видео, но не уже 300 px: под вертикальным роликом
+   (9:16, 4:5) строке иначе негде поместиться. */
+.cvp{
+  position:relative;height:66px;margin:10px auto 0;
+  width:min(100%,max(300px,calc(min(46svh,440px) * var(--ar,16/9))));
+  border-radius:14px;background:var(--card);border:1px solid var(--line);overflow:hidden;isolation:isolate;
+  opacity:0;transform:translateY(8px);
+  transition:opacity .8s var(--ease) .3s,transform 1s var(--ease) .3s,box-shadow var(--dur) var(--ease),
+             background-color .5s var(--ease),border-color .5s var(--ease)
+}
+.cv.is-open .cvp{opacity:1;transform:none}
+.cv.no-anim .cvp{transition:none}
+.cvp[hidden]{display:none}
+/* у этого ролика товара нет — место держим (каталог не прыгает), карточку гасим */
+.cvp.is-empty{background-color:transparent;border-color:transparent}
+.cvp:hover{box-shadow:var(--sh-1)}
+.cvp.is-empty:hover{box-shadow:none}
+.cvp__it{
+  position:absolute;inset:0;display:flex;align-items:center;gap:12px;width:100%;
+  padding:7px 7px 7px 8px;text-align:left;-webkit-tap-highlight-color:transparent;
+  transition:opacity .45s var(--ease),transform .7s cubic-bezier(.22,1,.36,1)
+}
+/* рамка фокуса — внутри карточки: снаружи её срезал бы край блока видео */
+.cvp__it:focus-visible{outline:2px solid var(--ink);outline-offset:-3px;border-radius:13px}
+.cvp__ph{width:40px;height:50px;border-radius:var(--r-sm);overflow:hidden;background:var(--photo);flex:none}
+.cvp__ph img{width:100%;height:100%;object-fit:contain;object-position:center;display:block}
+.cvp__tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+/* название — до двух строк: «Футболка оверсайз красная» не должна стать «Футболка оверсайз кр…» */
+.cvp__n{font-size:11.5px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;line-height:1.25;
+  overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
+.cvp__pr{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:7px;font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.cvp__pr s{font-size:12px;font-weight:500;color:var(--muted)}
+.cvp__go{
+  display:flex;align-items:center;gap:6px;flex:none;height:40px;padding:0 13px 0 15px;border-radius:var(--r-sm);
+  background:var(--ink);color:#fff;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase
+}
+.cvp__go .ic{width:16px;height:16px;stroke-width:1.9;animation:cvpNudge 2.6s var(--ease) 1.4s infinite}
+@keyframes cvpNudge{0%,55%,100%{transform:none}27%{transform:translateX(3px)}}
+/* вход нового товара: части — с небольшим разбегом */
+.cvp__ph,.cvp__tx,.cvp__go{transition:opacity .5s var(--ease),transform .7s cubic-bezier(.22,1,.36,1)}
+.cvp__tx{transition-delay:.07s}
+.cvp__go{transition-delay:.14s}
+.cvp__it.is-in{opacity:0;transform:translateY(70%)}
+.cvp__it.is-in .cvp__ph{opacity:0;transform:scale(.86)}
+.cvp__it.is-in .cvp__tx{opacity:0;transform:translateY(8px)}
+.cvp__it.is-in .cvp__go{opacity:0;transform:translateX(-8px)}
+.cvp__it.is-out{opacity:0;transform:translateY(-70%);pointer-events:none;transition-duration:.35s,.55s}
+.cvp__it.is-out *{transition-delay:0s}
+/* отклик на нажатие и наведение — сразу, без задержек входа */
+.cvp__it:hover .cvp__go{opacity:.88;transition-duration:var(--dur);transition-delay:0s}
+.cvp__it:active .cvp__go{transform:scale(.965);transition-duration:.14s;transition-delay:0s}
+@media (prefers-reduced-motion:reduce){
+  .cv,.cvb,.cvb__v,.cvp,.cvp__it,.cvp__it *{transition-duration:.01s;transition-delay:0s}
+  .cvp__go .ic{animation:none}
+}
 
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px 12px;padding:4px var(--pad) 20px}
 /* товар — цельная белая карточка: фото сверху, под ним название и цена */
@@ -3711,6 +3786,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   .crumbs,.ph,.gen,.ctrl,.sec__h{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
   .cv{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
   .cvb{max-width:640px;margin:0}
+  .cvp{max-width:640px;margin:10px 0 0}
   .sec,.ord,.plist,.pcard,.form,.stabs{max-width:760px;margin-left:auto;margin-right:auto}
   /* На широком экране — две колонки: кадр слева, описание справа.
      В один столбец portrait-кадр не помещался: max-height перебивал пропорцию,
@@ -3895,6 +3971,55 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .ad__vcover{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .ad__vcover img{width:56px;height:70px;object-fit:contain;border-radius:var(--r-sm);background:var(--photo);flex:none}
 .ad__vcover span{flex:1;min-width:0;font-size:12px;color:var(--muted)}
+/* товар ролика каталога для «Перейти» — плашка в строке ролика и в форме */
+.ad__cvl{
+  display:flex;align-items:center;gap:8px;width:100%;max-width:100%;min-height:40px;margin-top:6px;padding:5px 10px 5px 5px;
+  border:1.5px solid var(--line2);border-radius:var(--r-md);background:var(--card);text-align:left;
+  font-size:12px;color:var(--ink-soft);transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)
+}
+.ad__cvl:hover{border-color:var(--ink);background:var(--chip)}
+.ad__cvl img{width:26px;height:32px;object-fit:contain;border-radius:3px;background:var(--photo);flex:none}
+.ad__cvl span{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ad__cvl i,.ad__cvl b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad__cvl i{font-style:normal;font-size:11px;color:var(--muted)}
+.ad__cvl b{font-weight:600;color:var(--ink)}
+.ad__cvl.is-warn i{color:var(--tone-ship-fg)}
+.ad__cvl .ic{width:14px;height:14px;flex:none;stroke:var(--muted);stroke-width:1.8}
+.ad__cvl.is-empty{border-style:dashed;padding-left:10px;color:var(--ink);font-weight:600}
+.ad__cvl.is-empty .ic{stroke:var(--ink)}
+.ad__cvl.is-warn{border-color:var(--tone-ship-fg);background:var(--tone-ship-bg)}
+.ad__cvids .ad__row{flex-wrap:wrap}
+.ad__cvl-w{flex:1 1 100%;min-width:0;order:5}
+.ad__cvl-w .ad__cvl{margin-top:0}
+#vsProd{margin-bottom:12px}
+#vsProd .ad__cvl{margin-top:0}
+/* окно выбора товара */
+.ad__form--top{z-index:211}
+.ad__pp-st.is-ok{color:var(--tone-ok-fg)}
+.ad__pp-st.is-err{color:var(--danger)}
+.ad__pp{
+  display:flex;flex-direction:column;gap:6px;max-height:min(46vh,380px);overflow-y:auto;overscroll-behavior:contain;
+  margin:-2px 0 14px;padding:2px
+}
+.ad__pp-it{
+  display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px 6px 6px;text-align:left;
+  border:1.5px solid var(--line);border-radius:var(--r-md);background:var(--card);
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)
+}
+.ad__pp-it:hover{border-color:var(--line2);background:var(--chip)}
+.ad__pp-it[aria-selected="true"]{border-color:var(--ink);background:var(--chip)}
+.ad__pp-it img{width:36px;height:45px;object-fit:contain;border-radius:3px;background:var(--photo);flex:none}
+.ad__pp-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ad__pp-tx b{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad__pp-tx i{font-style:normal;font-size:11.5px;color:var(--muted)}
+.ad__pp-ck{
+  width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none;
+  border:1.5px solid var(--line2);color:transparent;transition:all var(--dur) var(--ease)
+}
+.ad__pp-ck .ic{width:13px;height:13px;stroke:currentColor;stroke-width:2.4}
+.ad__pp-it[aria-selected="true"] .ad__pp-ck{background:var(--ink);border-color:var(--ink);color:#fff}
+.ad__pp-none{padding:22px 10px;text-align:center;color:var(--muted);font-size:13px}
+.ad__pp-rm{margin-right:auto;color:var(--danger)}
 .ad__vth{position:relative;flex:none;display:block}
 /* видео без обложки (кадр не снялся): тёмная плашка вместо пустого места,
    иначе от строки оставался один белый ▶ на белом */
@@ -8266,6 +8391,9 @@ function scrCatalog(){
    — Узел плеера живёт вне экрана: перерисовка каталога (фильтры, лайк)
      возвращает его в слот в том же такте, и ролик не начинается заново.
    — Играет, только пока блок видно, вкладка открыта и админка закрыта.
+   — Под роликом — его товар и «Перейти» (vids[].pid): ролик сменился —
+     строка товара перетекает на товар следующего. Сверху на видео —
+     полоски, как в историях: сколько роликов и где сейчас показ.
    ========================================================== */
 const MAX_CAT_VIDS = 12;      // совпадает с MAX_CAT_VIDS в server/cms-safe.js
 const CV_FADE = 900;          // мс перетекания, как transition у .cvb__v
@@ -8275,7 +8403,8 @@ const CV = {
   fails: new Map(),           // ссылка → неудачи; после трёх ролик пропускаем
   busy: '', started: false, startT: 0,
   el: null, vs: [], top: 0,   // блок, два <video>, какой из них сейчас на виду
-  playing: '', shown: false, vis: false, switching: false, hand: false
+  playing: '', shown: false, vis: false, switching: false, hand: false,
+  bar: null, barU: '', barSig: '', raf: 0   // строка товара: чей товар показан, полоски
 };
 
 function catVideos(){
@@ -8294,6 +8423,12 @@ function cvNext(u){
   }
   return '';
 }
+/* Товар ролика u для «Перейти»: только тот, что есть в магазине и не скрыт. */
+function cvProd(u){
+  const v = u ? catVideos().find(x => x.video === u) : null;
+  const p = v && +v.pid > 0 ? byId(+v.pid) : null;
+  return p && p.on ? p : null;
+}
 
 /* Список роликов из CMS поменялся — пересобираем очередь. */
 function cvSync(){
@@ -8305,13 +8440,17 @@ function cvSync(){
   const f = vids[0];
   CV.ar = f && +f.vw > 0 && +f.vh > 0 ? `${+f.vw}/${+f.vh}` : '16/9';
   if(CV.el) CV.el.style.setProperty('--ar', CV.ar);
+  if(CV.bar) CV.bar.style.setProperty('--ar', CV.ar);
   for(const [u, b] of CV.blob) if(!CV.list.includes(u)){ URL.revokeObjectURL(b); CV.blob.delete(u); }
   if(!CV.list.length || (CV.playing && !CV.list.includes(CV.playing))) cvReset();
+  cvSegs();
   cvStep();
 }
 /* Всё с нуля: блок убираем со страницы, следующий показ — снова после загрузки. */
 function cvReset(){
   CV.playing = ''; CV.shown = false; CV.switching = false;
+  CV.barU = ''; CV.barSig = '';
+  if(CV.bar){ CV.bar.textContent = ''; if(CV.bar.parentNode) CV.bar.parentNode.removeChild(CV.bar); }
   CV.vs.forEach(v => {
     try{ v.pause(); }catch(_){}
     v.removeAttribute('src'); v.classList.remove('is-on');
@@ -8327,6 +8466,8 @@ function cvReset(){
    скачать недостающий. Вызывается после каждого события. */
 function cvStep(){
   if(!CV.list.length) return;
+  cvSegs();               // ролик мог только что оказаться битым — его полоски больше нет,
+  cvBarSync();            // а если товар был только у него — и места под строку товара
   if(!CV.playing){
     const u = CV.list.find(x => !cvDead(x));
     if(u && CV.blob.has(u)) cvShowFirst(u);
@@ -8382,6 +8523,8 @@ function cvBroken(v){
   v.removeAttribute('src'); delete v.dataset.u; delete v.dataset.ready; v.classList.remove('is-on');
   if(u === CV.playing){
     CV.playing = '';
+    CV.barU = '';
+    cvBarSync();
     if(CV.shown){
       CV.shown = false;
       const slot = document.getElementById('cvSlot');
@@ -8397,12 +8540,13 @@ function cvEl(){
   el.className = 'cvb';
   el.setAttribute('aria-hidden', 'true');
   const vtag = '<video class="cvb__v" muted playsinline webkit-playsinline disablepictureinpicture disableremoteplayback preload="auto"></video>';
-  el.innerHTML = vtag + vtag + `<button class="cvb__play" type="button" tabindex="-1" aria-label="Смотреть видео">${svg('play','ic')}</button>`;
+  el.innerHTML = vtag + vtag + `<div class="cvb__seg"></div><button class="cvb__play" type="button" tabindex="-1" aria-label="Смотреть видео">${svg('play','ic')}</button>`;
   el.style.setProperty('--ar', CV.ar);
   CV.vs = [...el.querySelectorAll('video')];
   CV.vs.forEach(v => {
     v.muted = true; v.defaultMuted = true; v.playsInline = true;
     v.addEventListener('timeupdate', () => cvTick(v));
+    v.addEventListener('play', cvSegLoop);
     v.addEventListener('ended', () => {
       /* доиграл, а следующего ещё нет — крутим этот же */
       if(v === CV.vs[CV.top] && !CV.switching){ try{ v.currentTime = 0; }catch(_){} cvPlay(); }
@@ -8415,8 +8559,25 @@ function cvEl(){
     el.classList.remove('is-blocked', 'is-still');
     cvPlay();
   };
+  /* Нажали на само видео — туда же, куда «Перейти» под ним. Кнопка ▶ —
+     своя: она запускает ролик, а не уводит из каталога. */
+  el.addEventListener('click', e => {
+    if(e.target.closest('.cvb__play')) return;
+    /* ролик стоит и показана ▶ (автозапуск запрещён, «меньше движения») —
+       нажатие по кадру запускает его, а не уводит из каталога */
+    if(el.classList.contains('is-blocked') || el.classList.contains('is-still')){
+      el.querySelector('.cvb__play').click();
+      return;
+    }
+    const it = CV.bar && CV.bar.querySelector('.cvp__it:not(.is-out)');
+    if(it) it.click();
+  });
   if('IntersectionObserver' in window){
-    new IntersectionObserver(r => { CV.vis = r[0].isIntersecting; cvPlay(); }, {threshold: .2}).observe(el);
+    /* Берём последнюю запись, не первую: при перерисовке каталога (вкладка
+       «Женское», фильтры) блок на миг выпадает из раскладки, и наблюдатель
+       присылает пачку [«не видно», «видно»]. По первой плеер считал себя
+       скрытым и вставал насовсем — вместе с ним вставал и товар под видео. */
+    new IntersectionObserver(r => { CV.vis = r[r.length - 1].isIntersecting; cvPlay(); }, {threshold: .2}).observe(el);
   } else CV.vis = true;
   document.addEventListener('visibilitychange', cvPlay);
   CV.el = el;
@@ -8439,6 +8600,7 @@ function cvShowFirst(u){
     v.classList.add('is-on');
     v.style.zIndex = 2;
     CV.shown = true;
+    CV.barU = u;
     cvLoop();
     cvMount(true);
     cvStep();
@@ -8458,6 +8620,7 @@ function cvPrepare(n){
    и проявляется — переход без чёрного кадра между роликами. */
 function cvTick(v){
   if(v !== CV.vs[CV.top] || CV.switching || !v.duration) return;
+  if(cvHold()) return;
   const b = CV.vs[1 - CV.top];
   if(!b || b.dataset.ready !== '1') return;
   if(v.duration - v.currentTime > CV_FADE / 1000 + .15) return;
@@ -8466,6 +8629,10 @@ function cvTick(v){
   b.style.zIndex = 2; v.style.zIndex = 1;
   const p = b.play(); if(p && p.catch) p.catch(() => {});
   b.classList.add('is-on');
+  /* товар под видео меняется в тот же миг, что и сам ролик */
+  CV.barU = b.dataset.u;
+  cvBarSync();
+  cvSegPaint();
   setTimeout(() => {
     v.classList.remove('is-on');
     try{ v.pause(); }catch(_){}
@@ -8504,6 +8671,110 @@ function cvPlay(){
   go(CV.vs[CV.top]);
   if(CV.switching) go(CV.vs[1 - CV.top]);
 }
+/* Строка товара под роликом. Живёт вне экрана, как и сам блок, и
+   переезжает в новый слот вместе с ним. */
+function cvBarEl(){
+  if(CV.bar) return CV.bar;
+  const el = document.createElement('div');
+  el.className = 'cvp';
+  el.hidden = true;
+  el.style.setProperty('--ar', CV.ar);
+  CV.bar = el;
+  return el;
+}
+/* Показать товар того ролика, что сейчас на виду (или как раз
+   проявляется, CV.barU). Ни у одного ролика нет товара — строки нет совсем.
+   Есть хотя бы у одного — место под неё держим всегда: иначе каталог
+   прыгал бы на каждой смене ролика, а у ролика без товара она пустая.
+   Товар тот же (и название, цена, фото не менялись) — ничего не трогаем:
+   строка не мигает при перерисовке каталога. */
+function cvBarSync(){
+  const bar = cvBarEl();
+  /* считаем только ролики, которые правда покажутся: если товар есть лишь
+     у битого ролика, пустого места под видео быть не должно */
+  bar.hidden = !cvLive().some(u => cvProd(u));
+  const p = bar.hidden ? null : cvProd(CV.barU);
+  if(CV.el) CV.el.classList.toggle('is-link', !!p);
+  bar.classList.toggle('is-empty', !p);
+  const sig = p ? [p.id, p.name, p.price, p.old || 0, p.img].join('|') : '';
+  if(sig === CV.barSig) return;
+  CV.barSig = sig;
+  /* на экране и движение не выключено — меняем плавно, иначе сразу */
+  const soft = !cvStill() && bar.isConnected && !bar.hidden && CV.shown;
+  /* фокус был на прежнем товаре — переносим на новый, а не роняем в <body> */
+  const hadFocus = bar.contains(document.activeElement);
+  bar.querySelectorAll('.cvp__it').forEach(o => {
+    if(!soft){ o.remove(); return; }
+    o.classList.add('is-out');
+    o.setAttribute('aria-hidden', 'true');
+    o.tabIndex = -1;
+    setTimeout(() => o.remove(), 800);
+  });
+  if(!p) return;
+  const it = document.createElement('button');
+  it.type = 'button';
+  it.className = 'cvp__it' + (soft ? ' is-in' : '');
+  it.dataset.a = 'open:' + p.id;
+  it.setAttribute('aria-label', 'Перейти к товару: ' + p.name);
+  it.innerHTML = `<span class="cvp__ph"><img src="${esc(p.img)}" alt="" decoding="async" draggable="false"></span>
+    <span class="cvp__tx"><span class="cvp__n">${esc(p.name)}</span>
+      <span class="cvp__pr">${money(p.price)}${p.old && p.old > p.price ? `<s>${money(p.old)}</s>` : ''}</span></span>
+    <span class="cvp__go">Перейти${svg('arrowR','ic')}</span>`;
+  bar.appendChild(it);
+  if(soft){
+    void it.offsetWidth;          // зафиксировать исходное положение, иначе перехода не будет
+    it.classList.remove('is-in');
+  }
+  if(hadFocus) try{ it.focus({preventScroll: true}); }catch(_){}
+}
+/* Строку выбрали с клавиатуры (Tab) — ролик не сменится, пока фокус на ней:
+   товар не уедет из-под нажатия, а экранный диктор успеет его прочесть.
+   Текущий ролик тем временем идёт по кругу. Касание и мышь не держат —
+   после них покупатель и так уходит в карточку. */
+function cvHold(){
+  const a = document.activeElement;
+  if(!CV.bar || !a || !CV.bar.contains(a)) return false;
+  try{ return a.matches(':focus-visible'); }catch(_){ return true; }
+}
+/* Полоски сверху: по одной на каждый живой ролик (битые пропускаются и
+   в показе, и здесь). Один ролик — полосок нет. */
+function cvLive(){ return CV.list.filter(u => !cvDead(u)); }
+function cvSegs(){
+  if(!CV.el) return;
+  const box = CV.el.querySelector('.cvb__seg');
+  const n = cvLive().length;
+  if(box.childElementCount !== n) box.innerHTML = '<i><b></b></i>'.repeat(n);
+  CV.el.classList.toggle('has-seg', n > 1);
+  cvSegPaint();
+}
+function cvSegPaint(){
+  if(!CV.el || !CV.el.classList.contains('has-seg')) return;
+  const live = cvLive(), i = live.indexOf(CV.barU);
+  const prog = u => {
+    const v = u ? CV.vs.find(x => x.dataset.u === u) : null;
+    return v && v.duration ? Math.min(1, v.currentTime / v.duration) : 0;
+  };
+  /* пока ролики перетекают, уходящий доигрывает последнюю секунду — его
+     полоска дотягивается до конца, а не прыгает с 80 % сразу на 100 % */
+  const out = CV.switching && CV.playing !== CV.barU ? live.indexOf(CV.playing) : -1;
+  CV.el.querySelectorAll('.cvb__seg b').forEach((b, k) => {
+    const t = k === i ? prog(CV.barU) : k === out ? Math.max(prog(CV.playing), .001) : k < i ? 1 : 0;
+    b.style.transform = `scaleX(${t.toFixed(4)})`;
+  });
+}
+/* Пока ролик играет и блок на экране — полоска идёт каждый кадр (timeupdate
+   приходит 4 раза в секунду, полоска шла бы рывками). Встал ролик — стоп. */
+function cvSegLoop(){
+  if(CV.raf) return;
+  const f = () => {
+    CV.raf = 0;
+    if(!CV.el || !CV.el.isConnected || document.hidden || !CV.vis) return;
+    cvSegPaint();
+    const v = CV.vs.find(x => x.dataset.u === CV.barU);
+    if(v && !v.paused) CV.raf = requestAnimationFrame(f);
+  };
+  CV.raf = requestAnimationFrame(f);
+}
 /* Каталог нарисован заново — возвращаем живой блок в его слот. first —
    ролик только что скачался: тогда блок раскрывается плавно (если каталог
    на экране), а не появляется сразу. */
@@ -8515,6 +8786,10 @@ function cvMount(first){
   if(!CV.el || !CV.shown) return;
   const box = slot.firstElementChild;
   if(CV.el.parentNode !== box) box.appendChild(CV.el);
+  const bar = cvBarEl();
+  if(bar.parentNode !== box || bar.previousElementSibling !== CV.el) box.appendChild(bar);
+  cvBarSync();
+  cvSegs();
   if(!slot.classList.contains('is-open')){
     const above = slot.getBoundingClientRect().top < 0;
     if(!first || above){
@@ -14990,6 +15265,9 @@ function cmsLegal(key){
    иначе молча сносили бы форму вместе с загрузкой на 60 % — без вопроса. */
 let videoFormGuard = null;
 const closeAdmin = () => {
+  /* открыт выбор товара для «Перейти» — Escape и «Назад» закрывают только его */
+  const pp = adm.querySelector('.ad__form--pp');
+  if(pp){ pp.remove(); return; }
   if(videoFormGuard && videoFormGuard()) return;
   adm.innerHTML = '';
   document.body.style.overflow = '';
@@ -15227,6 +15505,129 @@ function adRows(){
   }).join('');
 }
 
+/* Товар ролика для кнопки «Перейти» — плашка в строке ролика. Нажатие
+   открывает выбор товара (cvProductPick). Товар скрыт или удалён — плашка
+   говорит об этом прямо: кнопки под таким роликом у покупателя не будет. */
+function cvLinkChipHTML(v){
+  const p = +v.pid > 0 ? byId(+v.pid) : null;
+  if(!p){
+    return `<button class="ad__cvl is-empty" type="button" data-cvln="${v.id}">${svg('tag','ic')}
+      <span>${+v.pid > 0 ? 'Товар удалён — выберите другой' : 'Выбрать товар для кнопки «Перейти»'}</span></button>`;
+  }
+  return `<button class="ad__cvl${p.on ? '' : ' is-warn'}" type="button" data-cvln="${v.id}" title="Изменить товар для кнопки «Перейти»">
+    <img src="${esc(p.img)}" alt=""><span><i>${p.on ? 'Кнопка «Перейти» ведёт на' : 'Товар скрыт — кнопки «Перейти» не будет'}</i><b>${esc(p.name)}</b></span>${svg('pencil','ic')}</button>`;
+}
+
+/* Номер товара из того, что вставил владелец: ссылка с сайта («Поделиться»
+   на карточке даёт …/#p=12), сам хвост «#p=12» или просто номер.
+   0 — пусто, -1 — не похоже на ссылку на товар. */
+function pidFromLink(raw){
+  const t = String(raw || '').trim();
+  if(!t) return 0;
+  const m = /(?:^|[#?&])p=(\d+)\b/.exec(t) || /^#?(\d+)$/.exec(t);
+  return m ? +m[1] : -1;
+}
+
+/* Выбор товара для кнопки «Перейти» под роликом каталога. Товар можно
+   вставить ссылкой или найти в списке. done(pid) — 0, если товар убрали.
+   Окно лежит поверх админки (и поверх формы видео, если открыто из неё);
+   Escape и «Назад» закрывают только его (см. closeAdmin). Возвращает
+   функцию, закрывающую окно без выбора. */
+function cvProductPick(cur, done){
+  adm.querySelectorAll('.ad__form--pp').forEach(x => x.remove());
+  let sel = +cur > 0 && byId(+cur) ? +cur : 0;
+  const had = +cur > 0;          // ссылка есть — даже на удалённый товар её можно убрать
+  const w = document.createElement('div');
+  w.className = 'ad__form ad__form--top ad__form--pp';
+  w.innerHTML = `<div class="ad__card">
+    <h2 class="ad__ct">Товар для кнопки «Перейти»</h2>
+    <p class="ad__hint" style="margin-top:0">Покупатель нажмёт «Перейти» под этим видео — откроется карточка выбранного товара.</p>
+    <label class="ad__l" for="ppUrl">Ссылка на товар</label>
+    <input class="ad__f" id="ppUrl" inputmode="url" autocomplete="off" spellcheck="false" placeholder="${esc(location.origin)}/#p=12">
+    <p class="ad__hint ad__pp-st" id="ppSt" aria-live="polite">Откройте товар на сайте, нажмите «Поделиться» и вставьте ссылку сюда — или выберите товар ниже.</p>
+    <label class="ad__l" for="ppQ">Или найдите в каталоге</label>
+    <input class="ad__f" id="ppQ" type="search" autocomplete="off" placeholder="Название или артикул">
+    <div class="ad__pp" id="ppList" role="listbox" aria-label="Товары"></div>
+    <div class="ad__foot">
+      ${had ? '<button class="ad__b ad__b--ghost ad__pp-rm" id="ppNone" type="button">Убрать товар</button>' : ''}
+      <button class="ad__b" id="ppX" type="button">Отмена</button>
+      <button class="ad__b ad__b--pri" id="ppOk" type="button"${sel ? '' : ' disabled'}>Готово</button>
+    </div></div>`;
+  adm.appendChild(w);
+  const $ = q => w.querySelector(q);
+  const list = $('#ppList'), st = $('#ppSt'), ok = $('#ppOk'), qIn = $('#ppQ'), url = $('#ppUrl');
+  /* «ё» и «е» в поиске — одно и то же: владелец наберёт «черная» */
+  const norm = t => String(t || '').toLowerCase().replace(/ё/g, 'е');
+  const say = (t, tone) => {
+    st.textContent = t;
+    st.classList.toggle('is-ok', tone === 'ok');
+    st.classList.toggle('is-err', tone === 'err');
+  };
+  const paint = () => {
+    const q = norm(qIn.value.trim());
+    const items = PRODUCTS.filter(p => !q || norm(p.name).includes(q) || norm(p.sku).includes(q));
+    list.innerHTML = items.length ? items.map(p => `
+      <button class="ad__pp-it" type="button" role="option" data-pp="${p.id}" aria-selected="${+p.id === sel}">
+        <img src="${esc(p.img)}" alt="" loading="lazy" decoding="async">
+        <span class="ad__pp-tx"><b>${esc(p.name)}</b>
+          <i>${money(p.price)} · ${GENDER_LAB[p.gender] || ''}${p.sku ? ' · арт. ' + esc(p.sku) : ''}${p.on ? '' : ' · скрыт'}</i></span>
+        <span class="ad__pp-ck">${svg('check','ic')}</span>
+      </button>`).join('')
+      : `<div class="ad__pp-none">Ничего не нашлось</div>`;
+  };
+  /* Выбор отмечаем на месте, без перерисовки списка: иначе второй щелчок
+     двойного нажатия попадал бы уже в новый элемент и не срабатывал. */
+  const mark = () => {
+    list.querySelectorAll('[data-pp]').forEach(x => x.setAttribute('aria-selected', String(+x.dataset.pp === sel)));
+    ok.disabled = !sel;
+  };
+  const pick = (id, from) => {
+    sel = id;
+    mark();
+    const it = list.querySelector(`[data-pp="${id}"]`);
+    if(it && from !== 'tap') it.scrollIntoView({block:'nearest'});
+    const p = byId(id);
+    if(p) say(p.on ? `Выбран: ${p.name}` : `Выбран: ${p.name} — товар скрыт, кнопка появится, когда вы его покажете`, 'ok');
+  };
+  /* Неверная ссылка снимает прежний выбор: владелец явно хотел другой
+     товар, и «Готово» не должно молча сохранить старый. */
+  const drop = (t) => { sel = 0; mark(); say(t, 'err'); };
+  url.addEventListener('input', () => {
+    const id = pidFromLink(url.value);
+    if(!id){ say('Вставьте ссылку на товар — или выберите его ниже.'); return; }
+    if(id < 0) return drop('Это не ссылка на товар: в ней должно быть «#p=» и номер.');
+    if(!byId(id)) return drop(`Товара №${id} нет в каталоге — проверьте ссылку.`);
+    if(qIn.value){ qIn.value = ''; paint(); }
+    pick(id, 'link');
+  });
+  qIn.addEventListener('input', () => { paint(); });
+  const close = () => { w.remove(); };
+  const finish = id => { close(); done(id); };
+  list.onclick = e => {
+    const b = e.target.closest('[data-pp]');
+    if(b) pick(+b.dataset.pp, 'tap');
+  };
+  /* двойное нажатие по товару — выбрать и сразу закрыть */
+  list.ondblclick = e => {
+    const b = e.target.closest('[data-pp]');
+    if(b){ sel = +b.dataset.pp; finish(sel); }
+  };
+  $('#ppX').onclick = close;
+  ok.onclick = () => { if(sel) finish(sel); };
+  if($('#ppNone')) $('#ppNone').onclick = () => finish(0);
+  w.onclick = e => { if(e.target === w) close(); };
+  paint();
+  mark();
+  if(sel){
+    say(`Сейчас: ${byId(sel).name}`, 'ok');
+    const it = list.querySelector(`[data-pp="${sel}"]`);
+    if(it) it.scrollIntoView({block:'nearest'});
+  } else if(had){
+    say('Товар, на который вела кнопка, удалён — выберите другой или уберите ссылку.', 'err');
+  }
+  return close;
+}
+
 /* Видео в каталоге: список роликов с обложкой, порядком и удалением.
    Обложка в списке — картинка, не <video>: список перерисовывается часто. */
 function catVideosAdminHTML(){
@@ -15242,15 +15643,18 @@ function catVideosAdminHTML(){
       <div class="ad__acts">
         <button class="ad__ib" data-cvmv="${v.id}:-1" aria-label="Выше"${i === 0 ? ' disabled' : ''}>${svg('chevU','ic')}</button>
         <button class="ad__ib" data-cvmv="${v.id}:1" aria-label="Ниже"${i === list.length - 1 ? ' disabled' : ''}>${svg('chevD','ic')}</button>
-        <button class="ad__ib" data-cved="${v.id}" aria-label="Заменить видео">${svg('pencil','ic')}</button>
+        <button class="ad__ib" data-cved="${v.id}" aria-label="Изменить видео">${svg('pencil','ic')}</button>
         <button class="ad__ib ad__ib--d" data-cvrm="${v.id}" aria-label="Удалить">${svg('trash','ic')}</button>
       </div>
+      <div class="ad__cvl-w">${cvLinkChipHTML(v)}</div>
     </div>`).join('');
   return `<div class="ad__chart-box ad__cvids">
     <div class="ad__box-t">Видео в каталоге · ${list.length} из ${MAX_CAT_VIDS}</div>
     <p class="ad__hint" style="margin-top:0">Небольшой блок со скруглёнными краями над товарами. Ролики идут по очереди
       и плавно перетекают друг в друга. Каждый показывается, только когда скачался у покупателя целиком, —
       поэтому не тормозит.</p>
+    <p class="ad__hint">Под видео — товар из этого ролика и кнопка «Перейти»: она открывает его карточку.
+      Выберите товар для каждого ролика — когда ролик сменится, кнопка поведёт на товар следующего.</p>
     ${photoSpecHTML('catvideo')}
     <div class="ad__list">${rows || `<div class="ad__empty"><b>Видео пока нет</b>Загрузите ролик — блок появится в каталоге.</div>`}</div>
     <button class="ad__b ad__b--pri" id="aCatVid" style="width:100%;margin-top:10px"${full ? ' disabled' : ''}>+ Загрузить видео</button>
@@ -15916,7 +16320,9 @@ function videoSlideForm(s, file, opt){
       <button class="ad__b" id="vsCoverBtn" type="button">Заменить фото</button>
       <input type="file" id="vsCoverFile" accept="image/*" hidden>
     </div>
-    ${cat ? '' : `<label class="ad__l">Надпись сверху (не обязательно)</label>
+    ${cat ? `<label class="ad__l">Товар для кнопки «Перейти»</label>
+    <div id="vsProd"></div>
+    <p class="ad__hint">Под видео покупатель увидит этот товар и кнопку «Перейти» — она откроет его карточку.</p>` : `<label class="ad__l">Надпись сверху (не обязательно)</label>
     <input class="ad__f" id="vsKick" value="${esc(d.kick || '')}" placeholder="NEW COLLECTION">
     <label class="ad__l">Заголовок поверх видео</label>
     <input class="ad__f" id="vsCap" value="${esc(d.cap || '')}" placeholder="Новая летняя коллекция">
@@ -15950,6 +16356,20 @@ function videoSlideForm(s, file, opt){
      говорить «то, что ушло, сотрётся» было бы неправдой. */
   let uploading = false, saving = false;
   let retryNote = '';
+  /* товар для «Перейти» (только у видео каталога). В ролик пишем, только
+     если его меняли в этой форме: иначе сохранение формы затёрло бы товар,
+     выбранный за это время из списка или из другой вкладки. */
+  let pid = +d.pid > 0 ? +d.pid : 0, pidSet = false, pickClose = null;
+  const paintProd = () => {
+    const box = $('#vsProd');
+    if(!box) return;
+    box.innerHTML = cvLinkChipHTML({id: 0, pid});
+    box.firstElementChild.removeAttribute('data-cvln');
+    box.firstElementChild.onclick = () => {
+      pickClose = cvProductPick(pid, id => { pid = id; pidSet = true; paintProd(); });
+    };
+  };
+  paintProd();
 
   const setPrev = src => {
     if(prevUrl && prevUrl !== src) URL.revokeObjectURL(prevUrl);
@@ -16004,6 +16424,7 @@ function videoSlideForm(s, file, opt){
     window.removeEventListener('beforeunload', onUnload);
     if(videoFormGuard === guard) videoFormGuard = null;
     setPrev('');
+    if(pickClose) pickClose();     // окно выбора товара этой формы без неё ни к чему
     w.remove();
   };
   const close = () => {
@@ -16157,6 +16578,7 @@ function videoSlideForm(s, file, opt){
     if(uploading || saving || posterWait || cropping || !out.video) return;
     const vals = {video: out.video, img: out.img, vw: out.vw, vh: out.vh, dur: out.dur, size: out.size};
     if(!cat) Object.assign(vals, {cap: $('#vsCap').value.trim(), kick: $('#vsKick').value.trim(), sub: $('#vsSub').value.trim()});
+    else if(pidSet) vals.pid = pid;
     const list = Array.isArray(CMS[KEY]) ? CMS[KEY] : [];
     /* Ищем слайд заново по id: пока форма была открыта, живое обновление
        могло заменить весь массив слайдов, и старый объект s уже не в CMS. */
@@ -17342,6 +17764,12 @@ function refresh(){
   if(adTab === 'catalog'){
     const l = document.getElementById('aList');
     if(l) l.innerHTML = adRows();
+    /* товар у ролика скрыли, переименовали или удалили — плашка «Перейти»
+       в списке видео должна сказать это сразу, а не после перехода по вкладкам */
+    document.querySelectorAll('.ad__cvl-w [data-cvln]').forEach(b => {
+      const v = (CMS.vids || []).find(x => x.id === +b.dataset.cvln);
+      if(v) b.parentNode.innerHTML = cvLinkChipHTML(v);
+    });
     const c = document.querySelector('.ad__c');
     if(c){ const a = analytics(); c.textContent = adOrdersLine(a); }
   } else paintAdmin();
@@ -17433,6 +17861,25 @@ adm.addEventListener('click', e => {
   const vmv = e.target.closest('[data-cvmv]');
   const ved = e.target.closest('[data-cved]');
   const vrm = e.target.closest('[data-cvrm]');
+  const vln = e.target.closest('[data-cvln]');
+  if(vln){
+    const id = +vln.dataset.cvln;
+    const v = (CMS.vids||[]).find(x => x.id === id);
+    if(!v) return;
+    cvProductPick(v.pid, pid => {
+      /* ищем ролик заново: пока окно было открыто, живое обновление могло
+         заменить весь список */
+      const cur = (CMS.vids||[]).find(x => x.id === id);
+      if(!cur) return toast('Это видео уже удалили в другой вкладке');
+      if(pid) cur.pid = pid; else delete cur.pid;
+      saveCms(); paintAdmin(); cvSync(); render(true);
+      const np = pid ? byId(pid) : null;
+      toast(!np ? 'Товар убран — кнопки под этим видео не будет'
+        : np.on ? 'Кнопка «Перейти» ведёт на «' + np.name + '»'
+        : 'Товар выбран, но он скрыт — кнопка появится, когда вы его покажете');
+    });
+    return;
+  }
   if(ved){
     const v = (CMS.vids||[]).find(x => x.id === +ved.dataset.cved);
     if(v) videoSlideForm(v, null, {cat:true});
