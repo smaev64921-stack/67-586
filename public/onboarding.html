@@ -330,12 +330,15 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   --hh:min(var(--room),calc((100vw - 40px) * 1.06905));
   --hw:calc(var(--hh) * .935407);
   --by:calc(var(--above) + (var(--room) - var(--hh)) * .5);
-  /* бомбер: кадр 1200×776, раскрытый — 1200×664 (низ — по низу бомбера) */
-  --bw:min(calc(100vw - 28px),calc(var(--hh) * 1.5));
+  /* бомбер: кадр 1200×776, раскрытый — 1200×664 (низ — по низу бомбера).
+     Раскрытый снят ниже и шире: его кадр в 1,1719 раза шире (--ow), чтобы все
+     три вида были одной высоты; ширину экрана/ниши задаёт он */
+  --bw:min(calc((100vw - 4px) / 1.1719),calc(var(--hh) * 1.5));
+  --ow:calc(var(--bw) * 1.1719);
   --bh:calc(var(--bw) * .646667);
   --bk:.62;                          /* где висит: 0 — вровень с верхом худи, 1 — на дне ниши */
   --bby:calc(var(--by) + (var(--hh) - var(--bh)) * var(--bk));
-  --oh:calc(var(--bw) * .553333);
+  --oh:calc(var(--ow) * .553333);
   --oby:calc(var(--bby) + var(--bh) - var(--oh));
   --eL:var(--gut);
   --eR:calc(100% - var(--gut));
@@ -471,7 +474,9 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   cursor:pointer;-webkit-user-select:none;user-select:none
 }
 /* кадр бомбера: тот же центр, своя ширина */
-.g__box--bm{left:calc(50% - var(--bw) * .5);top:var(--bby);width:var(--bw);height:var(--bh)}
+.g__box--bm{left:calc(50% - var(--ow) * .5);top:var(--bby);width:var(--ow);height:var(--bh)}
+.g__box--bm .g__face,.g__pc--bm .g__sheen{left:calc((var(--ow) - var(--bw)) * .5);right:auto;width:var(--bw)}
+.g__box--bm .g__face--i{left:0;width:var(--ow)}
 /* Проявление сверху вниз с мягким краем — тот же приём, что шторка цвета на
    первом экране: рамка выше кадра на 28 % и с растушёвкой внизу едет вниз,
    а содержимое — навстречу, так что вещь стоит на месте, а движется только
@@ -541,7 +546,7 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 .g__co{position:absolute;inset:0;pointer-events:none;margin:0;padding:0;list-style:none}
 .g__co,.g__zs{--pw:var(--hw);--ph:var(--hh);--py:var(--by)}
 .g__pc--bm .g__co,.g__pc--bm .g__zs{--pw:var(--bw);--ph:var(--bh);--py:var(--bby)}
-.g__pc--bm [data-v="i"]{--ph:var(--oh);--py:var(--oby)}
+.g__pc--bm [data-v="i"]{--pw:var(--ow);--ph:var(--oh);--py:var(--oby)}
 .co{position:absolute;inset:0;--d:0s;--lf:0px}
 .co > *{
   --X:calc(50% + (var(--ax) - .5) * var(--pw));
@@ -842,8 +847,9 @@ html.js .g .g__co.is-show .co__lb > span{opacity:1;transform:none;transition:opa
     --hh:min(calc(100 * var(--u) - 320px),660px,calc(52vw * 1.06905));
     --by:calc(50 * var(--u) - var(--hh) * .5 + 4px);
     --lift:30px;--drop:60px;--offB:12px;
-    --nr:calc(var(--hw) * .5 + 78px);--nT:calc(var(--by) - var(--hh) * .1 - 14px);--rv:14px;--fh:9px;--ov:34px;
-    --bw:min(calc(var(--hw) * 1.16),calc(var(--nr) * 2 - var(--rv) * 2 - 60px));
+    --nr:max(calc(var(--hw) * .5 + 78px),calc((var(--ow) + var(--rv) * 2 + 8px) * .5));--nT:calc(var(--by) - var(--hh) * .1 - 14px);--rv:14px;--fh:9px;--ov:34px;
+    --bw:min(calc(var(--hw) * 1.2),calc((max(calc(60vw - 40px),calc(var(--hw) + 156px)) - var(--rv) * 2 - 8px) / 1.1719));
+    --ow:calc(var(--bw) * 1.1719);
     --eL:calc(50% - var(--hw) * .5 - 70px);
     --eR:calc(50% + var(--hw) * .5 + 70px)
   }
