@@ -1287,6 +1287,57 @@ html.js .fx.is-go.is-off .fx__c--l1 .fx__z,html.js .fx.is-go.is-off .fx__c--l2 .
 .end__facts li{display:flex;flex-direction:column;align-items:center;gap:8px}
 .end__facts svg{width:20px;height:20px;fill:none;stroke:var(--ink);stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
 .end__go{position:relative;z-index:2;flex:none}
+/* Значки оживают, когда встают факты: анимация из Figma («Luxe Canvas —
+   значки финала»), 2,6 с, один раз. Время и сглаживание — её ключевые кадры
+   (Figma ставит сглаживание на кадр, к которому идёт движение, CSS — на тот,
+   от которого, поэтому здесь оно на кадр раньше); сдвиги пересчитаны с 72 px
+   значка в Figma на 20 px (×0,278); поворот в Figma против часовой — здесь
+   со знаком минус. Машина въезжает слева и «клюёт» носом на остановке,
+   полоски скорости тают; карта поднимается из наклона и «касается» —
+   оплата; самолётик влетает снизу слева по пунктиру и делает короткий взлёт. */
+.end__facts svg{overflow:visible}
+.end__facts svg g,.end__facts .i-tl{transform-box:fill-box;transform-origin:50% 50%}
+.end__facts .i-sp,.end__facts .i-tl{opacity:0}
+html.js .end.is-in .end__facts .i-tr{animation:icTr 2.6s 2.3s both}
+html.js .end.is-in .end__facts .i-sp{animation:icSp 2.6s 2.3s both}
+html.js .end.is-in .end__facts .i-cd{animation:icCd 2.6s 2.3s both}
+html.js .end.is-in .end__facts .i-pl{animation:icPl 2.6s 2.3s both}
+html.js .end.is-in .end__facts .i-tl{animation:icTl 2.6s 2.3s both}
+@keyframes icTr{
+  0%{opacity:0;translate:-11.1px 0;rotate:0deg;animation-timing-function:ease-out}
+  13.46%{opacity:1}
+  23.85%{rotate:0deg;animation-timing-function:ease-out}
+  26.92%{translate:0 0}
+  30.77%{rotate:4deg;animation-timing-function:ease-in-out}
+  40.38%,100%{opacity:1;translate:0 0;rotate:0deg}
+}
+@keyframes icSp{
+  0%{opacity:0;translate:-8.3px 0;animation-timing-function:ease-out}
+  5.77%{opacity:1;animation-timing-function:ease-in}
+  28.85%,100%{opacity:0;translate:-1.7px 0}
+}
+@keyframes icCd{
+  0%,11.54%{opacity:0;translate:0 6.67px;rotate:-10deg;scale:1;animation-timing-function:ease-out}
+  23.08%{opacity:1}
+  34.62%{translate:0 0;rotate:0deg}
+  46.15%{scale:1;animation-timing-function:ease-in-out}
+  51.92%{scale:.9;animation-timing-function:ease-out}
+  63.46%,100%{opacity:1;translate:0 0;rotate:0deg;scale:1}
+}
+@keyframes icPl{
+  0%,23.08%{opacity:0;translate:-10px 10px;rotate:-12deg;animation-timing-function:ease-out}
+  32.69%{opacity:1}
+  48.08%{translate:0 0;rotate:0deg}
+  67.31%{translate:0 0;animation-timing-function:ease-in-out}
+  76.92%{translate:2.78px -2.78px;animation-timing-function:ease-out}
+  90.38%,100%{opacity:1;translate:0 0;rotate:0deg}
+}
+@keyframes icTl{
+  0%,23.08%{opacity:0;animation-timing-function:ease-out}
+  27.69%{opacity:1}
+  50%{opacity:1;animation-timing-function:ease-in}
+  67.31%,100%{opacity:0}
+}
 .end__go .cta{margin-top:20px}
 
 html.js .end .end__t i{transform:translateY(108%)}
@@ -1341,6 +1392,7 @@ html.js .end.is-in .end__go{transition-delay:2.8s}
   html.js .end.is-in .end__dot,html.js .end.is-in .end__pill{opacity:1;transition:opacity .4s linear}
   html.js .end.is-in .end__pill{transform:translateX(-50%)}
   html.js .end.is-in .end__t > span + span i{animation:none}
+  html.js .end.is-in .end__facts svg g,html.js .end.is-in .end__facts .i-tl{animation:none}
 }
 
 /* ================= ЭКРАН ================= */
@@ -2407,9 +2459,9 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     </ul>
   </div></figure>
   <ul class="end__facts">
-    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7h11v10H2zM13 10h4l3 3v4h-7z"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/></svg>Доставка СДЭК</li>
-    <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14.5h4"/></svg>Оплата картой или&nbsp;СБП</li>
-    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4 3 11l6.5 2.3L12 20l3-5.5L21 4z"/><path d="m9.5 13.3 5.5-4.3"/></svg>Статус заказа в&nbsp;Telegram</li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><g class="i-sp"><path d="M-5.7 9.5h5M-7.7 13h6"/></g><g class="i-tr"><path d="M2 7h11v10H2zM13 10h4l3 3v4h-7z"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/></g></svg>Доставка СДЭК</li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><g class="i-cd"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14.5h4"/></g></svg>Оплата картой или&nbsp;СБП</li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-tl" d="M-2 24.8C1.5 21.8 6 19.3 9.5 13.3" stroke-width="1.1" stroke-dasharray="1.2 2"/><g class="i-pl"><path d="M21 4 3 11l6.5 2.3L12 20l3-5.5L21 4z"/><path d="m9.5 13.3 5.5-4.3"/></g></svg>Статус заказа в&nbsp;Telegram</li>
   </ul>
   <div class="end__go"><a class="cta" id="go" href="/#catalog">Перейти в&nbsp;каталог<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13"/><path d="m12.5 5.5 6.5 6.5-6.5 6.5"/></svg></a></div>
 </section>
