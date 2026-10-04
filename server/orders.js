@@ -666,7 +666,7 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
   if (!user || !user.id) {
     throw Object.assign(new Error('Войдите в аккаунт, чтобы оформить заказ'), { status: 401 });
   }
-  if (!items || !items.length) {
+  if (!Array.isArray(items) || !items.length) {
     throw Object.assign(new Error('Корзина пуста'), { status: 400 });
   }
   if (items.length > 50) {
@@ -691,7 +691,11 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
   checkPending();
 
   const normalized = items.map((i) => {
-    const p = getProduct(i.id);
+    /* Строка без id (или null) раньше давала английское «Provided value
+       cannot be bound to SQLite parameter 1.» / «Cannot read properties
+       of null» — прямо на экран покупателю. */
+    const id = i && Number.isInteger(+i.id) && +i.id > 0 ? +i.id : 0;
+    const p = id ? getProduct(id) : null;
     if (!p || (!p.on && !(user && user.role === 'admin'))) {
       throw Object.assign(new Error('Товар не найден'), { status: 400 });
     }

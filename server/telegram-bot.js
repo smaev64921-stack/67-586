@@ -2941,7 +2941,11 @@ async function handleCallback(cq) {
       await answer();
       await upsertOwnerOrderCardForChat(chatId, o, { bump: true });
     } catch (e) {
-      await answer(e.message || 'Не удалось открыть', true);
+      /* console.error уходит в чат ошибок (error-report.js) — туда только
+         сбои кода. Свой русский ответ («Заказ не найден») — не сбой. */
+      const own = /[А-Яа-яЁё]/.test(String((e && e.message) || ''));
+      if (!own) console.error('TG oopen:', e);
+      await answer(own ? e.message : 'Не удалось открыть заказ — подробности в чате ошибок', true);
     }
     return;
   }
@@ -3003,13 +3007,29 @@ async function handleCallback(cq) {
       await answer('Неизвестный статус', true);
       return;
     }
+    let updated;
     try {
       const { updateOrderAdmin } = require('./orders');
-      const updated = await updateOrderAdmin(num, { status });
-      await answer(status === 'Доставлен' ? 'Доставлен' : `Статус: ${status}`);
-      if (updated) await upsertOwnerOrderCard(updated);
+      updated = await updateOrderAdmin(num, { status });
     } catch (e) {
-      await answer(e.message || 'Ошибка', true);
+      /* в чат ошибок — только сбои кода, не свои русские отказы */
+      const own = /[А-Яа-яЁё]/.test(String((e && e.message) || ''));
+      if (!own) console.error('TG oset:', e);
+      await answer(own ? e.message : 'Статус не сменился — подробности в чате ошибок', true);
+      return;
+    }
+    /* заказа с таким номером нет — раньше тут всё равно отвечали «Статус: …» */
+    if (!updated) {
+      await answer('Заказ не найден', true);
+      return;
+    }
+    await answer(status === 'Доставлен' ? 'Доставлен' : `Статус: ${status}`);
+    /* Статус уже сменился. Не перерисовалась карточка — это не «статус не
+       сменился»: владельцу уже сказали правду, сбой — в чат ошибок. */
+    try {
+      await upsertOwnerOrderCard(updated);
+    } catch (e) {
+      console.error('TG oset card:', e);
     }
   }
 }

@@ -67,7 +67,9 @@ function clearDemoCatalog() {
 
 function seedIfEmpty() {
   clearDemoCatalog();
-  try { db.prepare('DELETE FROM reviews').run(); } catch (_) {}
+  /* Отзывы не трогаем. Раньше здесь стоял DELETE FROM reviews — остаток
+     от демо-данных: он стирал все отзывы покупателей при каждом запуске
+     сервера, то есть при каждом выкате (найдено 2026-10-04). */
 
   const cmsRow = db.prepare('SELECT id FROM cms WHERE id = 1').get();
   if (!cmsRow) {

@@ -281,19 +281,37 @@ h1,h2,p{margin:0}
   /* «Ссылка устарела» и так стоит заголовком — абзацем её не повторяем,
      там объяснение полезнее. Всё остальное с сервера показываем как есть. */
   function failFromServer(e){
+    /* связи нет или сервер ответил не по-русски — заголовок «Ссылка
+       устарела» тут был бы неправдой */
+    if(e && e.offline) return fail(e.message, 'Нет связи с сервером');
+    if(e && e.generic) return fail(e.message, 'Не получилось');
     var m = (e && e.message) ? String(e.message) : '';
     if(!m || /устарел/i.test(m)) return fail();
     fail(/[.!?]$/.test(m) ? m : m + '.');
   }
 
+  /* На экран — только русский текст. Сеть упала — браузер отдаёт
+     «Failed to fetch»; прокси или хостинг отвечают по-английски
+     («Bad Gateway», HTML-страница 502). Человеку — понятная фраза. */
+  var RU = /[А-Яа-яЁё]/;
   function api(path, body){
     return fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(body || {})
+    }).catch(function(){
+      var e = new Error('Проверьте интернет и обновите страницу. Ссылка из письма действует 20 минут.');
+      e.offline = true;
+      throw e;
     }).then(function(r){
       return r.json().catch(function(){ return null; }).then(function(d){
-        if(!r.ok) throw new Error((d && d.error) || 'Не получилось');
+        if(!r.ok){
+          var m = (d && typeof d.error === 'string') ? d.error : '';
+          if(RU.test(m)) throw new Error(m);
+          var e = new Error('Сбой на нашей стороне. Обновите страницу через минуту — ссылка из письма действует 20 минут.');
+          e.generic = true;
+          throw e;
+        }
         return d || {};
       });
     });

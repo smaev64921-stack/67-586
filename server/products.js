@@ -106,7 +106,7 @@ function upsertProduct(p) {
   };
 
   if (p.id) {
-    db.prepare(`
+    const info = db.prepare(`
       UPDATE products SET
         name=@name, cat=@cat, gender=@gender, price=@price, old_price=@old_price, sku=@sku,
         sizes_json=@sizes_json, stock_json=@stock_json, on_sale=@on_sale, img=@img, gal_json=@gal_json,
@@ -114,6 +114,12 @@ function upsertProduct(p) {
         colors_json=@colors_json, updated_at=datetime('now')
       WHERE id=@id
     `).run({ ...payload, id: +p.id });
+    /* Такого товара нет (удалён в другой вкладке, или номер выдуман
+       браузером). Раньше ответ был {product:null} со статусом 200, и
+       админка считала, что всё сохранилось. */
+    if (!info || !info.changes) {
+      throw Object.assign(new Error('Товар не найден — обновите страницу'), { status: 404 });
+    }
     bumpRev();
     return getProduct(+p.id);
   }

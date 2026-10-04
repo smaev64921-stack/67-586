@@ -258,6 +258,8 @@ app.use((req, res, next) => {
     const techFail = res.statusCode >= 500
       && body && typeof body === 'object' && body.error;
     if (!techFail) return json(body);
+    /* failJson уже заменил внутреннюю ошибку русской фразой без подробностей */
+    if (res.locals.safeError) return json(body);
     if (seesErrorDetails(req.user)) return json(body);
     /* Владельцу подробности приходят в Телеграм и в data/errors.log —
        здесь они просто не доезжают до чужого экрана. */
@@ -265,6 +267,46 @@ app.use((req, res, next) => {
   };
   next();
 });
+
+/* ==========================================================
+   ОШИБКА В ОТВЕТЕ — ТОЛЬКО ПО-РУССКИ
+
+   Наши проверки бросают ошибку со статусом и русским текстом
+   («Укажите город», «Корзина пуста») — их показываем как есть.
+   Всё остальное — сбой кода, базы или сети: «Cannot convert undefined
+   or null to object», «Provided value cannot be bound…», «fetch
+   failed». Раньше такое уходило на экран как есть (со статусом 400
+   мимо обёртки выше — то есть ВСЕМ покупателям) и нигде не
+   записывалось. Теперь человеку — русская фраза, владельцу — отчёт
+   со стеком в Telegram (error-report.js) и строка в data/errors.log.
+   ========================================================== */
+const HAS_RU = /[А-Яа-яЁё]/;
+function ownError(e) {
+  const st = e && Number.isInteger(e.status) && e.status >= 400 && e.status < 600 ? e.status : 0;
+  return st && HAS_RU.test(String((e && e.message) || '')) ? st : 0;
+}
+/** Текст ошибки для человека: свой русский — как есть, остальное — fallback. */
+function humanText(e, fallback) {
+  return ownError(e) ? String(e.message) : fallback;
+}
+function failJson(req, res, e, fallback, extra) {
+  const own = ownError(e);
+  if (!own) {
+    process.stderr.write(`[${req.method} ${req.originalUrl}] ${(e && e.stack) || e}\n`);
+    errors.report('express', e, {
+      method: req.method,
+      url: req.originalUrl || req.url,
+      status: 500,
+      ip: clientIp(req),
+      user: req.user ? `${req.user.id} · ${req.user.email || ''}` : ''
+    });
+    res.locals.safeError = true;
+  }
+  const body = Object.assign({}, extra || {}, own
+    ? { error: String(e.message), code: e.code }
+    : { error: fallback });
+  return res.status(own || 500).json(body);
+}
 
 async function telegramWebhookHandler(req, res) {
   try {
@@ -392,12 +434,16 @@ app.post('/api/admin/products', adminRequired, (req, res) => {
     const product = upsertProduct(incoming);
     res.json({ product: media.productToPublic(product) });
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Ошибка' });
+    failJson(req, res, e, 'Не удалось сохранить товар — попробуйте ещё раз');
   }
 });
 
 app.put('/api/admin/products/:id', adminRequired, (req, res) => {
   try {
+    /* номер не число («abc», 0) — раньше такой PUT молча заводил новый товар */
+    if (!/^[1-9]\d{0,15}$/.test(String(req.params.id))) {
+      return res.status(404).json({ error: 'Товар не найден — обновите страницу' });
+    }
     const lost = [];
     const incoming = media.restoreProductImages({ ...(req.body || {}), id: +req.params.id }, lost);
     /* проверяем ДО записи: иначе битая ссылка уже осела бы в БД */
@@ -405,7 +451,7 @@ app.put('/api/admin/products/:id', adminRequired, (req, res) => {
     const product = upsertProduct(incoming);
     res.json({ product: media.productToPublic(product) });
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Ошибка' });
+    failJson(req, res, e, 'Не удалось сохранить товар — попробуйте ещё раз');
   }
 });
 
@@ -492,7 +538,7 @@ app.post('/api/reviews', authRequired, (req, res) => {
     const review = reviews.createReview(req.user, req.body || {});
     res.json({ review: media.reviewToPublic(review) });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message || 'Не удалось сохранить отзыв' });
+    failJson(req, res, e, 'Не удалось сохранить отзыв');
   }
 });
 
@@ -501,7 +547,7 @@ app.post('/api/reviews/:id/vote', authRequired, (req, res) => {
     const review = reviews.voteReview(req.user, req.params.id);
     res.json({ review: media.reviewToPublic(review) });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message || 'Не удалось оценить отзыв' });
+    failJson(req, res, e, 'Не удалось оценить отзыв');
   }
 });
 
@@ -510,7 +556,7 @@ app.delete('/api/reviews/:id', authRequired, (req, res) => {
     reviews.deleteReview(req.user, req.params.id, { admin: req.user.role === 'admin' });
     res.json({ ok: true });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message || 'Не удалось удалить отзыв' });
+    failJson(req, res, e, 'Не удалось удалить отзыв');
   }
 });
 
@@ -523,7 +569,7 @@ app.patch('/api/admin/reviews/:id', adminRequired, (req, res) => {
     const review = reviews.updateReviewAdmin(req.params.id, req.body || {});
     res.json({ review: media.reviewToPublic(review) });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message || 'Ошибка' });
+    failJson(req, res, e, 'Не удалось обновить отзыв');
   }
 });
 
@@ -532,7 +578,7 @@ app.delete('/api/admin/reviews/:id', adminRequired, (req, res) => {
     reviews.deleteReview(req.user, req.params.id, { admin: true });
     res.json({ ok: true });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message || 'Ошибка' });
+    failJson(req, res, e, 'Не удалось удалить отзыв');
   }
 });
 
@@ -554,7 +600,7 @@ app.post('/api/delivery/quote', async (req, res) => {
       hint: req.body.hint
     }));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Не удалось рассчитать доставку' });
+    failJson(req, res, e, 'Не удалось рассчитать доставку — попробуйте ещё раз');
   }
 });
 
@@ -658,7 +704,7 @@ app.post('/api/tryon', authRequired, async (req, res) => {
     });
     res.json(out);
   } catch (e) {
-    res.status(e.status || 500).json({ error: e.message, code: e.code });
+    failJson(req, res, e, 'Примерка не получилась — попробуйте ещё раз');
   }
 });
 
@@ -701,7 +747,7 @@ app.post('/api/auth/register', authRateLimit('auth-register', 8), (req, res) => 
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось создать аккаунт — попробуйте ещё раз');
   }
 });
 
@@ -713,7 +759,7 @@ app.post('/api/auth/login', authRateLimit('auth-login', 20), (req, res) => {
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token });
   } catch (e) {
-    res.status(e.status || 401).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось войти — попробуйте ещё раз');
   }
 });
 
@@ -722,11 +768,7 @@ app.post('/api/auth/forgot', authRateLimit('auth-forgot', 8), async (req, res) =
     const out = await requestPasswordReset(req.body && req.body.email);
     res.json(out);
   } catch (e) {
-    res.status(e.status || 400).json({
-      error: e.message,
-      needTelegram: !!e.needTelegram,
-      smtp: smtpConfigured()
-    });
+    failJson(req, res, e, 'Не удалось отправить ссылку для сброса пароля', { needTelegram: !!e.needTelegram, smtp: smtpConfigured() });
   }
 });
 
@@ -738,7 +780,7 @@ const resetLinkRoute = (scope, limit, run) =>
     try {
       res.json(run(req.body || {}));
     } catch (e) {
-      res.status(e.status || 400).json({ error: e.message });
+      failJson(req, res, e, 'Не получилось — запросите ссылку ещё раз');
     }
   }];
 
@@ -761,7 +803,7 @@ app.post('/api/auth/reset', authRateLimit('auth-reset', 12), (req, res) => {
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token, ok: true });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось сменить пароль');
   }
 });
 
@@ -780,7 +822,7 @@ app.get('/api/auth/google', (req, res) => {
     );
     res.redirect(googleAuth.authUrl(state));
   } catch (e) {
-    res.redirect('/?auth_err=' + encodeURIComponent(e.message || 'Google ошибка'));
+    res.redirect('/?auth_err=' + encodeURIComponent(humanText(e, 'Вход через Google не удался — попробуйте ещё раз')));
   }
 });
 
@@ -814,7 +856,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     res.redirect('/#google_token=' + encodeURIComponent(token));
   } catch (e) {
     console.error('Google callback:', e.message);
-    res.redirect('/?auth_err=' + encodeURIComponent(e.message || 'Google ошибка'));
+    res.redirect('/?auth_err=' + encodeURIComponent(humanText(e, 'Вход через Google не удался — попробуйте ещё раз')));
   }
 });
 
@@ -833,7 +875,7 @@ app.post('/api/auth/google/token', authRateLimit('google-token', 30), async (req
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token });
   } catch (e) {
-    res.status(e.status || 401).json({ error: e.message || 'Google вход не удался' });
+    failJson(req, res, e, 'Вход через Google не удался — попробуйте ещё раз');
   }
 });
 
@@ -845,7 +887,7 @@ app.get('/api/me/prefs', authRequired, (req, res) => {
   try {
     res.json(userPrefs.getPrefs(req.user.id));
   } catch (e) {
-    res.status(e.status || 500).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось загрузить настройки');
   }
 });
 
@@ -853,7 +895,7 @@ app.put('/api/me/prefs', authRequired, (req, res) => {
   try {
     res.json(userPrefs.savePrefs(req.user.id, req.body || {}));
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось сохранить настройки');
   }
 });
 
@@ -869,7 +911,7 @@ app.post('/api/auth/phone/start', async (req, res) => {
     const out = await startPhoneAuth(req.body && req.body.phone);
     res.json(out);
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось начать вход по телефону');
   }
 });
 
@@ -879,10 +921,7 @@ app.post('/api/auth/phone/send', async (req, res) => {
     const out = await sendPhoneCode(req.body && req.body.phone);
     res.json(out);
   } catch (e) {
-    res.status(e.status || 400).json({
-      error: e.message,
-      needOpenBot: !!e.needOpenBot
-    });
+    failJson(req, res, e, 'Не удалось отправить код', { needOpenBot: !!e.needOpenBot });
   }
 });
 
@@ -891,7 +930,7 @@ app.get('/api/auth/phone/status', (req, res) => {
     const { phoneAuthStatus } = require('./otp');
     res.json(phoneAuthStatus(req.query && req.query.phone));
   } catch (e) {
-    res.status(400).json({ error: e.message, linked: false });
+    failJson(req, res, e, 'Не удалось проверить вход', { linked: false });
   }
 });
 
@@ -902,7 +941,7 @@ app.post('/api/auth/phone/send-legacy-start', async (req, res) => {
     const out = await startPhoneAuth(req.body && req.body.phone);
     res.json(out);
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось начать вход');
   }
 });
 
@@ -923,7 +962,7 @@ app.post('/api/auth/phone/verify', (req, res) => {
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token, ok: true });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message, wrong: !!e.wrong });
+    failJson(req, res, e, 'Не удалось проверить код', { wrong: !!e.wrong });
   }
 });
 
@@ -936,7 +975,7 @@ app.post('/api/auth/device-code/request', async (req, res) => {
     res.json(out);
   } catch (e) {
     authLog('code_request_error', { error: e.message, ip: clientIp(req) });
-    res.status(e.status || 400).json(Object.assign({ error: e.message }, e.payload || {}));
+    failJson(req, res, e, 'Не удалось запросить код', e.payload);
   }
 });
 
@@ -980,7 +1019,7 @@ app.post('/api/auth/device-code', async (req, res) => {
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token, ok: true, isNew });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message, wrong: !!e.wrong });
+    failJson(req, res, e, 'Не удалось проверить код', { wrong: !!e.wrong });
   }
 });
 
@@ -995,7 +1034,7 @@ app.post('/api/auth/telegram-phone', (req, res) => {
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token, isNew });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось войти');
   }
 });
 
@@ -1018,7 +1057,7 @@ app.put('/api/auth/profile', authRequired, (req, res) => {
     setAuthCookie(res, token);
     res.json({ user: publicUser(user), token, ok: true });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось сохранить профиль');
   }
 });
 
@@ -1044,7 +1083,7 @@ app.post('/api/auth/telegram-admin', (req, res) => {
     setAuthCookie(res, jwt);
     res.json({ user: publicUser(user), token: jwt });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось войти в админку');
   }
 });
 
@@ -1075,7 +1114,7 @@ app.post('/api/checkout', authRequired, async (req, res) => {
     });
     res.json(result.order ? Object.assign({}, result, { order: media.orderToPublic(result.order) }) : result);
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message, code: e.code });
+    failJson(req, res, e, 'Не удалось оформить заказ — попробуйте ещё раз. Если повторится, напишите нам.');
   }
 });
 
@@ -1109,7 +1148,7 @@ app.post('/api/orders/:num/pay', authOptional, async (req, res) => {
     );
     res.json(result && result.order ? Object.assign({}, result, { order: media.orderToPublic(result.order) }) : result);
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось открыть оплату — попробуйте ещё раз через минуту.');
   }
 });
 
@@ -1126,7 +1165,7 @@ app.post('/api/push/subscribe', authRequired, (req, res) => {
     push.save((req.body && req.body.subscription) || req.body, req.user.id, req.headers['user-agent']);
     res.json({ ok: true });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message || 'Не удалось подписать' });
+    failJson(req, res, e, 'Не удалось включить уведомления');
   }
 });
 
@@ -1176,7 +1215,7 @@ app.post('/api/orders/:num/cancel', authOptional, (req, res) => {
     const order = cancelOrderBuyer(req.params.num, req.user, accessToken);
     res.json({ order: media.orderToPublic(order) });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось отменить заказ');
   }
 });
 
@@ -1188,7 +1227,7 @@ app.post('/api/orders/:num/return', authOptional, (req, res) => {
     const order = requestReturnBuyer(req.params.num, req.user, accessToken);
     res.json({ order: media.orderToPublic(order) });
   } catch (e) {
-    res.status(e.status || 400).json({ error: e.message });
+    failJson(req, res, e, 'Не удалось оформить возврат');
   }
 });
 
@@ -1202,7 +1241,7 @@ app.patch('/api/admin/orders/:num', adminRequired, async (req, res) => {
     if (!order) return res.status(404).json({ error: 'Не найден' });
     res.json({ order: media.orderToPublic(order) });
   } catch (e) {
-    res.status(e.status || 500).json({ error: e.message || 'Ошибка' });
+    failJson(req, res, e, 'Не удалось сохранить заказ');
   }
 });
 
@@ -1371,7 +1410,22 @@ app.get('*', (req, res, next) => {
   indexHandler(req, res);
 });
 
-app.use((err, req, res, _next) => {
+app.use((err, req, res, next) => {
+  /* Ошибки разбора запроса (body-parser): тело больше 15 МБ — 413, битый
+     JSON — 400. Это не сбой сервера: отвечаем с тем же кодом по-русски и
+     в отчёты о падениях не шлём. Свои русские 4xx — как есть. */
+  const st = err && Number(err.status || err.statusCode);
+  if (Number.isInteger(st) && st >= 400 && st < 500) {
+    /* ответ уже ушёл — дописать нечего, соединение закроет Express */
+    if (res.headersSent) return next(err);
+    const own = /[А-Яа-яЁё]/.test(String(err.message || ''));
+    return res.status(st).json({
+      error: own ? String(err.message)
+        : st === 413 ? 'Слишком большой файл — уменьшите фото и повторите'
+        : st === 404 ? 'Не нашли — обновите страницу'
+        : 'Не получилось прочитать запрос — обновите страницу и повторите'
+    });
+  }
   /* console.error перехвачен, но там нет ни адреса, ни пользователя —
      поэтому шлём отдельно, с контекстом запроса. */
   process.stderr.write('[500] ' + (err && err.stack ? err.stack : err) + '\n');
@@ -1384,7 +1438,7 @@ app.use((err, req, res, _next) => {
   });
   res.status(500).json({
     error: seesErrorDetails(req.user)
-      ? ('Серверная ошибка: ' + ((err && err.message) || 'без описания'))
+      ? 'Сбой на сервере. Подробности со стеком — в Telegram, в чате ошибок.'
       : CALM_ERROR
   });
 });

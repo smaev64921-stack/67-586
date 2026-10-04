@@ -302,9 +302,13 @@ html.js .hero.is-on .hero__go{opacity:1;transition:opacity .8s var(--ease) 1.3s}
 html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;transform:none;transition:none}
 
 /* ================= 02: ХУДИ НА МОЛНИИ — «ГАЛЕРЕЯ» =================
-   Вся геометрия — от размера худи: --hh (высота кадра), --hw (ширина),
-   --by (верх кадра). Худи на телефоне упирается в ширину экрана, по высоте
-   встаёт посередине между текстом и капсулой «Спереди / Сзади». */
+   «Витрина»: в нише по очереди стоят вещи — худи, потом бомбер (третью
+   добавить просто: ещё одна .g__pc со своими выносками, заголовок .g__tn,
+   подпись .g__dn и кнопка в .g__pr). Вся геометрия — от размера худи:
+   --hh (высота кадра), --hw (ширина), --by (верх кадра). Худи на телефоне
+   упирается в ширину экрана, по высоте встаёт посередине между текстом и
+   кнопками внизу. Бомбер широкий: он по ширине экрана (на компьютере — по
+   проёму ниши) и висит в том же свете чуть ниже середины кадра худи. */
 .g{
   --io:cubic-bezier(.65,0,.35,1);
   --wall:#e8e3db;
@@ -312,6 +316,7 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   --rule:#c7c0b5;
   --lnA:rgba(28,22,16,.40);          /* линия выноски на стене */
   --lnF:rgba(255,255,255,.45);       /* та же линия на чёрной ткани — тише, не режет вещь */
+  --lnS:rgba(28,22,16,.46);          /* и на серебристой подкладке — снова тёмная */
   --u:1vh;
   --tt:clamp(30px,min(9.4vw,calc(4.6 * var(--u))),40px);
   --top:calc(var(--safe-t) + 74px);
@@ -320,11 +325,18 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   --drop:46px;                       /* ряд нижних подписей — под полкой ниши */
   --offT:12px;--offB:0px;            /* 02 сдвинута: верхний ряд не складывается в рамку; нижний — ровно под полкой */
   --above:calc(var(--top) + var(--txh) + 76px);
-  --below:calc(var(--safe-b) + 186px);
+  --below:calc(var(--safe-b) + 192px);
   --room:calc(100 * var(--u) - var(--above) - var(--below));
   --hh:min(var(--room),calc((100vw - 40px) * 1.06905));
   --hw:calc(var(--hh) * .935407);
   --by:calc(var(--above) + (var(--room) - var(--hh)) * .5);
+  /* бомбер: кадр 1200×776, раскрытый — 1200×664 (низ — по низу бомбера) */
+  --bw:min(calc(100vw - 28px),calc(var(--hh) * 1.5));
+  --bh:calc(var(--bw) * .646667);
+  --bk:.62;                          /* где висит: 0 — вровень с верхом худи, 1 — на дне ниши */
+  --bby:calc(var(--by) + (var(--hh) - var(--bh)) * var(--bk));
+  --oh:calc(var(--bw) * .553333);
+  --oby:calc(var(--bby) + var(--bh) - var(--oh));
   --eL:var(--gut);
   --eR:calc(100% - var(--gut));
   position:relative;height:100vh;height:100svh;min-height:520px;overflow:hidden;isolation:isolate;
@@ -395,6 +407,11 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   background:radial-gradient(closest-side,rgba(255,254,251,.9) 0%,rgba(255,253,249,.62) 30%,rgba(255,252,247,.22) 60%,rgba(255,252,247,0) 100%);
   pointer-events:none
 }
+/* бомбер изнутри: свет в нише чуть притухает к краям — серебро светится само */
+.g__dim{position:absolute;inset:0;opacity:0;pointer-events:none;
+  background:radial-gradient(60% 48% at 50% 64%,rgba(70,52,32,0) 0%,rgba(70,52,32,.05) 55%,rgba(70,52,32,.13) 100%);
+  transition:opacity 1s var(--ease)}
+.g.is-iv .g__dim{opacity:1;transition:opacity 1.6s var(--ease) .2s}
 /* дно ниши — видно сверху, светлее стенки */
 .g__fl{position:absolute;left:0;right:0;bottom:0;height:var(--sd);
   -webkit-clip-path:polygon(var(--rv) 0,calc(100% - var(--rv)) 0,100% 100%,0 100%);clip-path:polygon(var(--rv) 0,calc(100% - var(--rv)) 0,100% 100%,0 100%);
@@ -410,7 +427,7 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 /* стена под полкой чуть теплее и темнее книзу — без резкой границы */
 .g__floor{position:absolute;left:-100vw;right:-100vw;top:calc(var(--F1) + var(--fh) + 2px);bottom:0;pointer-events:none;
   background:linear-gradient(to bottom,rgba(112,92,70,0),rgba(112,92,70,.06) 45%,rgba(112,92,70,.09))}
-/* подпись бренда под полкой — проступает, когда худи повёрнуто спиной
+/* подпись бренда под полкой — проступает, когда вещь повёрнута спиной
    (выноски в этот момент скрыты) */
 .g__plq{position:absolute;left:0;right:0;top:calc(var(--F1) + var(--fh) + 22px);margin:0;text-align:center;
   font-size:11.5px;line-height:14px;font-weight:500;letter-spacing:.46em;text-indent:.46em;white-space:nowrap;
@@ -418,23 +435,43 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   transition:opacity .5s var(--ease),transform .6s var(--out)}
 .g__plq::before,.g__plq::after{content:'';display:inline-block;width:22px;height:1px;background:var(--rule);vertical-align:middle;margin:0 14px}
 .g.is-bk .g__plq{opacity:1;transform:none;transition:opacity 1s var(--ease) .5s,transform 1.2s var(--out) .5s}
-/* тень касания: ядро и полутень; лежит на дне ниши, дышит в такт парению */
+/* тень касания: ядро и полутень; лежит на дне ниши, дышит в такт парению.
+   У каждой вещи своя (.g__shp): худи стоит низко — тень плотная, бомбер
+   висит выше — тень шире и мягче. При смене одна сжимается, другая растёт. */
 .g__shadow{
   position:absolute;left:50%;top:calc(var(--F0) + var(--sd) * .5);
   width:calc(var(--hw) * 1.02);height:calc(var(--hw) * .1);
   margin:calc(var(--hw) * -.05) 0 0 calc(var(--hw) * -.51);pointer-events:none
 }
+.g__shp{position:absolute;inset:0;opacity:0;transform:scale(.55,.4);transition:opacity .45s var(--ease),transform .6s cubic-bezier(.5,0,.75,0)}
+.g__shp.is-on{opacity:1;transform:none;transition:opacity 1.1s var(--ease) .5s,transform 1.5s var(--out) .5s}
+.g__shp--bm{left:50%;right:auto;width:calc(var(--bw) * .9);margin-left:calc(var(--bw) * -.45);top:-25%;bottom:-25%}
 .g__shf,.g__shf i{position:absolute;inset:0}
 .g__shf i:first-child{background:radial-gradient(closest-side,rgba(52,40,28,.30),rgba(52,40,28,.12) 55%,rgba(52,40,28,0))}
 .g__shf i:last-child{inset:32% 12%;background:radial-gradient(closest-side,rgba(26,20,14,.52),rgba(26,20,14,.18) 58%,rgba(26,20,14,0))}
+.g__shp--bm .g__shf i:first-child{background:radial-gradient(closest-side,rgba(52,40,28,.24),rgba(52,40,28,.09) 55%,rgba(52,40,28,0))}
+.g__shp--bm .g__shf i:last-child{inset:34% 18%;background:radial-gradient(closest-side,rgba(26,20,14,.30),rgba(26,20,14,.10) 58%,rgba(26,20,14,0))}
 .g__enter,.g__float{position:absolute;inset:0}
 .g__float{transform-origin:50% calc(var(--by) + var(--hh) * .5)}
+
+/* ---------- вещи на витрине ----------
+   Каждая — .g__pc: снимки и её выноски. Смена — той же шторкой, что
+   появление худи (без полупрозрачности — чёрное остаётся чёрным): ушедшая
+   чуть поднимается и сворачивается снизу вверх, новая спускается на место
+   и разворачивается сверху вниз. Невидимая не ловит касаний. */
+.g__pc{position:absolute;inset:0;z-index:1;visibility:hidden;transform:translateY(-34px);pointer-events:none}
+.g__pc > *{pointer-events:auto}
+.g__pc .g__co,.g__pc .g__zs{pointer-events:none}
+.g__pc.is-on{z-index:2;visibility:visible;transform:none;transition:transform 1.6s var(--out),visibility 0s}
+.g__pc.is-out{visibility:visible;transform:translateY(-22px);transition:transform .8s cubic-bezier(.55,0,.4,1)}
 
 /* кадр худи */
 .g__box{
   position:absolute;left:calc(50% - var(--hw) * .5);top:var(--by);width:var(--hw);height:var(--hh);
   cursor:pointer;-webkit-user-select:none;user-select:none
 }
+/* кадр бомбера: тот же центр, своя ширина */
+.g__box--bm{left:calc(50% - var(--bw) * .5);top:var(--bby);width:var(--bw);height:var(--bh)}
 /* Проявление сверху вниз с мягким краем — тот же приём, что шторка цвета на
    первом экране: рамка выше кадра на 28 % и с растушёвкой внизу едет вниз,
    а содержимое — навстречу, так что вещь стоит на месте, а движется только
@@ -445,24 +482,70 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 .g__turn{position:absolute;inset:0;transform-origin:50% 55%}
 .g__face{position:absolute;inset:0;z-index:1;opacity:0;transition:opacity 0s linear 1.2s}
 .g__face.is-on{z-index:2;opacity:1;transition:opacity .85s var(--io) .3s}
+/* бомбер: контуры спереди и сзади разные — новый вид проступает коротко,
+   у середины поворота, прежний гаснет уже под ним (без серой двойной кромки
+   на рукавах); шторка .is-xf ниже — сильнее */
+.g__pc--bm .g__face{transition:opacity 0s linear .9s}
+.g__pc--bm .g__face.is-on{transition:opacity .3s var(--io) .55s}
 .g__face img{width:100%;height:100%;-webkit-user-drag:none;pointer-events:none}
+/* внутрь и обратно силуэты разные — не наплывом (серело бы), а шторкой:
+   прежний вид сворачивается снизу вверх, новый разворачивается сверху вниз
+   (маска с мягким краем, как у .g__rev; 464 % — сдвиг на 1,3 кадра вверх) */
+.g__box--bm .g__face{
+  -webkit-mask:linear-gradient(to bottom,#000 78.125%,transparent) 0 0/100% 128% no-repeat;
+  mask:linear-gradient(to bottom,#000 78.125%,transparent) 0 0/100% 128% no-repeat}
+.g__box--bm.is-xf .g__face{opacity:0;-webkit-mask-position:0 464%;mask-position:0 464%;transition:none}
+.g__box--bm.is-xf .g__face.is-was{z-index:2;opacity:1;-webkit-mask-position:0 464%;mask-position:0 464%;
+  transition:-webkit-mask-position .7s cubic-bezier(.55,0,.4,1),mask-position .7s cubic-bezier(.55,0,.4,1),opacity 0s linear .72s}
+.g__box--bm.is-xf .g__face.is-on{z-index:3;opacity:1;-webkit-mask-position:0 0;mask-position:0 0;
+  transition:-webkit-mask-position 1.2s cubic-bezier(.45,0,.2,1) .45s,mask-position 1.2s cubic-bezier(.45,0,.2,1) .45s}
+.g__box--bm.is-xf .g__face--i.is-on{transition:none}
+/* бомбер изнутри: лежит в том же кадре, низом по низу бомбера. Раскрывается
+   от середины к краям — как распахнутая куртка (маска, один раз), потом по
+   серебру идёт свет */
+.g__face--i{top:calc(var(--bh) - var(--oh));bottom:auto;height:var(--oh)}
+.g__ob{position:absolute;inset:0;
+  -webkit-mask:linear-gradient(to right,transparent,#000 6%,#000 94%,transparent) 50% 0/0% 100% no-repeat;
+  mask:linear-gradient(to right,transparent,#000 6%,#000 94%,transparent) 50% 0/0% 100% no-repeat;
+  transition:-webkit-mask-size 0s linear 1s,mask-size 0s linear 1s}
+.g__face--i.is-on .g__ob{-webkit-mask-size:175% 100%;mask-size:175% 100%;
+  transition:-webkit-mask-size 1.7s cubic-bezier(.3,.1,.2,1) .5s,mask-size 1.7s cubic-bezier(.3,.1,.2,1) .5s}
+.g__ob img{width:100%;height:100%}
+/* свет по подкладке: только по серебру (маска — сама подкладка), один
+   медленный проход; ткань и молнии не трогает */
+.g__sw{position:absolute;inset:0;pointer-events:none;opacity:0;mix-blend-mode:overlay}
+.g.is-loadb .g__sw{opacity:1;
+  -webkit-mask:url(/onboarding/bm-lining.webp) center/100% 100% no-repeat;mask:url(/onboarding/bm-lining.webp) center/100% 100% no-repeat}
+.g__sw b{position:absolute;top:0;bottom:0;left:40%;width:42%}
+.g__sw i{position:absolute;top:-6%;bottom:-6%;left:-30%;width:160%;transform:translateX(-100%);
+  background:linear-gradient(104deg,rgba(255,255,255,0) 34%,rgba(255,255,255,.28) 43%,rgba(255,255,255,.82) 49%,rgba(255,255,255,.9) 50%,rgba(255,255,255,.82) 51%,rgba(255,255,255,.28) 57%,rgba(255,255,255,0) 66%)}
+.g__sw.is-run i{animation:gSweep 2.6s cubic-bezier(.42,0,.28,1) both}
+@keyframes gSweep{from{transform:translateX(-62%)}to{transform:translateX(62%)}}
 /* блик: узкая полоса света скользит по ткани, только внутри силуэта
    (маска — тот же снимок; ставится, когда снимки начали грузиться) */
 .g__sheen{position:absolute;inset:0;z-index:3;overflow:hidden;pointer-events:none;opacity:0}
-.g.is-load .g__sheen{opacity:1;
+.g.is-load .g__pc--hd .g__sheen{opacity:1;
   -webkit-mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat;mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat}
+.g.is-loadb .g__pc--bm .g__sheen{opacity:1;
+  -webkit-mask:url(/onboarding/bm-front.webp) center/100% 100% no-repeat;mask:url(/onboarding/bm-front.webp) center/100% 100% no-repeat}
+.g.is-iv .g__pc--bm .g__sheen{opacity:0}
 .g__sheen i{position:absolute;top:0;bottom:0;left:0;width:60%;transform:translateX(-120%);
   background:linear-gradient(102deg,rgba(255,255,255,0) 22%,rgba(255,255,255,.035) 40%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.035) 60%,rgba(255,255,255,0) 78%)}
 
 /* ---------- выноски ----------
    Точка — линия от её ореола — плечо к краю — подпись. Линия белая над
    тканью и тёмная над стеной, смена ровно на краю силуэта. Плечи к краю
-   экрана гаснут, ряды 01/02 и 03/04 разведены по высоте — вещь не в рамке. */
+   экрана гаснут, ряды 01/02 и 03/04 разведены по высоте — вещь не в рамке.
+   Ряды подписей у всех вещей одни (от кадра худи) — подписи не прыгают;
+   точки считаются от кадра своей вещи: --pw/--ph/--py. */
 .g__co{position:absolute;inset:0;pointer-events:none;margin:0;padding:0;list-style:none}
+.g__co,.g__zs{--pw:var(--hw);--ph:var(--hh);--py:var(--by)}
+.g__pc--bm .g__co,.g__pc--bm .g__zs{--pw:var(--bw);--ph:var(--bh);--py:var(--bby)}
+.g__pc--bm [data-v="i"]{--ph:var(--oh);--py:var(--oby)}
 .co{position:absolute;inset:0;--d:0s;--lf:0px}
 .co > *{
-  --X:calc(50% + (var(--ax) - .5) * var(--hw));
-  --Y:calc(var(--by) + var(--ay) * var(--hh));
+  --X:calc(50% + (var(--ax) - .5) * var(--pw));
+  --Y:calc(var(--py) + var(--ay) * var(--ph));
   --rT:calc(var(--by) - var(--lift) - var(--lf));
   --rB:calc(var(--by) + var(--hh) + var(--drop) + var(--lf));
   position:absolute
@@ -470,11 +553,14 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 .co .is-2{--ax:var(--ax2);--ay:var(--ay2);--e:var(--e2)}
 .co__stem{left:var(--X);width:1px;margin-left:-.5px}
 .co--t .co__stem{top:var(--rT);height:calc(var(--Y) - var(--rT) - 6px);transform-origin:50% 100%;
-  --cut:calc(var(--lift) + var(--lf) + var(--e) * var(--hh));
+  --cut:calc(var(--py) + var(--e) * var(--ph) - var(--rT));
   background:linear-gradient(to bottom,var(--lnA) 0,var(--lnA) calc(var(--cut) - 1px),var(--lnF) calc(var(--cut) + 1px),var(--lnF) 100%)}
 .co--b .co__stem{top:calc(var(--Y) + 6px);height:calc(var(--rB) - var(--Y) - 6px);transform-origin:50% 0;
-  --cut:calc((var(--e) - var(--ay)) * var(--hh) - 6px);
+  --cut:calc((var(--e) - var(--ay)) * var(--ph) - 6px);
   background:linear-gradient(to bottom,var(--lnF) 0,var(--lnF) calc(var(--cut) - 1px),var(--lnA) calc(var(--cut) + 1px),var(--lnA) 100%)}
+/* изнутри линия идёт по стене, по чёрной ткани и по серебру: --e3 — где начинается подкладка */
+.g__co--sv .co--t .co__stem{--cut2:calc(var(--py) + var(--e3) * var(--ph) - var(--rT));
+  background:linear-gradient(to bottom,var(--lnA) 0,var(--lnA) calc(var(--cut) - 1px),var(--lnF) calc(var(--cut) + 1px),var(--lnF) calc(var(--cut2) - 1px),var(--lnS) calc(var(--cut2) + 1px),var(--lnS) 100%)}
 .co__arm{height:1px;margin-top:-.5px}
 .co--t .co__arm{top:var(--rT)}
 .co--b .co__arm{top:var(--rB)}
@@ -485,6 +571,10 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 .co__dot{left:var(--X);top:var(--Y);width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
   border:1px solid rgba(255,255,255,.92);box-shadow:0 0 0 3px rgba(255,255,255,.06),0 1px 3px rgba(0,0,0,.28)}
 .co__dot::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%;background:#fff}
+/* точка на серебре — тёмная */
+.co--k .co__dot{border-color:rgba(22,17,12,.86);box-shadow:0 0 0 3px rgba(255,255,255,.28),0 1px 3px rgba(0,0,0,.22)}
+.co--k .co__dot::after{background:#16110c}
+.co--k .co__dot::before{border-color:rgba(22,17,12,.7)}
 .co__lb{white-space:nowrap;font-size:12.5px;line-height:16px;font-weight:400;letter-spacing:.005em;color:#3d3731}
 .co__lb b{font-family:var(--f-display);font-weight:400;font-size:11.5px;color:var(--num);margin-right:7px;letter-spacing:.02em}
 .co__lb > span{display:block}
@@ -532,28 +622,27 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 .co__hit{left:var(--X);top:var(--Y);width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;cursor:pointer}
 .co__lb::before{content:'';position:absolute;left:-5px;right:-5px;top:-9px;bottom:-9px}
 .g__zs{position:absolute;inset:0;pointer-events:none}
-.g__co--f .co__hit,.g__co--f .co__lb{pointer-events:none}
-.g.is-co .g__co--f .co__hit,.g.is-co .g__co--f .co__lb{pointer-events:auto}
-.g.is-co .g__zs .co.is-on .co__z{pointer-events:auto;cursor:pointer}
-.g__co--b .co__lb{pointer-events:none}
+.g__co .co__hit,.g__co .co__lb{pointer-events:none}
+.g__co--z.is-show .co__hit,.g__co--z.is-show .co__lb{pointer-events:auto}
+.g__zs.is-show .co.is-on .co__z{pointer-events:auto;cursor:pointer}
 
 /* тише — вся выноска разом, кроме текущей */
-.g__co--f .co{transition:opacity .6s var(--ease)}
-.g.is-tour .g__co--f .co{opacity:.42}
-.g.is-tour .g__co--f .co.is-on{opacity:1}
+.g__co--z .co{transition:opacity .6s var(--ease)}
+.g__co.is-tour .co{opacity:.42}
+.g__co.is-tour .co.is-on{opacity:1}
 /* номер активной детали — латунью, как жилка на полке */
 .co__lb b{transition:color .5s var(--ease)}
-.g.is-tour .g__co--f .co.is-on .co__lb b{color:#8a6d43}
+.g__co.is-tour .co.is-on .co__lb b{color:#8a6d43}
 /* кольцо у точки текущей детали (у 04 — у манжеты) */
 .co__dot::before{content:'';position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;
   border:1px solid rgba(255,255,255,.85);opacity:0;transform:scale(.3);pointer-events:none}
-html.js .g.is-tour .co.is-on .co__dot:not(.is-h)::before{animation:coRing 1.8s cubic-bezier(.22,.6,.3,1) .15s infinite}
+html.js .g__co.is-tour .co.is-on .co__dot:not(.is-h)::before{animation:coRing 1.8s cubic-bezier(.22,.6,.3,1) .15s infinite}
 @keyframes coRing{0%{transform:scale(.3);opacity:.9}70%,100%{transform:scale(1);opacity:0}}
 /* проявление: сначала встаёт оправа (чуть подрастает от угла у точки), в неё
    со стороны точки кругом входит снимок и садится из лёгкого приближения;
    тень — когда снимок уже есть. Уход — снимок тем же кругом обратно к точке,
    оправа тает следом (без полупрозрачного «призрака»). */
-html.js .co__z{--zd:.42s;opacity:0;transform:scale(.9);transition:opacity .18s linear .2s,transform .38s cubic-bezier(.5,0,.75,0)}
+html.js .co__z{--zd:.42s;opacity:0;transform:scale(.9);transition:opacity .1s linear .32s,transform .38s cubic-bezier(.5,0,.75,0)}
 html.js .co__z::before,html.js .co__z::after{opacity:0;transition:opacity .12s linear}
 html.js .co__z::after{transition:opacity .2s linear .15s}
 html.js .co__zc{-webkit-clip-path:circle(0% at var(--zox) var(--zoy));clip-path:circle(0% at var(--zox) var(--zoy));transition:clip-path .38s cubic-bezier(.5,0,.75,0)}
@@ -565,59 +654,80 @@ html.js .g .co.is-on .co__zc{-webkit-clip-path:circle(106% at var(--zox) var(--z
   transition:clip-path .8s cubic-bezier(.5,.05,.2,1) var(--zd)}
 html.js .g .co.is-on .co__zc img{transform:none;transition:transform 1.2s var(--out) var(--zd)}
 
-/* ---------- текст ---------- */
+/* ---------- текст ----------
+   У каждой вещи свой заголовок (.g__tn) и подпись (.g__dn), стоят друг
+   на друге; при смене старый уходит вверх из-под маски, новый поднимается
+   снизу — тем же движением, что и при появлении экрана. */
 .g__tx{position:absolute;z-index:2;left:var(--gut);right:var(--gut);top:var(--top);text-align:center}
 .g__k{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;line-height:14px;font-weight:600;
   letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2)}
 .g__k span{padding-left:.2em}
 .g__k::before,.g__k::after{content:'';width:30px;height:1px;background:var(--rule)}
-.g__t{margin-top:14px;font-family:var(--f-display);font-weight:400;font-size:var(--tt);line-height:1.06;letter-spacing:-.015em}
-.g__t > span{display:inline-block;overflow:hidden;padding:0 .04em .06em;vertical-align:top}
+.g__t{display:grid;margin-top:14px;font-family:var(--f-display);font-weight:400;font-size:var(--tt);line-height:1.06;letter-spacing:-.015em}
+.g__tn{grid-area:1/1;min-width:0}
+.g__tn > span{display:inline-block;overflow:hidden;padding:0 .04em .06em;vertical-align:top}
 .g__t i{display:block;font-style:normal}
-/* «на молнии» — тот же переход от тёмно-серого к серому и блик, что у второй
-   строки первого экрана */
-.g__t > span + span i{
+/* вторая часть заголовка — тот же переход от тёмно-серого к серому и блик,
+   что у второй строки первого экрана */
+.g__tn > span + span i{
   background-image:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.7) 50%,transparent 62%),linear-gradient(100deg,#2e2c2a 0%,#55514c 50%,#7d776f 100%);
   background-size:260% 100%,100% 100%;background-position:130% 0,0 0;background-repeat:no-repeat;
   -webkit-background-clip:text;background-clip:text;color:transparent
 }
-.g__d{margin-top:10px;font-size:15px;line-height:21px;color:var(--soft)}
+.g__d{display:grid;margin-top:10px;font-size:15px;line-height:21px;color:var(--soft)}
+.g__dn{grid-area:1/1;min-width:0}
 
-/* ---------- спереди / сзади ----------
-   Светлая капсула, как цвета на первом экране (на компьютере): по выбранной
-   стороне идёт заливка — отсчёт до поворота. */
-.g__view{position:absolute;z-index:3;left:50%;bottom:calc(var(--safe-b) + 72px);transform:translateX(-50%);
+/* ---------- вещь: худи · бомбер ----------
+   Главный выбор — светлая стеклянная капсула (как цвета на первом экране):
+   в каждой кнопке сама вещь крошечным снимком. По выбранной идёт заливка —
+   отсчёт до следующей вещи. */
+.g__pr{position:absolute;z-index:3;left:50%;bottom:calc(var(--safe-b) + 78px);transform:translateX(-50%);
   display:flex;align-items:center;gap:2px;padding:4px;border-radius:999px;
   background:rgba(255,255,255,.5);border:1px solid rgba(60,45,30,.08);
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 12px 30px -16px rgba(0,0,0,.25)}
-.g__view button{position:relative;height:34px;padding:0 15px;border-radius:999px;overflow:hidden;isolation:isolate;
-  font-size:13px;font-weight:500;letter-spacing:.01em;color:var(--muted);transition:color .45s var(--ease),background-color .45s var(--out)}
-.g__view button::before{content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;background:rgba(0,0,0,.06);
-  transform-origin:0 50%;transform:scaleX(0)}
-.g__view button[aria-pressed="true"]{color:var(--ink);background-color:rgba(0,0,0,.05)}
-.g__view button.is-run::before{animation:tnRun var(--hold,5s) linear both}
-.g__view button:active{opacity:.7}
-/* в каждой кнопке — сама вещь этой стороной, крошечным снимком */
-.g__view button{display:flex;align-items:center;gap:7px;padding:0 15px 0 8px}
-.g__th{position:relative;flex:none;width:22px;height:24px}
-.g__th img{display:block;width:100%;height:100%;-webkit-user-drag:none}
+.g__pr button{position:relative;display:flex;align-items:center;gap:8px;height:34px;padding:0 16px 0 8px;border-radius:999px;overflow:hidden;isolation:isolate;
+  font-size:13.5px;font-weight:500;letter-spacing:.01em;color:var(--muted);white-space:nowrap;
+  transition:color .45s var(--ease),background-color .45s var(--out)}
+.g__pr button[aria-pressed="true"]{color:var(--ink);background-color:rgba(0,0,0,.05)}
+.g__pr button:active{opacity:.7}
+.g__pf{position:absolute;inset:0;z-index:-1;border-radius:inherit;background:rgba(0,0,0,.09);transform-origin:0 50%;transform:scaleX(0)}
+/* вещь выбрана, а её снимки ещё грузятся — плашка мягко «дышит» */
+.g__pr button.is-wait .g__pf{transform:none;animation:tnWait 1s ease-in-out infinite alternate}
+.g__pt{position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:22px;height:24px}
+.g__pt--w{width:34px}
+.g__pt img{display:block;width:100%;height:100%;object-fit:contain;-webkit-user-drag:none}
 
-/* ---------- «Листайте» — как на первом экране ---------- */
-.g__go{position:absolute;z-index:3;left:50%;bottom:calc(var(--safe-b) + 14px);transform:translateX(-50%);
-  display:flex;flex-direction:column;align-items:center;gap:5px;padding:4px 24px;color:var(--ink-2);
+/* ---------- вид: спереди · сзади · внутри ----------
+   Второй выбор — тише: просто слова под капсулой, у выбранного латунная
+   черта. «Внутри» есть только у бомбера. */
+.g__view{position:absolute;z-index:3;left:50%;bottom:calc(var(--safe-b) + 40px);transform:translateX(-50%)}
+.g__vw{display:flex;align-items:center;justify-content:center;transition:opacity .25s var(--ease)}
+.g__vw.is-sw{opacity:0}
+.g__view button{position:relative;height:34px;padding:0 12px;font-size:12.5px;line-height:16px;font-weight:500;letter-spacing:.02em;
+  color:var(--muted);white-space:nowrap;transition:color .45s var(--ease)}
+.g__view button[aria-pressed="true"]{color:var(--ink)}
+.g__view button::after{content:'';position:absolute;left:12px;right:12px;bottom:6px;height:1px;background:#a8875a;
+  transform:scaleX(0);transition:transform .55s var(--out)}
+.g__view button[aria-pressed="true"]::after{transform:none}
+.g__view button + button::before{content:'';position:absolute;left:-1.5px;top:50%;width:3px;height:3px;margin-top:-1.5px;border-radius:50%;background:#c3b9ab}
+.g__view button[hidden]{display:none}
+.g__view button:active{opacity:.6}
+
+/* ---------- «Листайте» — как на первом экране, в одну строку ---------- */
+.g__go{position:absolute;z-index:3;left:50%;bottom:calc(var(--safe-b) + 6px);transform:translateX(-50%);
+  display:flex;flex-direction:row;align-items:center;gap:8px;padding:4px 24px;color:var(--ink-2);
   font-size:10.5px;line-height:14px;font-weight:600;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase}
 .g__go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
   animation:nudge 2.2s var(--ease) infinite}
 .g__go:active{opacity:.6}
 
 /* ---------- движение ----------
-   Только transform, opacity и маска-шторка. Худи парит, тень дышит в такт;
-   раз в ~6 с выноски гаснут, по ткани проходит блик и худи поворачивается
-   спиной (смена снимков + лёгкий наклон), через ~3 с — обратно. Экран не
-   виден — всё стоит. */
+   Только transform, opacity и маска-шторка. Вещь парит, тень дышит в такт;
+   по очереди выноски, спиной, у бомбера — изнутри; затем смена вещи.
+   Экран не виден — всё стоит. */
 .g__float{animation:gFloat 7s ease-in-out infinite alternate}
 .g__shf{animation:gShade 7s ease-in-out infinite alternate}
-.g.is-off .g__float,.g.is-off .g__shf,.g.is-off .g__go svg,.g.is-off .g__view button::before,.g.is-off .co__dot::before{animation-play-state:paused}
+.g.is-off .g__float,.g.is-off .g__shf,.g.is-off .g__go svg,.g.is-off .co__dot::before,.g.is-off .g__sw i,.g.is-off .g__pf{animation-play-state:paused}
 @keyframes gFloat{from{transform:translateY(0)}to{transform:translateY(-9px)}}
 @keyframes gShade{from{transform:none;opacity:1}to{transform:scale(.9,.84);opacity:.7}}
 .g__turn.t1{animation:gTurnA 1.6s var(--io)}
@@ -646,6 +756,8 @@ html.js .g .g__floor{opacity:0}
 html.js .g .g__enter{transform:translateY(30px) scale(.965)}
 html.js .g .g__rev{transform:translateY(-100%)}
 html.js .g .g__rin{transform:translateY(128%)}
+html.js .g.is-in .g__pc.is-out .g__rev{transform:translateY(-100%);transition:transform .8s cubic-bezier(.55,0,.4,1)}
+html.js .g.is-in .g__pc.is-out .g__rin{transform:translateY(128%);transition:transform .8s cubic-bezier(.55,0,.4,1)}
 html.js .g .g__shadow{opacity:0}
 html.js .g .g__k{opacity:0;transform:translateY(10px)}
 html.js .g .g__k::before,html.js .g .g__k::after{transform:scaleX(0)}
@@ -653,58 +765,76 @@ html.js .g .g__k::before{transform-origin:100% 50%}
 html.js .g .g__k::after{transform-origin:0 50%}
 html.js .g .g__t i{transform:translateY(108%)}
 html.js .g .g__d{opacity:0;transform:translateY(12px)}
-html.js .g .g__view,html.js .g .g__go{opacity:0}
+html.js .g .g__dn{opacity:0;transform:translateY(12px)}
+html.js .g .g__dn.is-on{opacity:1;transform:none;transition:opacity .9s var(--ease) .42s,transform 1.1s var(--out) .42s}
+html.js .g .g__dn.is-was{opacity:0;transform:translateY(-8px);transition:opacity .35s var(--ease),transform .5s var(--ease)}
+html.js .g .g__pr,html.js .g .g__view,html.js .g .g__go{opacity:0}
 
 html.js .g.is-in .g__spot{opacity:1;transform:none;transition:opacity 1.6s var(--ease),transform 2.4s var(--out)}
 html.js .g.is-in .g__floor{opacity:1;transition:opacity 1.2s var(--ease) .1s}
 html.js .g.is-in .g__enter{transform:none;transition:transform 1.8s var(--out) .1s}
-html.js .g.is-in .g__rev,html.js .g.is-in .g__rin{transform:none;transition:transform 1.7s cubic-bezier(.45,0,.2,1) .1s}
+html.js .g.is-in .g__pc.is-on .g__rev,html.js .g.is-in .g__pc.is-on .g__rin{transform:none;transition:transform 1.7s cubic-bezier(.45,0,.2,1) .1s}
+html.js .g.is-swp .g__pc.is-on .g__rev,html.js .g.is-swp .g__pc.is-on .g__rin{transition:transform 1.5s cubic-bezier(.45,0,.2,1) .05s}
+/* при смене край шторки короче — уходящая вещь не тает серым пятном */
+.g.is-swp .g__rev{-webkit-mask-image:linear-gradient(to bottom,#000 95%,transparent);mask-image:linear-gradient(to bottom,#000 95%,transparent)}
 html.js .g.is-in .g__shadow{opacity:1;transition:opacity 1.4s var(--ease) .45s}
 html.js .g.is-in .g__k{opacity:1;transform:none;transition:opacity .8s var(--ease) .05s,transform 1s var(--out) .05s}
 html.js .g.is-in .g__k::before,html.js .g.is-in .g__k::after{transform:none;transition:transform 1.1s var(--out) .35s}
-html.js .g.is-in .g__t i{transform:none;transition:transform 1.2s var(--out) .16s}
-html.js .g.is-in .g__t > span + span i{transition-delay:.24s;animation:heroShine 2.4s var(--ease) 1.1s both}
+html.js .g.is-in .g__tn.is-on i{transform:none;transition:transform 1.2s var(--out) .16s}
+html.js .g.is-in .g__tn.is-on > span + span i{transition-delay:.24s;animation:heroShine 2.4s var(--ease) 1.1s both}
+html.js .g.is-in .g__tn.is-was i{transform:translateY(-108%);transition:transform .55s cubic-bezier(.5,0,.75,0)}
+html.js .g.is-in .g__tn.is-was > span + span i{transition-delay:.05s}
+/* при смене новый заголовок ждёт, пока старый уйдёт из-под маски */
+html.js .g.is-swp .g__tn.is-on i{transition-delay:.58s}
+html.js .g.is-swp .g__tn.is-on > span + span i{transition-delay:.66s}
 html.js .g.is-in .g__d{opacity:1;transform:none;transition:opacity .9s var(--ease) .38s,transform 1.1s var(--out) .38s}
-html.js .g.is-in .g__view{opacity:1;transition:opacity .9s var(--ease) 1.6s}
-html.js .g.is-in .g__go{opacity:1;transition:opacity .9s var(--ease) 1.8s}
-html.js .g.is-in .g__sheen i{animation:gSheen0 2.1s var(--io) .95s both}
+html.js .g.is-in .g__pr{opacity:1;transition:opacity .9s var(--ease) 1.6s}
+html.js .g.is-in .g__view{opacity:1;transition:opacity .9s var(--ease) 1.75s}
+html.js .g.is-in .g__go{opacity:1;transition:opacity .9s var(--ease) 1.9s}
+html.js .g.is-in .g__pc--hd .g__sheen i{animation:gSheen0 2.1s var(--io) .95s both}
 html.js .g .g__turn.t1 .g__sheen i{animation:gSheenA 1.7s var(--io) .1s both}
 html.js .g .g__turn.t2 .g__sheen i{animation:gSheenB 1.7s var(--io) .1s both}
+/* вещь встала на место — по ткани один раз проходит свет */
+html.js .g .g__pc.is-land .g__sheen i{animation:gSheenA 1.8s var(--io) .55s both}
 @keyframes gSheen0{from{transform:translateX(-120%)}to{transform:translateX(190%)}}
 @keyframes gSheenA{from{transform:translateX(-120%)}to{transform:translateX(190%)}}
 @keyframes gSheenB{from{transform:translateX(190%)}to{transform:translateX(-120%)}}
 
 /* выноски: точка — линия — плечо — подпись, по очереди; гаснут разом.
-   Спереди — 01–04 (.is-co), спиной — 05–06 (.is-cb). */
+   Показан список текущего вида (.is-show). */
 html.js .co__dot,html.js .co__stem,html.js .co__arm,html.js .co__lb > span{opacity:0;
   transition:opacity .35s var(--ease),transform 0s linear .4s}
 html.js .co__dot{transform:scale(.3)}
 html.js .co__stem{transform:scaleY(0)}
 html.js .co__arm{transform:scaleX(0)}
 html.js .co__lb > span{transform:translateY(5px)}
-html.js .g.is-co .g__co--f .co__dot,html.js .g.is-cb .g__co--b .co__dot{opacity:var(--o,1);transform:none;transition:opacity .4s var(--ease) var(--d),transform .7s var(--out) var(--d)}
-html.js .g.is-co .g__co--f .co__stem,html.js .g.is-cb .g__co--b .co__stem{opacity:var(--o,1);transform:none;transition:opacity .15s linear calc(var(--d) + .12s),transform .75s var(--out) calc(var(--d) + .12s)}
-html.js .g.is-co .g__co--f .co__arm,html.js .g.is-cb .g__co--b .co__arm{opacity:1;transform:none;transition:opacity .15s linear calc(var(--d) + .55s),transform .7s var(--out) calc(var(--d) + .55s)}
-html.js .g.is-co .g__co--f .co__lb > span,html.js .g.is-cb .g__co--b .co__lb > span{opacity:1;transform:none;transition:opacity .7s var(--ease) calc(var(--d) + .72s),transform .9s var(--out) calc(var(--d) + .72s)}
+html.js .g .g__co.is-show .co__dot{opacity:var(--o,1);transform:none;transition:opacity .4s var(--ease) var(--d),transform .7s var(--out) var(--d)}
+html.js .g .g__co.is-show .co__stem{opacity:var(--o,1);transform:none;transition:opacity .15s linear calc(var(--d) + .12s),transform .75s var(--out) calc(var(--d) + .12s)}
+html.js .g .g__co.is-show .co__arm{opacity:1;transform:none;transition:opacity .15s linear calc(var(--d) + .55s),transform .7s var(--out) calc(var(--d) + .55s)}
+html.js .g .g__co.is-show .co__lb > span{opacity:1;transform:none;transition:opacity .7s var(--ease) calc(var(--d) + .72s),transform .9s var(--out) calc(var(--d) + .72s)}
 .co:nth-child(1){--d:0s}.co:nth-child(2){--d:.2s}.co:nth-child(3){--d:.4s}.co:nth-child(4){--d:.6s}
 .co:nth-child(4) .is-2{--d:.72s}
+.co:nth-child(1) .is-2{--d:.16s}
 /* у 04 главная точка — манжета; кромка низа — вторая, тише */
 .co .is-h{--o:.5}
 
-/* низкий экран: нижний ряд подписей без сдвига, капсула ниже,
-   «Листайте» со стрелкой в одну строку */
+/* низкий экран: нижний ряд подписей без сдвига, кнопки ниже */
 @media (max-height:700px){
   .g{--top:calc(var(--safe-t) + 58px);--tt:clamp(27px,8.4vw,33px);--txh:calc(55px + var(--tt) * 1.06);
-     --above:calc(var(--top) + var(--txh) + 84px);--below:calc(var(--safe-b) + 168px);--lift:20px;--drop:34px;--offB:0px;
+     --above:calc(var(--top) + var(--txh) + 84px);--below:calc(var(--safe-b) + 176px);--lift:20px;--drop:34px;--offB:0px;
      --nT:calc(var(--safe-t) + 42px);--sd:calc(var(--hh) * .035);--fh:4px;--rv:9px}
   .g__d{font-size:14px;margin-top:8px}
-  .g__view{bottom:calc(var(--safe-b) + 50px)}
-  .g__view button{height:30px;padding:0 13px 0 7px;gap:6px}
-  .g__th{width:20px;height:22px}
-  .g__go{bottom:calc(var(--safe-b) + 10px);flex-direction:row;gap:8px}
+  .g__pr{bottom:calc(var(--safe-b) + 66px)}
+  .g__pr button{height:30px;padding:0 14px 0 7px;gap:7px;font-size:13px}
+  .g__pt{width:20px;height:22px}
+  .g__pt--w{width:31px}
+  .g__view{bottom:calc(var(--safe-b) + 33px)}
+  .g__view button{height:32px;padding:0 11px}
+  .g__view button::after{left:11px;right:11px;bottom:6px}
+  .g__go{bottom:calc(var(--safe-b) + 3px)}
 }
 
-/* компьютер: текст и капсула слева, вещь — в правой части, выноски в поля */
+/* компьютер: текст и кнопки слева, вещь — в правой части, выноски в поля */
 @media (min-width:900px){
   .g{
     --tt:clamp(44px,4.4vw,66px);
@@ -713,19 +843,26 @@ html.js .g.is-co .g__co--f .co__lb > span,html.js .g.is-cb .g__co--b .co__lb > s
     --by:calc(50 * var(--u) - var(--hh) * .5 + 4px);
     --lift:30px;--drop:60px;--offB:12px;
     --nr:calc(var(--hw) * .5 + 78px);--nT:calc(var(--by) - var(--hh) * .1 - 14px);--rv:14px;--fh:9px;--ov:34px;
+    --bw:min(calc(var(--hw) * 1.16),calc(var(--nr) * 2 - var(--rv) * 2 - 60px));
     --eL:calc(50% - var(--hw) * .5 - 70px);
     --eR:calc(50% + var(--hw) * .5 + 70px)
   }
   .g__stage{left:34vw}
-  .g__tx{left:7vw;right:auto;width:30vw;top:calc(50% - (var(--txh) + 96px) * .5);text-align:left}
+  .g__tx{left:7vw;right:auto;width:30vw;top:calc(50% - (var(--txh) + 140px) * .5);text-align:left}
   .g__k{justify-content:flex-start}
   .g__k::before{display:none}
   .g__k::after{width:38px}
   .g__k span{padding-left:0}
   .g__t{margin-top:22px}
-  .g__t > span{display:block;width:max-content}
+  .g__tn > span{display:block;width:max-content}
   .g__d{margin-top:20px;font-size:16px;line-height:26px}
-  .g__view{left:7vw;bottom:auto;top:calc(50% - (var(--txh) + 96px) * .5 + var(--txh) + 36px);transform:none}
+  .g__pr{left:7vw;bottom:auto;top:calc(50% - (var(--txh) + 140px) * .5 + var(--txh) + 36px);transform:none}
+  .g__pr button{height:38px;padding:0 18px 0 9px;font-size:14px}
+  .g__pt{width:24px;height:26px}
+  .g__pt--w{width:38px}
+  .g__view{left:calc(7vw - 12px);bottom:auto;top:calc(50% - (var(--txh) + 140px) * .5 + var(--txh) + 36px + 56px);transform:none}
+  .g__vw{justify-content:flex-start}
+  .g__view button{font-size:13px}
   .g__go{left:7vw;bottom:calc(var(--safe-b) + 34px);transform:none;flex-direction:row;gap:10px;padding:4px 0;text-indent:0}
   .co__lb{font-size:13px;line-height:18px}
   .co__lb b{font-size:12.5px;margin-right:9px}
@@ -741,33 +878,74 @@ html.js .g.is-co .g__co--f .co__lb > span,html.js .g.is-cb .g__co--b .co__lb > s
   .co--b.co--r .co__z{left:min(calc(50% + var(--nr) - var(--zs) * .5),calc(100% - var(--zs) - 16px));--zox:0%;--zoy:65%}
 }
 
+/* изнутри крупный план висит на самой линии выноски, ровно над деталью
+   (линия уходит за оправу и выходит к точке) — как подвеска; раскрывается
+   снизу, со стороны детали */
+.g .g__zs--p .co .co__z{left:calc(var(--X) - var(--zs) * .5);top:calc(var(--rT) + var(--zg));--zox:50%;--zoy:100%}
+@media (max-height:700px){
+  .g .g__zs--p .co .co__z{top:calc(var(--rT) + 5px)}
+}
+@media (min-width:900px){
+  .g .g__zs--p .co .co__z{top:calc(var(--rT) + var(--zg) + 6px)}
+}
+
 @media (prefers-reduced-motion:reduce){
   .g__float,.g__shf,.g__go svg,.g__turn.t1,.g__turn.t2,.g__shadow.t1,.g__shadow.t2{animation:none}
   html.js .g .g__sheen i{animation:none;opacity:0}
+  .g__sw{display:none}
   html.js .g .g__warm,html.js .g .g__beam,html.js .g .g__brass{opacity:1;transform:none;transition:none}
   html.js .g .g__brass b,html.js .g.is-in .g__brass b{animation:none;opacity:0}
   .g__plq,.g.is-bk .g__plq{transition:opacity .4s linear;transform:none}
-  html.js .g .g__rev,html.js .g .g__rin,html.js .g.is-in .g__rev,html.js .g.is-in .g__rin{transform:none;transition:none}
+  html.js .g .g__rev,html.js .g .g__rin,html.js .g.is-in .g__pc .g__rev,html.js .g.is-in .g__pc .g__rin{transform:none;transition:none}
   html.js .g .g__spot,html.js .g .g__floor,html.js .g .g__enter,html.js .g .g__shadow,html.js .g .g__k,
   html.js .g .g__k::before,html.js .g .g__k::after,html.js .g .g__t i,html.js .g .g__d,
   html.js .co__dot,html.js .co__stem,html.js .co__arm,html.js .co__lb > span{transform:none;transition:none}
-  /* капсула и «Листайте» центрируются сдвигом — его не трогаем */
-  html.js .g .g__view,html.js .g .g__go{transition:none}
+  /* кнопки и «Листайте» центрируются сдвигом — его не трогаем */
+  html.js .g .g__pr,html.js .g .g__view,html.js .g .g__go{transition:none}
   html.js .g.is-in .g__spot,html.js .g.is-in .g__floor,html.js .g.is-in .g__enter,html.js .g.is-in .g__shadow,
-  html.js .g.is-in .g__k,html.js .g.is-in .g__d,html.js .g.is-in .g__view,html.js .g.is-in .g__go{opacity:1;transition:opacity .4s linear}
-  html.js .g.is-in .g__t > span + span i{animation:none}
-  .g__face{transition:opacity 0s linear .5s}
-  .g__face.is-on{transition:opacity .45s linear}
-  .g__view button.is-run::before{animation:none}
+  html.js .g.is-in .g__k,html.js .g.is-in .g__d,html.js .g.is-in .g__pr,html.js .g.is-in .g__view,html.js .g.is-in .g__go{opacity:1;transition:opacity .4s linear}
+  html.js .g.is-in .g__tn.is-on > span + span i{animation:none}
+  /* смена вещи и заголовка — простым наплывом, без движения */
+  html.js .g .g__tn i,html.js .g.is-in .g__tn.is-on i,html.js .g.is-in .g__tn.is-was i{transform:none;transition:none}
+  html.js .g .g__tn{opacity:0;transition:opacity .4s linear}
+  html.js .g .g__tn.is-on{opacity:1}
+  html.js .g .g__dn,html.js .g .g__dn.is-on,html.js .g .g__dn.is-was{transform:none;transition:opacity .4s linear}
+  .g__pc,.g__pc.is-on,.g__pc.is-out{transform:none;opacity:0;transition:opacity .45s linear,visibility 0s linear .45s}
+  .g__pc.is-on{opacity:1;transition:opacity .45s linear,visibility 0s}
+  .g__shp,.g__shp.is-on{transform:none;transition:opacity .45s linear}
+  .g__ob,.g__face--i.is-on .g__ob{-webkit-mask:none;mask:none;transition:none}
+  .g__dim,.g.is-iv .g__dim{transition:opacity .45s linear}
+  /* общий *{transition-duration:.001s} оставляет задержку — прежний вид
+     висел бы под новым ещё полсекунды; гасим его сразу */
+  .g__face,.g__pc--bm .g__face{transition:none}
+  .g__face.is-on,.g__pc--bm .g__face.is-on,.g__box--bm.is-xf .g__face,.g__box--bm.is-xf .g__face.is-on{transition:opacity .45s linear}
+  .g__box--bm .g__face,.g__box--bm.is-xf .g__face,.g__box--bm.is-xf .g__face.is-was{-webkit-mask:none;mask:none}
+  .g__box--bm.is-xf .g__face.is-was{opacity:0}
+  .g__pr button.is-wait .g__pf{animation:none;opacity:.6}
+  .g__view button::after{transition:none}
   /* экскурсии нет: крупный план — только по касанию, сразу, без движения */
-  .g__co--f .co,html.js .co__z,html.js .co__z::before,html.js .co__zc,html.js .co__zc img,
+  .g__co--z .co,html.js .co__z,html.js .co__z::before,html.js .co__zc,html.js .co__zc img,
   html.js .co__z::after,html.js .g .co.is-on .co__z,html.js .g .co.is-on .co__z::before,html.js .g .co.is-on .co__z::after,html.js .g .co.is-on .co__zc,html.js .g .co.is-on .co__zc img{transition:none}
   html.js .co__z{transform:none}
   html.js .co__zc,html.js .g .co.is-on .co__zc{-webkit-clip-path:none;clip-path:none}
   html.js .co__zc img{transform:none}
-  html.js .g.is-tour .co.is-on .co__dot:not(.is-h)::before{animation:none;opacity:.55;transform:scale(.7)}
+  html.js .g__co.is-tour .co.is-on .co__dot:not(.is-h)::before{animation:none;opacity:.55;transform:scale(.7)}
 }
 
+
+/* правки после разбора: крупный план кармана на низком экране не заходит на
+   плечо; на компьютере он — главный кадр «Внутри», крупнее остальных; три
+   вещи в капсуле помещаются и на узком телефоне */
+@media (max-height:700px){ .g .g__zs--p .co .co__z{--zs:100px;top:calc(var(--rT) + 4px)} }
+/* низкий телефон: над подкладкой места нет — 07 уходит к краю, под свою
+   подпись (как крупные планы спереди), и не закрывает воротник; на
+   компьютере место есть — висит на линии, как было */
+@media (max-height:700px) and (max-width:899px){ .g .g__zs--p .co--l .co__z{left:var(--eL);--zox:85%;--zoy:80%} }
+@media (min-width:900px){ .g .g__zs--p .co:first-child .co__z{--zs:clamp(150px,calc(var(--hh) * .3),190px)} }
+@media (max-width:370px){
+  .g__pr:has(button:nth-child(3)) button{padding:0 11px 0 6px;gap:6px}
+  .g__pr:has(button:nth-child(3)) .g__pt{width:18px}
+}
 /* ================= 03: ТКАНЬ — ПЛИТКА =================
    Продолжение второго экрана: та же тёплая стена с зерном и мягким светом,
    на ней — шесть снимков «галерейной стенкой» по образцу владельца (вариант 2):
@@ -1794,10 +1972,11 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 <section class="g snap" id="s2" aria-labelledby="t2">
   <div class="g__bg" aria-hidden="true"><div class="g__vig"></div><div class="g__grain"></div></div>
 
+  <!-- у каждой вещи свой заголовок и подпись (data-p — номер вещи) -->
   <header class="g__tx">
     <p class="g__k"><span>02 / 07</span></p>
-    <h2 class="g__t" id="t2"><span><i>Худи</i></span> <span><i>на&nbsp;молнии</i></span></h2>
-    <p class="g__d">Тёплая и&nbsp;мягкая — к&nbsp;любой футболке</p>
+    <h2 class="g__t" id="t2"><span class="g__tn is-on" data-p="0"><span><i>Худи</i></span> <span><i>на&nbsp;молнии</i></span></span><span class="g__tn" data-p="1" aria-hidden="true"><span><i>Чёрный</i></span> <span><i>бомбер</i></span></span></h2>
+    <p class="g__d"><span class="g__dn is-on" data-p="0">Тёплая и&nbsp;мягкая — к&nbsp;любой футболке</span><span class="g__dn" data-p="1" aria-hidden="true">Серебристая подкладка и&nbsp;карман внутри</span></p>
   </header>
 
   <div class="g__stage">
@@ -1805,69 +1984,139 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
          полка с латунной жилкой; ниже полки — подпись бренда на заднем виде -->
     <div class="g__niche" aria-hidden="true">
       <div class="g__arch">
-        <div class="g__back"><i class="g__warm"></i><div class="g__spot"></div><i class="g__beam"></i></div>
+        <div class="g__back"><i class="g__warm"></i><div class="g__spot"></div><i class="g__beam"></i><i class="g__dim"></i></div>
         <i class="g__fl"></i>
       </div>
       <div class="g__ledge"><i class="g__brass"><b></b></i></div>
     </div>
     <div class="g__floor" aria-hidden="true"></div>
     <p class="g__plq" aria-hidden="true">LUXE CANVAS</p>
-    <div class="g__shadow" aria-hidden="true"><div class="g__shf"><i></i><i></i></div></div>
+    <div class="g__shadow" aria-hidden="true">
+      <div class="g__shp g__shp--hd is-on"><div class="g__shf"><i></i><i></i></div></div>
+      <div class="g__shp g__shp--bm"><div class="g__shf"><i></i><i></i></div></div>
+    </div>
     <div class="g__enter"><div class="g__float">
-      <div class="g__box" id="gBox" role="img" aria-label="Чёрное худи на молнии">
-        <div class="g__rev"><div class="g__rin"><div class="g__turn">
-          <div class="g__face g__face--f is-on"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></div>
-          <div class="g__face g__face--b"><img data-src="/onboarding/hd-back.webp" alt="" width="782" height="836" decoding="async"></div>
-          <div class="g__sheen" aria-hidden="true"><i></i></div>
-        </div></div></div>
+      <!-- ===== вещь 0: худи на молнии (спереди, сзади) ===== -->
+      <div class="g__pc g__pc--hd is-on" data-p="0" data-views="f b">
+        <div class="g__box" id="gBox" role="img" aria-label="Чёрное худи на молнии">
+          <div class="g__rev"><div class="g__rin"><div class="g__turn">
+            <div class="g__face g__face--f is-on" data-v="f"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></div>
+            <div class="g__face g__face--b" data-v="b"><img data-src="/onboarding/hd-back.webp" alt="" width="782" height="836" decoding="async"></div>
+            <div class="g__sheen" aria-hidden="true"><i></i></div>
+          </div></div></div>
+        </div>
+        <!-- спереди: после выносок — «экскурсия» по одной детали; у каждой свой
+             крупный план (тот же снимок, увеличенный, hd-z-*, слой .g__zs ниже),
+             он только для глаз — деталь и так названа подписью. Подпись и точка
+             принимают касание: сразу к этой детали, дальше экскурсия идёт с неё. -->
+        <ul class="g__co g__co--z" data-v="f" aria-label="Детали худи спереди">
+          <li class="co co--t co--l" style="--ax:.5115;--ay:.2943;--e:.0048">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>01</b>Металлическая молния</span></button>
+          </li>
+          <li class="co co--t co--r" style="--ax:.6164;--ay:.1758;--e:.0108;--lf:var(--offT)">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>02</b>Капюшон на&nbsp;шнурках</span></button>
+          </li>
+          <li class="co co--b co--l" style="--ax:.2916;--ay:.7177;--e:.9785">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>03</b>Карман-кенгуру</span></button>
+          </li>
+          <li class="co co--b co--r" style="--ax:.7353;--ay:.9450;--e:.9761;--ax2:.9028;--ay2:.9569;--e2:.9952;--lf:var(--offB)">
+            <i class="co__stem is-h"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot is-h"></i><i class="co__dot is-2"></i><i class="co__hit is-h" aria-hidden="true"></i><i class="co__hit is-2" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>04</b>Манжеты и&nbsp;низ в&nbsp;рубчик</span></button>
+          </li>
+        </ul>
+        <!-- спина: то, что видно сзади, — капюшон (шов по центру) и спущенное плечо;
+             внизу, под полкой, в это время проступает LUXE CANVAS -->
+        <ul class="g__co" data-v="b" aria-label="Детали худи сзади">
+          <li class="co co--t co--l" style="--ax:.4945;--ay:.1600;--e:.0048">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i>
+            <span class="co__lb"><span><b>05</b>Объёмный капюшон</span></span>
+          </li>
+          <li class="co co--t co--r" style="--ax:.8560;--ay:.2982;--e:.2300;--lf:var(--offT)">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i>
+            <span class="co__lb"><span><b>06</b>Спущенное плечо</span></span>
+          </li>
+        </ul>
+        <!-- крупные планы 01–04 — отдельным слоем (не притихают вместе с выносками);
+             место считается от той же выноски, поэтому у каждого её --ax/--ay -->
+        <div class="g__zs" data-v="f" aria-hidden="true">
+          <span class="co co--t co--l" style="--ax:.5115;--ay:.2943"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-zip.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--r" style="--ax:.6164;--ay:.1758;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-eyelet.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--b co--l" style="--ax:.2916;--ay:.7177"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-pocket.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--b co--r" style="--ax:.7353;--ay:.9450;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-cuff.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        </div>
       </div>
-      <!-- спереди: после выносок — «экскурсия» по одной детали; у каждой свой
-           крупный план (тот же снимок, увеличенный, hd-z-*, слой .g__zs ниже),
-           он только для глаз — деталь и так названа подписью. Подпись и точка
-           принимают касание: сразу к этой детали, дальше экскурсия идёт с неё. -->
-      <ul class="g__co g__co--f" aria-label="Детали спереди">
-        <li class="co co--t co--l" style="--ax:.5115;--ay:.2943;--e:.0048">
-          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
-          <button class="co__lb" type="button" tabindex="-1"><span><b>01</b>Металлическая молния</span></button>
-        </li>
-        <li class="co co--t co--r" style="--ax:.6164;--ay:.1758;--e:.0108;--lf:var(--offT)">
-          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
-          <button class="co__lb" type="button" tabindex="-1"><span><b>02</b>Капюшон на&nbsp;шнурках</span></button>
-        </li>
-        <li class="co co--b co--l" style="--ax:.2916;--ay:.7177;--e:.9785">
-          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
-          <button class="co__lb" type="button" tabindex="-1"><span><b>03</b>Карман-кенгуру</span></button>
-        </li>
-        <li class="co co--b co--r" style="--ax:.7353;--ay:.9450;--e:.9761;--ax2:.9028;--ay2:.9569;--e2:.9952;--lf:var(--offB)">
-          <i class="co__stem is-h"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot is-h"></i><i class="co__dot is-2"></i><i class="co__hit is-h" aria-hidden="true"></i><i class="co__hit is-2" aria-hidden="true"></i>
-          <button class="co__lb" type="button" tabindex="-1"><span><b>04</b>Манжеты и&nbsp;низ в&nbsp;рубчик</span></button>
-        </li>
-      </ul>
-      <!-- спина: то, что видно сзади, — капюшон (шов по центру) и спущенное плечо;
-           внизу, под полкой, в это время проступает LUXE CANVAS -->
-      <ul class="g__co g__co--b" aria-label="Детали сзади">
-        <li class="co co--t co--l" style="--ax:.4945;--ay:.1600;--e:.0048">
-          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i>
-          <span class="co__lb"><span><b>05</b>Объёмный капюшон</span></span>
-        </li>
-        <li class="co co--t co--r" style="--ax:.8560;--ay:.2982;--e:.2300;--lf:var(--offT)">
-          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i>
-          <span class="co__lb"><span><b>06</b>Спущенное плечо</span></span>
-        </li>
-      </ul>
-      <!-- крупные планы 01–04 — отдельным слоем (не притихают вместе с выносками);
-           место считается от той же выноски, поэтому у каждого её --ax/--ay -->
-      <div class="g__zs" aria-hidden="true">
-        <span class="co co--t co--l" style="--ax:.5115;--ay:.2943"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-zip.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
-        <span class="co co--t co--r" style="--ax:.6164;--ay:.1758;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-eyelet.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
-        <span class="co co--b co--l" style="--ax:.2916;--ay:.7177"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-pocket.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
-        <span class="co co--b co--r" style="--ax:.7353;--ay:.9450;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-cuff.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+
+      <!-- ===== вещь 1: бомбер (спереди, сзади, внутри) =====
+           Снимки качаются после худи (data-srcb). Кадр 1200×776, спина в том же
+           кадре; раскрытый — 1200×664, низом по низу бомбера. Точки — доли кадра. -->
+      <div class="g__pc g__pc--bm" data-p="1" data-views="f b i" aria-hidden="true">
+        <div class="g__box g__box--bm" id="gBoxB" role="img" aria-label="Чёрный бомбер">
+          <div class="g__rev"><div class="g__rin"><div class="g__turn">
+            <div class="g__face is-on" data-v="f"><img data-srcb="/onboarding/bm-front.webp" alt="" width="1200" height="776" decoding="async" crossorigin="anonymous"></div>
+            <div class="g__face" data-v="b"><img data-srcb="/onboarding/bm-back.webp" alt="" width="1200" height="776" decoding="async"></div>
+            <div class="g__face g__face--i" data-v="i"><div class="g__ob"><img data-srcb="/onboarding/bm-open.webp" alt="" width="1200" height="664" decoding="async"><div class="g__sw" aria-hidden="true"><b><i></i></b></div></div></div>
+            <div class="g__sheen" aria-hidden="true"><i></i></div>
+          </div></div></div>
+        </div>
+        <ul class="g__co g__co--z" data-v="f" aria-label="Детали бомбера спереди">
+          <li class="co co--t co--l" style="--ax:.5025;--ay:.2384;--e:.0129">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>01</b>Молния во&nbsp;всю длину</span></button>
+          </li>
+          <li class="co co--t co--r" style="--ax:.5750;--ay:.1095;--e:.0193;--lf:var(--offT)">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>02</b>Воротник в&nbsp;рубчик</span></button>
+          </li>
+          <li class="co co--b co--l" style="--ax:.3680;--ay:.6560;--e:.9549">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>03</b>Косые карманы</span></button>
+          </li>
+          <li class="co co--b co--r" style="--ax:.6583;--ay:.9278;--e:.9639;--ax2:.9167;--ay2:.9343;--e2:.9858;--lf:var(--offB)">
+            <i class="co__stem is-h"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot is-h"></i><i class="co__dot is-2"></i><i class="co__hit is-h" aria-hidden="true"></i><i class="co__hit is-2" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>04</b>Манжеты и&nbsp;низ в&nbsp;рубчик</span></button>
+          </li>
+        </ul>
+        <!-- спина: обе сборки рукавов одной скобкой -->
+        <ul class="g__co" data-v="b" aria-label="Детали бомбера сзади">
+          <li class="co co--t co--r" style="--ax:.2983;--ay:.3093;--e:.1624;--ax2:.7100;--ay2:.3093;--e2:.1688">
+            <i class="co__stem"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__dot is-2"></i>
+            <span class="co__lb"><span><b>05</b>Рукава со&nbsp;сборкой</span></span>
+          </li>
+        </ul>
+        <!-- внутри: карман на молнии, потом подкладка; крупный план висит на линии -->
+        <ul class="g__co g__co--z g__co--sv" data-v="i" aria-label="Бомбер внутри">
+          <li class="co co--t co--r" style="--ax:.6583;--ay:.4925;--e:.1340;--e3:.3434;--lf:var(--offT)">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>06</b>Карман на&nbsp;молнии</span></button>
+          </li>
+          <li class="co co--t co--l co--k" data-sw style="--ax:.4650;--ay:.4970;--e:.0181;--e3:.1747">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>07</b>Серебристая подкладка</span></button>
+          </li>
+        </ul>
+        <div class="g__zs" data-v="f" aria-hidden="true">
+          <span class="co co--t co--l" style="--ax:.5025;--ay:.2384"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-zip.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--r" style="--ax:.5750;--ay:.1095;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-collar.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--b co--l" style="--ax:.3680;--ay:.6560"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-welt.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--b co--r" style="--ax:.6583;--ay:.9278;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-cuff.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        </div>
+        <div class="g__zs g__zs--p" data-v="i" aria-hidden="true">
+          <span class="co co--t co--r" style="--ax:.6583;--ay:.4925;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-pocket-in.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--l" style="--ax:.4650;--ay:.4970"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-lining.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        </div>
       </div>
     </div></div>
   </div>
 
-  <div class="g__view" role="group" aria-label="Сторона худи">
-    <button type="button" data-v="f" aria-pressed="true"><span class="g__th" aria-hidden="true"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></span>Спереди</button><button type="button" data-v="b" aria-pressed="false"><span class="g__th" aria-hidden="true"><img data-src="/onboarding/hd-back.webp" alt="" width="782" height="836" decoding="async"></span>Сзади</button>
+  <!-- главный выбор — вещь; под ним — сторона (у бомбера ещё «Внутри») -->
+  <div class="g__pr" role="group" aria-label="Вещь на витрине">
+    <button type="button" data-p="0" aria-pressed="true"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></span>Худи</button><button type="button" data-p="1" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt g__pt--w" aria-hidden="true"><img data-src="/onboarding/bm-front.webp" alt="" width="1200" height="776" decoding="async" crossorigin="anonymous"></span>Бомбер</button>
+  </div>
+  <div class="g__view" role="group" aria-label="Сторона">
+    <div class="g__vw"><button type="button" data-v="f" aria-pressed="true">Спереди</button><button type="button" data-v="b" aria-pressed="false">Сзади</button><button type="button" data-v="i" aria-pressed="false" hidden>Внутри</button></div>
   </div>
   <button class="g__go" type="button" data-next aria-label="Листайте — следующий экран">Листайте<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
 </section>
@@ -2074,35 +2323,59 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     });
   });
 
-  /* --- 02: худи на молнии ---
+  /* --- 02: худи на молнии --- и бомбер: «витрина» ---
      Экран проявляется, когда встаёт на место (как остальные): худи шторкой
-     сверху вниз, потом выноски по одной. Затем «экскурсия»: детали 01–04 по
-     очереди, у каждой — свой крупный план; после 04 худи поворачивается
-     спиной, ~4 с — и обратно, всё снова. Касание по подписи или точке —
-     сразу к этой детали, дальше экскурсия идёт с неё. «Спереди / Сзади» и
-     касание по худи — сразу; после своего выбора поворот ждёт подольше.
-     Экран ушёл из виду или вкладка скрыта — отсчёт стоит и продолжается с
-     того же места. Снимки качаются после первого экрана, чтобы не отнимать
-     у него сеть. */
+     сверху вниз, потом выноски по одной. Дальше всё идёт по «плану» вещи:
+     у худи — спереди (экскурсия 01–04 с крупными планами) и спиной (05–06);
+     у бомбера — спереди (01–04), спиной (05) и изнутри (06 карман на молнии,
+     07 подкладка — крупный план висит на линии над деталью). После последнего
+     вида — следующая вещь: эта поднимается и тает, новая спускается на её
+     место, заголовок и подпись сменяются. По капсуле «Худи · Бомбер» идёт
+     отсчёт до следующей вещи. Касание по вещи в капсуле — сразу к ней; по
+     «Спереди / Сзади / Внутри» или по самой вещи — к этому виду; по подписи
+     или точке — к детали; после своего выбора всё ждёт подольше. Экран ушёл
+     из виду или вкладка скрыта — отсчёт стоит и продолжается с того же
+     места. Снимки худи качаются после первого экрана, бомбера — после худи;
+     пока бомбер не готов, худи идёт по кругу, как раньше. */
   var gs = document.getElementById('s2');
   if(gs && gs.classList.contains('g')) (function(){
-    var turn = gs.querySelector('.g__turn'), shadow = gs.querySelector('.g__shadow'), brass = gs.querySelector('.g__brass');
-    var faceF = gs.querySelector('.g__face--f'), faceB = gs.querySelector('.g__face--b');
-    var imgF = faceF.querySelector('img');
-    var btns = [].slice.call(gs.querySelectorAll('.g__view button'));
-    var cos = [].slice.call(gs.querySelectorAll('.g__co--f .co')), zs = [].slice.call(gs.querySelectorAll('.g__zs .co'));
-    /* выноски рисуются с CO_AT; через TOUR_AT — первая деталь, по STEP на
-       каждую (выбранная касанием — STEP_U), после 04 — поворот. Спиной —
-       HOLD_B (у неё свои выноски 05–06). Свой выбор — плюс HOLD_U. */
+    var shadow = gs.querySelector('.g__shadow'), brass = gs.querySelector('.g__brass');
+    var pbtns = [].slice.call(gs.querySelectorAll('.g__pr button'));
+    var vw = gs.querySelector('.g__vw'), vbtns = [].slice.call(vw.querySelectorAll('button'));
+    var shps = [].slice.call(gs.querySelectorAll('.g__shp'));
+    /* худи — как было: выноски с CO_AT, через TOUR_AT — первая деталь, по STEP
+       на каждую (выбранная касанием — STEP_U); спиной — HOLD_B; свой выбор —
+       плюс HOLD_U. Смена вещи: выноски гаснут (CO_OFF), вещь уходит, через GAP
+       спускается новая (LAND), её выноски — с SW_CO. Внутрь: снимок раскрывается,
+       с SWEEP_AT по серебру идёт свет, выноски с OPEN_CO, крупные планы через
+       TOUR_I, по STEP_I на каждый. */
     var CO_AT = 1000, TOUR_AT = 1400, STEP = 2100, STEP_U = 3200, HOLD_B = 4400, HOLD_U = 2400, TURN = 1600, CO_OFF = 380;
     var CO_IN = CO_OFF + Math.round(TURN * .62);
-    var back = false, flip = 0, asked = false, started = false, vis = false, cur = -1, lng = false;
-    var tmr = 0, fn = null, at = 0, left = 0;
+    var GAP = 480, LAND = 1700, SW_CO = CO_OFF + GAP + 1300;
+    var SWEEP_AT = CO_OFF + 1150, OPEN_CO = CO_OFF + 2300, TOUR_I = 1100, STEP_I = 3000;
 
-    function run(){ return started && vis && !document.hidden && !reduce; }
-    /* таймер, который можно поставить на паузу */
+    function kids(el){ return el ? [].slice.call(el.children) : []; }
+    var pcs = [].slice.call(gs.querySelectorAll('.g__pc')).map(function(el, p){
+      var o = { el: el, views: el.getAttribute('data-views').split(' '), lists: [], zs: [], faces: [],
+        box: el.querySelector('.g__box'), turn: el.querySelector('.g__turn'), sw: el.querySelector('.g__sw'),
+        tn: gs.querySelector('.g__tn[data-p="' + p + '"]'), dn: gs.querySelector('.g__dn[data-p="' + p + '"]') };
+      o.views.forEach(function(v, i){
+        o.lists[i] = el.querySelector('.g__co[data-v="' + v + '"]');
+        o.zs[i] = el.querySelector('.g__zs[data-v="' + v + '"]');
+        o.faces[i] = el.querySelector('.g__face[data-v="' + v + '"]');
+      });
+      return o;
+    });
+    var imgF = pcs[0].faces[0].querySelector('img');
+    var P = 0, V = 0, PL = [], cur = -1, lng = false, tok = 0, stok = 0, wtok = 0, busy = false, flip = 0, queued = null;
+    var vbusy = false, vt = 0, vend = 0;
+    var asked = false, started = false, vis = false, okB = false, bReady = null;
+    var tmr = 0, fn = null, at = 0, left = 0, fa = null;
+
+    function live(){ return started && vis && !document.hidden && !reduce; }
+    /* таймер, который можно поставить на паузу (и с ним — отсчёт в капсуле) */
     function resume(){
-      if(tmr || !fn || !run()) return;
+      if(tmr || !fn || !live()) return;
       at = Date.now();
       tmr = setTimeout(function(){ tmr = 0; var f = fn; fn = null; f(); }, left);
     }
@@ -2113,81 +2386,247 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     }
     function later(f, ms){ if(tmr){ clearTimeout(tmr); tmr = 0; } fn = f; left = ms; resume(); }
     function sync(){
-      gs.classList.toggle('is-off', started && !run());
-      if(run()) resume(); else hold();
+      gs.classList.toggle('is-off', started && !live());
+      if(live()){ resume(); if(fa && fa.playState === 'paused') fa.play(); }
+      else { hold(); if(fa && fa.playState === 'running') fa.pause(); }
     }
 
-    function face(b){ faceB.classList.toggle('is-on', b); faceF.classList.toggle('is-on', !b); gs.classList.toggle('is-bk', b); }
-    function mark(ms){
-      btns.forEach(function(b){
-        var on = (b.getAttribute('data-v') === 'b') === back;
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
-        b.classList.remove('is-run');
-        if(on && ms && !reduce){ b.style.setProperty('--hold', ms + 'ms'); void b.offsetWidth; b.classList.add('is-run'); }
-      });
-    }
-    function spin(){
-      var c = flip ? 't2' : 't1'; flip ^= 1;
-      [turn, shadow, brass].forEach(function(el){ if(!el) return; el.classList.remove('t1', 't2'); void el.offsetWidth; el.classList.add(c); });
-    }
-    /* деталь k — в полную силу и крупным планом, остальные тише; -1 — все ровно */
-    /* подписи спереди — в порядке Tab, только пока их видно */
-    function keys(on){ cos.forEach(function(li){ li.querySelector('.co__lb').tabIndex = on ? 0 : -1; }); }
+    function nz(p, vi){ return kids(pcs[p].zs[vi]).length; }
+    /* подписи с крупным планом — в порядке Tab, только пока их видно */
+    function keys(p, vi, on){ [].forEach.call(pcs[p].lists[vi].querySelectorAll('button.co__lb'), function(b){ b.tabIndex = on ? 0 : -1; }); }
+    /* деталь k текущего вида — в полную силу и крупным планом, остальные тише; -1 — все ровно */
     function hi(k){
+      var pc = pcs[P], l = pc.lists[V];
       cur = k;
-      cos.forEach(function(li, i){ li.classList.toggle('is-on', i === k); zs[i].classList.toggle('is-on', i === k); });
-      gs.classList.toggle('is-tour', k >= 0);
+      kids(l).forEach(function(li, i){ li.classList.toggle('is-on', i === k); if(i === k && li.hasAttribute('data-sw')) sweep(pc); });
+      kids(pc.zs[V]).forEach(function(s, i){ s.classList.toggle('is-on', i === k); });
+      l.classList.toggle('is-tour', k >= 0);
     }
-    function step(k, ms){
-      hi(k);
-      later(function(){ if(k < cos.length - 1) step(k + 1, STEP); else end(); }, ms);
+    /* выноски вида гаснут: крупный план — сразу, выноски — следом; «тише»
+       снимаем, когда их уже нет */
+    function off(p, vi){
+      var l = pcs[p].lists[vi], z = pcs[p].zs[vi];
+      kids(l).forEach(function(li){ li.classList.remove('is-on'); });
+      kids(z).forEach(function(s){ s.classList.remove('is-on'); });
+      l.classList.remove('is-show'); if(z) z.classList.remove('is-show');
+      keys(p, vi, false);
+      setTimeout(function(){ if(!l.classList.contains('is-show')) l.classList.remove('is-tour'); }, CO_OFF);
     }
-    function end(){
-      if(!lng){ show(true, true); return; }
-      lng = false; hi(-1);
-      later(function(){ show(true, true); }, HOLD_U);
+    function on(p, vi){
+      var l = pcs[p].lists[vi], z = pcs[p].zs[vi];
+      l.classList.add('is-show'); if(z) z.classList.add('is-show');
+      keys(p, vi, true);
     }
-    function show(toBack, auto){
-      if(toBack === back) return;
-      back = toBack;
-      var was = back;
-      /* крупный план уходит сразу, выноски — следом; «тише» снимаем, когда их уже нет */
-      cur = -1; cos.forEach(function(li, i){ li.classList.remove('is-on'); zs[i].classList.remove('is-on'); });
-      gs.classList.remove(back ? 'is-co' : 'is-cb');
-      if(back) keys(false);
-      setTimeout(function(){ if(back === was){ if(cur < 0) gs.classList.remove('is-tour'); face(back); if(!reduce) spin(); } }, reduce ? 0 : CO_OFF);
-      setTimeout(function(){ if(back === was){ gs.classList.add(back ? 'is-cb' : 'is-co'); if(!back) keys(true); } }, reduce ? 0 : CO_IN);
-      if(reduce){ mark(0); return; }
-      if(back){
-        var h = HOLD_B + (auto ? 0 : HOLD_U);
-        mark(auto ? h + CO_OFF : 0);
-        later(function(){ show(false, true); }, h + CO_OFF);
-      } else {
-        lng = !auto;
-        mark(auto ? CO_IN + TOUR_AT + STEP * cos.length : 0);
-        later(function(){ step(0, STEP); }, CO_IN + TOUR_AT);
-      }
-    }
-    function user(toBack){
-      if(!started || toBack === back) return;
-      show(toBack, false);
-    }
-    /* касание по детали: сразу к ней, дольше на ней, дальше — по порядку */
-    function pick(k){
-      if(!started || back || !gs.classList.contains('is-co')) return;
-      if(reduce){ hi(cur === k ? -1 : k); return; }
-      lng = true; mark(0);
-      step(k, STEP_U);
-    }
-    btns.forEach(function(b){ b.addEventListener('click', function(){ user(b.getAttribute('data-v') === 'b'); }); });
-    document.getElementById('gBox').addEventListener('click', function(){ user(!back); });
-    cos.forEach(function(li, i){
-      [].forEach.call(li.querySelectorAll('.co__lb, .co__hit'), function(el){
-        el.addEventListener('click', function(){ pick(i); });
+    /* xf — смена шторкой (внутрь и обратно): прежний вид отмечен is-was */
+    function faces(pc, vi, xf){
+      pc.faces.forEach(function(f, i){
+        f.classList.toggle('is-was', !!xf && i !== vi && f.classList.contains('is-on'));
+        f.classList.toggle('is-on', i === vi);
       });
-      zs[i].querySelector('.co__z').addEventListener('click', function(){ pick(i); });
+    }
+    function mood(v){ gs.classList.toggle('is-bk', v === 'b'); gs.classList.toggle('is-iv', v === 'i'); }
+    function kick(el, c){ if(!el) return; el.classList.remove('t1', 't2', 'is-run', 'is-land'); void el.offsetWidth; el.classList.add(c); }
+    function spin(pc){ var c = flip ? 't2' : 't1'; flip ^= 1; [pc.turn, shadow, brass].forEach(function(el){ kick(el, c); }); }
+    function glint(){ var c = flip ? 't2' : 't1'; flip ^= 1; kick(brass, c); }
+    function sweep(pc){ if(pc.sw && !reduce) kick(pc.sw, 'is-run'); }
+    function marks(){
+      var v = pcs[P].views[V];
+      vbtns.forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-v') === v ? 'true' : 'false'); });
+    }
+
+    /* план вещи: вход в каждый вид и шаги экскурсии; d — обычная длительность,
+       s — с какого места плана шаг начинается (для отсчёта в капсуле) */
+    function plan(p){
+      var pc = pcs[p], out = [], s = 0;
+      pc.views.forEach(function(v, vi){
+        var n = nz(p, vi), ins = v === 'i';
+        out.push({ v: vi, k: -1, d: !n ? CO_OFF + HOLD_B : vi ? (ins ? OPEN_CO + TOUR_I : CO_IN + TOUR_AT) : SW_CO + TOUR_AT });
+        for(var k = 0; k < n; k++) out.push({ v: vi, k: k, d: ins ? STEP_I : STEP });
+      });
+      out.forEach(function(ph){ ph.s = s; s += ph.d; });
+      out.T = s;
+      return out;
+    }
+    function idx(vi, k){ for(var i = 0; i < PL.length; i++) if(PL[i].v === vi && PL[i].k === k) return i; return 0; }
+
+    /* отсчёт: заливка выбранной вещи идёт от a до b (место в плане) за ms */
+    function prog(a, b, ms){
+      if(fa){ fa.cancel(); fa = null; }
+      var el = pbtns[P] && pbtns[P].querySelector('.g__pf'), T = PL.T;
+      if(!el || !el.animate || reduce) return;
+      fa = el.animate([{ transform: 'scaleX(' + (a / T).toFixed(4) + ')' }, { transform: 'scaleX(' + (Math.min(b, T) / T).toFixed(4) + ')' }],
+        { duration: Math.max(1, ms), easing: 'linear', fill: 'forwards' });
+      if(!live()) fa.pause();
+    }
+
+    /* один переход вида за раз: пока идёт поворот или шторка (vbusy), касания
+       вида, детали и самой вещи ждут в queued (как при смене вещи — busy),
+       следующий шаг плана — тоже; выполняется последнее касание */
+    function vlock(ms){
+      var t = ++vt;
+      vbusy = true; vend = Date.now() + ms;
+      setTimeout(function(){ if(t === vt){ vbusy = false; flush(); } }, ms);
+    }
+    function flush(){
+      if(busy || vbusy || !queued) return;
+      var q = queued; queued = null; q();
+    }
+    function wait(f){ if(!busy && !vbusy) return false; queued = f; return true; }
+
+    /* к виду vi текущей вещи. how: 'start' — экран появился, 'swap' — вещь
+       только что сменилась; иначе — поворот, раскрытие («внутри») или обратно */
+    function enter(vi, how, user){
+      var pc = pcs[P], from = V, v = pc.views[vi], p = P, t = ++tok;
+      if(!how) how = v === 'i' ? 'open' : pc.views[from] === 'i' ? 'close' : 'turn';
+      if(how !== 'start' && how !== 'swap') off(P, from);
+      V = vi; cur = -1; lng = !!user && nz(P, vi) > 0;
+      marks();
+      if(reduce){ pc.box.classList.remove('is-xf'); faces(pc, vi); mood(v); on(P, vi); return how; }
+      if(how !== 'start' && how !== 'swap') vlock(CO_OFF + (how === 'turn' ? 1200 : 1650));
+      if(how === 'start' || how === 'swap') mood(v);
+      else setTimeout(function(){
+        if(t !== tok) return;
+        if(how === 'turn'){ pc.box.classList.remove('is-xf'); faces(pc, vi); spin(pc); }
+        else { pc.box.classList.add('is-xf'); void pc.box.offsetWidth; faces(pc, vi, true); }
+        mood(v);
+      }, CO_OFF);
+      if(how === 'open') setTimeout(function(){ if(t === tok) sweep(pc); }, SWEEP_AT);
+      setTimeout(function(){ if(t === tok && P === p && V === vi) on(P, vi); },
+        how === 'start' ? CO_AT : how === 'swap' ? SW_CO : how === 'open' ? OPEN_CO : CO_IN);
+      return how;
+    }
+    /* шаг i плана: вход в вид или деталь экскурсии; d — своя длительность */
+    function go(i, how, user, d){
+      var ph = PL[i];
+      if(ph.k < 0){
+        how = enter(ph.v, how, user);
+        if(d == null) d = !nz(P, ph.v) ? CO_OFF + HOLD_B + (user ? HOLD_U : 0)
+          : (how === 'start' ? CO_AT : how === 'swap' ? SW_CO : how === 'open' ? OPEN_CO : CO_IN) + (how === 'open' ? TOUR_I : TOUR_AT);
+      } else { hi(ph.k); if(d == null) d = ph.d; }
+      if(reduce) return;
+      prog(ph.s, ph.s + ph.d, d);
+      later(function(){ done(i); }, d);
+    }
+    function done(i){
+      var ph = PL[i];
+      /* деталь выбрали касанием — после последней ещё постоять, все ровно */
+      if(lng && ph.k >= 0 && ph.k === nz(P, ph.v) - 1){
+        lng = false; hi(-1);
+        prog(ph.s + ph.d, ph.s + ph.d, HOLD_U);
+        later(function(){ adv(i); }, HOLD_U);
+        return;
+      }
+      adv(i);
+    }
+    function adv(i){
+      /* вид ещё меняется — следующий шаг ждёт конца перехода */
+      if(vbusy){ later(function(){ adv(i); }, Math.max(60, vend - Date.now() + 40)); return; }
+      if(i + 1 < PL.length) go(i + 1); else next();
+    }
+    function ready(p){ return p === 0 || okB; }
+    function next(){
+      var p = (P + 1) % pcs.length;
+      if(p !== P && ready(p)) swap(p, false);
+      else go(0);   /* следующая вещь ещё не готова — эта идёт по кругу */
+    }
+
+    /* смена вещи: выноски гаснут, вещь поднимается и тает, заголовок уходит
+       вверх; новая спускается на то же место, тень на дне перетекает */
+    function swap(p, user){
+      if(p === P || busy) return;
+      var a = pcs[P], b = pcs[p], t = ++stok, d0 = reduce ? 0 : CO_OFF, d1 = reduce ? 0 : CO_OFF + GAP;
+      busy = true; queued = null;   /* касание вида прежней вещи уже не к месту */
+      gs.classList.add('is-swp');
+      off(P, V);
+      gs.classList.remove('is-bk', 'is-iv');
+      pbtns.forEach(function(x, i){ x.setAttribute('aria-pressed', i === p ? 'true' : 'false'); x.classList.remove('is-wait'); });
+      vw.classList.add('is-sw');
+      setTimeout(function(){
+        a.el.classList.remove('is-on'); a.el.classList.add('is-out'); a.el.setAttribute('aria-hidden', 'true');
+        [[a.tn, b.tn], [a.dn, b.dn]].forEach(function(x){
+          x[0].classList.remove('is-on'); x[0].classList.add('is-was'); x[0].setAttribute('aria-hidden', 'true');
+          x[1].classList.remove('is-was'); x[1].classList.add('is-on'); x[1].removeAttribute('aria-hidden');
+        });
+        shps.forEach(function(s, i){ s.classList.toggle('is-on', i === p); });
+        vbtns.forEach(function(x){ x.hidden = b.views.indexOf(x.getAttribute('data-v')) < 0; });
+      }, d0);
+      setTimeout(function(){
+        b.box.classList.remove('is-xf'); faces(b, 0);
+        b.el.classList.remove('is-out'); b.el.classList.add('is-on'); b.el.removeAttribute('aria-hidden');
+        vw.classList.remove('is-sw');
+        if(!reduce){ kick(b.el, 'is-land'); setTimeout(function(){ if(t === stok) glint(); }, 700); }
+      }, d1);
+      setTimeout(function(){
+        a.el.classList.remove('is-out', 'is-land'); a.box.classList.remove('is-xf'); faces(a, 0);
+        a.tn.classList.remove('is-was'); a.dn.classList.remove('is-was');
+        gs.classList.remove('is-swp');
+        busy = false;
+        /* касание во время смены не теряется — выполняем его сейчас */
+        flush();
+      }, reduce ? 0 : CO_OFF + GAP + LAND);
+      P = p; V = 0; PL = plan(p);
+      go(0, 'swap', user);
+    }
+
+    /* касания */
+    function view(vi){
+      if(wait(function(){ view(vi); })) return;
+      if(!started || vi < 0 || vi === V) return;
+      go(idx(vi, -1), null, true);
+    }
+    /* касание по самой вещи — её следующий вид (считается, когда дойдёт очередь) */
+    function step(){
+      if(wait(step)) return;
+      if(started) view((V + 1) % pcs[P].views.length);
+    }
+    function pick(k){
+      if(wait(function(){ pick(k); })) return;
+      if(!started || !nz(P, V) || !pcs[P].lists[V].classList.contains('is-show')) return;
+      if(reduce){ hi(cur === k ? -1 : k); return; }
+      lng = true;
+      go(idx(V, k), null, true, STEP_U);
+    }
+    function prod(p){
+      if(busy){ queued = function(){ prod(p); }; return; }
+      if(!started) return;
+      if(p === P){ if(V) view(0); return; }
+      if(ready(p)){ swap(p, true); return; }
+      /* снимки ещё грузятся — кнопка «дышит» (не дольше 6 с); вещь выйдет, как
+         только будет готова, если за это время не коснулись другого (wtok) */
+      var b = pbtns[p], t = wtok;
+      b.classList.add('is-wait');
+      setTimeout(function(){ if(t === wtok) b.classList.remove('is-wait'); }, 6000);
+      loadB().then(function(){
+        if(t !== wtok) return;
+        b.classList.remove('is-wait');
+        if(ready(p) && P !== p) prod(p);
+      });
+    }
+    /* любое своё касание отменяет ожидание бомбера */
+    function own(f){ return function(){ ++wtok; pbtns.forEach(function(x){ x.classList.remove('is-wait'); }); f(); }; }
+    pbtns.forEach(function(b, i){ b.addEventListener('click', own(function(){ prod(i); })); });
+    vbtns.forEach(function(b){ b.addEventListener('click', own(function(){ view(pcs[P].views.indexOf(b.getAttribute('data-v'))); })); });
+    pcs.forEach(function(pc, p){
+      pc.box.addEventListener('click', own(function(){ if(p === P) step(); }));
+      pc.lists.forEach(function(l, vi){
+        var z = kids(pc.zs[vi]);
+        if(!z.length) return;
+        kids(l).forEach(function(li, k){
+          var f = own(function(){ if(p === P && vi === V) pick(k); });
+          [].forEach.call(li.querySelectorAll('.co__lb, .co__hit'), function(el){ el.addEventListener('click', f); });
+          if(z[k]) z[k].querySelector('.co__z').addEventListener('click', f);
+        });
+      });
     });
 
+    /* снимок готов: скачан и распакован */
+    function dec(im){
+      return new Promise(function(res, rej){
+        var d = function(){ if(im.decode) im.decode().then(res, res); else res(); };
+        if(im.complete && im.naturalWidth) d();
+        else { im.addEventListener('load', d); im.addEventListener('error', rej); }
+      });
+    }
     function load(){
       if(asked) return;
       asked = true;
@@ -2196,13 +2635,25 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
         if(im.decode && im.closest('.co__zc')) im.decode().catch(function(){});
       });
       gs.classList.add('is-load');
+      /* бомбер — когда худи уже скачано: не отнимает сеть ни у первого экрана, ни у худи */
+      var nb = function(){ setTimeout(loadB, 600); };
+      dec(imgF).then(nb, nb);
+    }
+    function loadB(){
+      if(bReady) return bReady;
+      var ims = [].slice.call(gs.querySelectorAll('img[data-srcb]'));
+      ims.forEach(function(im){ im.src = im.getAttribute('data-srcb'); im.removeAttribute('data-srcb'); });
+      gs.classList.add('is-loadb');
+      ims.forEach(function(im){ if(im.closest('.co__zc')) dec(im).catch(function(){}); });
+      bReady = Promise.all(pcs.slice(1).map(function(pc){
+        return Promise.all(pc.faces.map(function(f){ return dec(f.querySelector('img')); }));
+      })).then(function(){ okB = true; }, function(){});
+      return bReady;
     }
     function start(){
       gs.classList.add('is-in');
-      if(reduce){ gs.classList.add('is-co'); keys(true); mark(0); return; }
-      setTimeout(function(){ gs.classList.add('is-co'); keys(true); }, CO_AT);
-      mark(CO_AT + TOUR_AT + STEP * cos.length);
-      later(function(){ step(0, STEP); }, CO_AT + TOUR_AT);
+      PL = plan(0);
+      go(0, 'start');
     }
     /* шторка — только по готовому (скачанному и распакованному) снимку */
     var pending = false;
@@ -2210,17 +2661,17 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       if(started || pending) return;
       pending = true;
       load();
-      var done = false;
-      var go = function(){
-        if(done) return; done = true;
+      var done1 = false;
+      var go1 = function(){
+        if(done1) return; done1 = true;
         started = true;
         sync();
         requestAnimationFrame(function(){ requestAnimationFrame(start); });
       };
-      var ready = function(){ if(imgF.decode) imgF.decode().then(go, go); else go(); };
-      if(imgF.complete && imgF.naturalWidth) ready();
-      else { imgF.addEventListener('load', ready); imgF.addEventListener('error', go); }
-      setTimeout(go, 2500);
+      var ready1 = function(){ if(imgF.decode) imgF.decode().then(go1, go1); else go1(); };
+      if(imgF.complete && imgF.naturalWidth) ready1();
+      else { imgF.addEventListener('load', ready1); imgF.addEventListener('error', go1); }
+      setTimeout(go1, 2500);
     }
 
     if('IntersectionObserver' in window){

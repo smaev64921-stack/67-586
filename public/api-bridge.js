@@ -23,6 +23,27 @@
     } catch (e) {}
   }
 
+  /* На экран — только русский текст. Английское от сервера, прокси или
+     хостинга («Cannot convert…», «Bad Gateway», HTML-страница 502) —
+     внутреннее: человеку понятная фраза по коду ответа. */
+  const RU = /[А-Яа-яЁё]/;
+  function httpError(status, data) {
+    const raw = String((data && data.error) || '');
+    const msg = RU.test(raw) ? raw
+      : status === 401 ? 'Войдите в аккаунт и повторите'
+      : status === 403 ? 'Нет доступа'
+      : status === 404 ? 'Не нашли — обновите страницу'
+      : status === 413 ? 'Слишком большой файл'
+      : status === 429 ? 'Слишком часто — подождите минуту'
+      : status >= 500 ? 'Сбой на сервере — попробуйте ещё раз через минуту'
+      : 'Не получилось — попробуйте ещё раз';
+    const err = new Error(msg);
+    err.raw = raw;
+    err.status = status;
+    err.data = data;
+    return err;
+  }
+
   async function api(path, opts) {
     const o = opts || {};
     const headers = Object.assign({ Accept: 'application/json' }, o.headers || {});
@@ -48,12 +69,7 @@
     netSignal(Date.now() - started > SLOW_MS ? 'slow' : 'ok', { path: path });
     let data = null;
     try { data = await res.json(); } catch (e) { data = null; }
-    if (!res.ok) {
-      const err = new Error((data && data.error) || ('Ошибка ' + res.status));
-      err.status = res.status;
-      err.data = data;
-      throw err;
-    }
+    if (!res.ok) throw httpError(res.status, data);
     return data;
   }
 
@@ -229,10 +245,7 @@
             await retry();
             continue;
           }
-          const err = new Error((r.data && r.data.error) || ('Ошибка ' + r.status));
-          err.status = r.status;
-          err.data = r.data;
-          throw err;
+          throw httpError(r.status, r.data);
         }
         /* «Готово» — последний короткий запрос. Его ответ тоже может
            потеряться; сервер повтор принимает и отдаёт ту же ссылку, так что

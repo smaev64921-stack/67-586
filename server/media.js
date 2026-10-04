@@ -167,12 +167,31 @@ function publicCatalog({ all = false } = {}) {
 
 /** Товар пришёл из админки: ссылки на уже сохранённые фото вернуть в base64. */
 function restoreProductImages(incoming, lost) {
-  if (!incoming || !incoming.id) return incoming;
-  const row = db.prepare('SELECT img, gal_json FROM products WHERE id = ?').get(+incoming.id);
-  if (!row) return incoming;
-  let gal = [];
-  try { gal = JSON.parse(row.gal_json || '[]'); } catch (_) {}
-  return restore(incoming, [row.img, gal], lost);
+  if (!incoming || typeof incoming !== 'object') return incoming;
+  const get = db.prepare('SELECT img, gal_json FROM products WHERE id = ?');
+  /* Правка товара, которого уже нет: решать будет upsertProduct (404). */
+  if (incoming.id && !get.get(+incoming.id)) return incoming;
+  /* Фото ищем у самого товара и у тех, на чьи снимки ведут ссылки
+     /media/p/<id>/…: копия из «Дублировать» приходит новым товаром (без id)
+     со ссылками на фото исходного. Без этого в БД легли бы сами ссылки, а
+     не картинки, и следующее сохранение копии упёрлось бы в «фото устарели». */
+  const ids = new Set();
+  if (incoming.id) ids.add(+incoming.id);
+  mapStrings(incoming, (s) => {
+    const m = RE_MEDIA.exec(s);
+    if (m && m[1]) ids.add(+m[1]);
+    return s;
+  });
+  if (!ids.size) return incoming;
+  const stored = [];
+  for (const id of ids) {
+    const row = get.get(id);
+    if (!row) continue;
+    let gal = [];
+    try { gal = JSON.parse(row.gal_json || '[]'); } catch (_) {}
+    stored.push(row.img, gal);
+  }
+  return restore(incoming, stored, lost);
 }
 
 function findProductImage(id, hash) {

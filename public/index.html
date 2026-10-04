@@ -772,6 +772,11 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 }
 .hs--hero .hs__img{
   width:100%;height:auto;object-fit:contain;
+  /* Пока фото не пришло, своих пропорций у него нет, и слайдер был высотой 0:
+     «Новинки» стояли под шапкой и уезжали вниз, как только фото догружалось.
+     Держим место по снимкам героя (1080×1620); пришло фото другой формы —
+     «auto» берёт его собственные пропорции. */
+  aspect-ratio:auto 2/3;
   max-height:calc(100vh - var(--hd-off) - 96px);
   max-height:calc(100svh - var(--hd-off) - 96px)
 }
@@ -3929,8 +3934,10 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 
       var user = '';
       try{
-        var u = JSON.parse(localStorage.getItem('shop_user_v1') || 'null');
-        if(u && u.email) user = u.email;
+        var last = localStorage.getItem('shop_user_last') || '';
+        var u = JSON.parse(localStorage.getItem(last ? 'shop_user_v1:u' + last : 'shop_user_v1') || 'null');
+        if(u && u.user && u.user.email) user = u.user.email;
+        else if(u && u.email) user = u.email;
       }catch(e){}
 
       var body = JSON.stringify({
@@ -3948,6 +3955,10 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
       }).catch(function(){});
     }catch(e){}
   }
+
+  /* errText() шлёт сюда ошибки, пойманные в catch: раньше они были видны
+     только в тосте и никуда не записывались */
+  window.__lcTell = tell;
 
   window.addEventListener('error', function(e){
     /* у битой картинки нет message — это не ошибка скрипта, пропускаем */
@@ -5020,7 +5031,7 @@ async function rvSubmit(p){
     refresh();
     toast(saved && saved.status === 'new' ? 'Спасибо! Отзыв уйдёт на проверку' : 'Спасибо! Отзыв опубликован');
   }catch(e){
-    toast(e.message || 'Не удалось отправить отзыв');
+    toast(errText(e, 'Не удалось отправить отзыв'));
     if(send) send.disabled = false;
   }
 }
@@ -5045,7 +5056,7 @@ async function rvVote(id){
     if(document.getElementById('rvSheet')) rvRepaint();
     else render(true);
   }catch(e){
-    toast(e.message || 'Не удалось оценить отзыв');
+    toast(errText(e, 'Не удалось оценить отзыв'));
   }
 }
 
@@ -5062,7 +5073,7 @@ async function rvDeleteOk(id){
   try{
     if(window.LC && LC.deleteReview) await LC.deleteReview(id);
   }catch(e){
-    toast(e.message || 'Не удалось удалить отзыв');
+    toast(errText(e, 'Не удалось удалить отзыв'));
     return;
   }
   REVIEWS = REVIEWS.filter(x => x.id !== +id);
@@ -6064,7 +6075,7 @@ async function pvzSearchCity(force){
     await pvzLoadPoints();
   }catch(e){
     if(req !== pvzView.req) return;
-    pvzSetError(e.message || 'Ошибка поиска города СДЭК');
+    pvzSetError(errText(e, 'Ошибка поиска города СДЭК'));
   }
 }
 
@@ -6108,7 +6119,7 @@ function pvzLocate(force){
           deliveryPaint();
         }
       }catch(e){
-        pvzSetError(e.message || 'Не удалось загрузить ближайшие ПВЗ');
+        pvzSetError(errText(e, 'Не удалось загрузить ближайшие ПВЗ'));
       }
     },
     () => {
@@ -6195,7 +6206,7 @@ async function pvzLoadPoints(){
     pvzDrawMap();
   }catch(e){
     if(req !== pvzView.req) return;
-    pvzSetError(e.message || 'Ошибка загрузки ПВЗ СДЭК');
+    pvzSetError(errText(e, 'Ошибка загрузки ПВЗ СДЭК'));
   }
 }
 
@@ -6740,7 +6751,7 @@ async function onGoogleCredential(resp){
     toast('Вы вошли через Google');
     authDone(d && d.user, false);
   }catch(err){
-    toast((err && err.message) || 'Google вход не удался');
+    toast(errText(err, 'Google вход не удался'));
   }
 }
 
@@ -6981,7 +6992,8 @@ try{
   }
 }catch(e){}
 
-const persist = () => store.save(PRODUCTS);
+/* несохранённые копии (_local, см. «Дублировать») живут только в этой вкладке */
+const persist = () => store.save(PRODUCTS.filter(p => !(p && p._local)));
 
 /* состояние приложения */
 const S = {
@@ -8061,12 +8073,17 @@ const TAB_OF = {home:0, catalog:1, product:1, tryon:1, favs:2, profile:3, auth:3
 
 /* Шапка знает про корзину, поэтому её надо перерисовывать вместе с таб-баром */
 let _hdKey = '';
+/* Номер маски пера (lcpenN) PEN_MARK выдаёт новый при каждом вызове, поэтому
+   шапки сравниваем без него. Иначе одинаковая шапка всегда считалась новой:
+   paintHeader пересобирал её при каждом renderTabs, а render(true) никогда
+   не узнавал, что на экране ничего не поменялось. */
+function hdSig(html){ return String(html || '').replace(/lcpen\d+/g, 'lcpen'); }
 function paintHeader(){
   const slot = document.getElementById('hdSlot');
   if(!slot) return;
   const s = SCREENS[S.screen] || SCREENS.catalog;
   const html = s.hd();
-  if(html === _hdKey) return;
+  if(hdSig(html) === hdSig(_hdKey)) return;
   _hdKey = html;
   slot.innerHTML = html;
 }
@@ -9179,10 +9196,25 @@ function liveReviewsFp(list){
     (r.reply && r.reply.text) || '', (r.photos || []).length, r.mine ? 1 : 0
   ].join('~')).join('|');
 }
+/* Несохранённые копии из «Дублировать» (отметка _local): на сервере их ещё
+   нет, и свежий список оттуда не должен стирать их, пока админ не нажал
+   «Добавить». Временный номер копии, совпавший с новым настоящим товаром,
+   сдвигаем — иначе byId() находил бы не тот товар. */
+function withLocalCopies(list){
+  const locals = PRODUCTS.filter(p => p && p._local);
+  if(!locals.length) return list;
+  const taken = new Set(list.map(x => +x.id));
+  let top = [...list, ...locals].reduce((m, x) => Math.max(m, +x.id || 0), 0);
+  locals.forEach(c => {
+    if(taken.has(+c.id)) c.id = ++top;
+    taken.add(+c.id);
+  });
+  return list.concat(locals);
+}
 function applyLiveProducts(list){
   if(!Array.isArray(list)) return false;
-  if(liveProductsFp(list) === liveProductsFp(PRODUCTS)) return false;
-  PRODUCTS = list;
+  if(liveProductsFp(list) === liveProductsFp(PRODUCTS.filter(p => !(p && p._local)))) return false;
+  PRODUCTS = withLocalCopies(list);
   persist();
   pruneStaleClientData();
   if(S.cart && S.cart.length) revalidateCart();
@@ -9581,7 +9613,7 @@ async function authSubmit(){
       authDone(d && d.user, false);
     }
   }catch(err){
-    toast((err && err.message) || 'Не получилось');
+    toast(errText(err, 'Не получилось'));
   }finally{
     const b = ov.querySelector('.amod__b');
     if(b) b.disabled = false;
@@ -11327,7 +11359,7 @@ async function runTryOn(){
     S.tryon.result = result;
     S.tryon.step = 'result';
   }catch(err){
-    S.tryon.err = (err && err.message) || 'Не удалось создать примерку';
+    S.tryon.err = errText(err, 'Не удалось создать примерку');
     S.tryon.step = 'upload';
     toast(S.tryon.err);
   }
@@ -11539,7 +11571,7 @@ function render(keepScroll){
   const nextHd = s.hd();
   const nextBody = s.body();
   const nextMini = miniBar();
-  const paintKey = S.screen + '\n' + nextHd + '\n' + nextBody + '\n' + nextMini;
+  const paintKey = S.screen + '\n' + hdSig(nextHd) + '\n' + nextBody + '\n' + nextMini;
   if(keepScroll && paintKey === _paintKey){
     renderTabs();
     startPayTimers();
@@ -11688,7 +11720,7 @@ function render(keepScroll){
             go('auth');
             return;
           }
-          toast(err.message || 'Не удалось сохранить');
+          toast(errText(err, 'Не удалось сохранить'));
         }
       })();
     };
@@ -12371,7 +12403,7 @@ async function refreshAdminOrders(){
       status: e.status,
       error: e.status === 403
         ? 'Сервер не видит вас как админа. Войдите под ADMIN_EMAIL или откройте «Админка» из бота.'
-        : (e.message || 'Не удалось загрузить заказы')
+        : errText(e, 'Не удалось загрузить заказы')
     };
   }
 }
@@ -12831,6 +12863,17 @@ const NET = (() => {
   };
 })();
 
+/* Текст ошибки для человека. Ответы сервера уже по-русски (api-bridge);
+   всё остальное — сбой самой страницы («Cannot convert undefined or null
+   to object»): на экран — русская фраза, сама ошибка со стеком — владельцу
+   через /api/client-error. */
+function errText(err, fallback){
+  const m = String((err && err.message) || '');
+  if(err && (err.status || err.offline || err.aborted)) return m || fallback;
+  if(/[А-Яа-яЁё]/.test(m)) return m;
+  try{ if(window.__lcTell) window.__lcTell('«' + fallback + '»: ' + (m || String(err)), err && err.stack); }catch(_){}
+  return fallback;
+}
 function toast(m){
   document.querySelector('.toast')?.remove();
   const t = document.createElement('div');
@@ -13613,7 +13656,7 @@ async function finishDeviceCodeAuth(){
   }catch(err){
     S.authOtpState = 'bad';
     paintOtpFill();
-    toast(err.message || 'Неверный код');
+    toast(errText(err, 'Неверный код'));
   }finally{
     S.authOtpSending = false;
   }
@@ -13654,7 +13697,7 @@ async function requestDeviceCode(){
       : 'Код запрошен · откройте бота → «Вход по коду» (2 мин)');
     render(true);
   }catch(err){
-    const msg = err.message || 'Не удалось запросить код';
+    const msg = errText(err, 'Не удалось запросить код');
     const info = err.data || {};
     const m = /Подождите\s+(\d+)\s*с/i.exec(msg);
     const wait = +info.cooldown || (m ? +m[1] : 0);
@@ -13742,7 +13785,7 @@ async function startPhoneAuthFlow(){
       startAuthLinkPoll();
     }
   }catch(err){
-    toast(err.message || 'Не удалось начать вход');
+    toast(errText(err, 'Не удалось начать вход'));
   }finally{
     S.authOtpSending = false;
   }
@@ -13763,7 +13806,7 @@ async function sendAuthCode(){
     setTimeout(() => otpCells()[0] && otpCells()[0].focus(), 80);
   }catch(err){
     if(err.data && err.data.needOpenBot) S.authLinked = false;
-    toast(err.message || 'Сначала откройте бота и нажмите Start');
+    toast(errText(err, 'Сначала откройте бота и нажмите Start'));
     render(true);
     startAuthLinkPoll();
   }finally{
@@ -13800,7 +13843,7 @@ async function finishPhoneAuth(){
   }catch(err){
     S.authOtpState = 'bad';
     paintOtpFill();
-    toast(err.message || 'Неверный код');
+    toast(errText(err, 'Неверный код'));
   }
 }
 
@@ -13863,7 +13906,7 @@ function bindAuth(){
         await refreshMyOrders(false);
         continueAfterAuth({ isNew: wasReg || profileNeedsFill(user), next: 'profile', askTg: true });
       }catch(err){
-        toast(err.message || 'Ошибка входа');
+        toast(errText(err, 'Ошибка входа'));
       }
     };
   }
@@ -14475,7 +14518,7 @@ document.addEventListener('click', e => {
           toast('Нет ссылки на оплату — откройте заказ и нажмите «Оплатить»');
           go('done');
         }catch(err){
-          toast(err.message || 'Не удалось создать оплату');
+          toast(errText(err, 'Не удалось создать оплату'));
         }finally{
           S._payBusy = false;
         }
@@ -14643,7 +14686,7 @@ document.addEventListener('click', e => {
             : 'Заказ №' + o.num + ' отменён');
           if(S.user) refreshMyOrders(false);
         }catch(err){
-          toast(err.message || 'Не удалось отменить');
+          toast(errText(err, 'Не удалось отменить'));
         }
       })();
       break;
@@ -14680,7 +14723,7 @@ document.addEventListener('click', e => {
           toast('Заявка на возврат отправлена');
           if(S.user) refreshMyOrders(false);
         }catch(err){
-          toast(err.message || 'Не удалось оформить возврат');
+          toast(errText(err, 'Не удалось оформить возврат'));
         }
       })();
       break;
@@ -14711,7 +14754,7 @@ document.addEventListener('click', e => {
           if(!url){ toast('Не удалось получить ссылку на оплату'); return; }
           location.href = url;
         }catch(err){
-          toast(err.message || 'Не удалось открыть оплату');
+          toast(errText(err, 'Не удалось открыть оплату'));
         }
       })();
       break;
@@ -15342,7 +15385,7 @@ function orderDrawer(num){
       paintAdmin();
       toast('Заказ обновлён');
     }catch(err){
-      toast(err.message || 'Не удалось сохранить заказ');
+      toast(errText(err, 'Не удалось сохранить заказ'));
     }
   };
 }
@@ -15429,7 +15472,7 @@ function clientDrawer(email){
         await loadAccounts();
         toast(box.checked ? 'Теперь администратор' : 'Права администратора сняты');
       }catch(err){
-        toast(err.message || 'Не удалось изменить права');
+        toast(errText(err, 'Не удалось изменить права'));
         return;                       /* окно не закрываем: правка не прошла */
       }
     } else toast('Клиент сохранён');
@@ -16085,7 +16128,7 @@ function videoSlideForm(s, file, opt){
       setPrev(out.video);
       if(coverOwn) applyOwn();
       else showCover(out.img, coverLabel());
-      showErr(e && e.message ? e.message : 'Видео не загрузилось.');
+      showErr(errText(e, 'Видео не загрузилось.'));
       const fi = $('#vsFile');
       if(fi) fi.value = '';
     }finally{
@@ -16139,7 +16182,7 @@ function videoSlideForm(s, file, opt){
       }
     }catch(e){
       saving = false; canSave();
-      upLine(`Не сохранилось: ${e && e.message ? e.message : 'нет связи с сервером'}. Нажмите «${saveBtn.textContent}» ещё раз.`, 'is-err');
+      upLine(`Не сохранилось: ${errText(e, 'нет связи с сервером')}. Нажмите «${saveBtn.textContent}» ещё раз.`, 'is-err');
       return;
     }
     CMS[KEY] = slides;
@@ -16750,7 +16793,7 @@ function rvReplyForm(id){
       if(window.LC && LC.patchReview) await LC.patchReview(r.id, { reply: null });
       r.reply = null;
       rvSave(); close(); paintAdmin(); render(true); toast('Ответ убран');
-    }catch(e){ toast(e.message || 'Не удалось убрать ответ'); }
+    }catch(e){ toast(errText(e, 'Не удалось убрать ответ')); }
   };
   w.querySelector('#rvRepSave').onclick = async () => {
     const t = w.querySelector('#rvRep').value.trim();
@@ -16761,7 +16804,7 @@ function rvReplyForm(id){
       r.reply = saved && saved.reply !== undefined ? saved.reply : (t ? {text:t, date: todayStamp()} : null);
       rvSave(); close(); paintAdmin(); render(true);
       toast(t ? 'Ответ опубликован' : 'Ответ убран');
-    }catch(e){ toast(e.message || 'Не удалось сохранить ответ'); }
+    }catch(e){ toast(errText(e, 'Не удалось сохранить ответ')); }
   };
 }
 
@@ -17251,7 +17294,7 @@ async function openAdmin(){
     try{
       const allProducts = await LC.loadCatalogAll().catch(() => null);
       if(allProducts && allProducts.length){
-        PRODUCTS = allProducts;
+        PRODUCTS = withLocalCopies(allProducts);
         persist();
         pruneStaleClientData();
       }
@@ -17340,7 +17383,7 @@ adm.addEventListener('click', e => {
           rvSave(); paintAdmin(); render(true);
           toast('Отзыв удалён');
         }catch(e){
-          toast(e.message || 'Не удалось удалить отзыв');
+          toast(errText(e, 'Не удалось удалить отзыв'));
         }
       }
     });
@@ -17368,7 +17411,7 @@ adm.addEventListener('click', e => {
         }
         rvSave(); paintAdmin(); render(true);
       }catch(e){
-        toast(e.message || 'Не удалось обновить отзыв');
+        toast(errText(e, 'Не удалось обновить отзыв'));
       }
     })();
     return;
@@ -17453,23 +17496,35 @@ adm.addEventListener('click', e => {
     copy.id = PRODUCTS.reduce((m,x)=>Math.max(m,x.id),0)+1;
     copy.name = p.name + ' (копия)';
     copy.sku = String(Math.floor(10000+Math.random()*90000));
+    /* С сервером копия пока только в этом браузере: номер у неё временный,
+       и PUT по нему сервер не примет (такого товара нет) — а то и попал бы
+       в чужой товар, заведённый тем временем. Отметка _local: форма
+       сохранит её новым товаром (POST), и сервер выдаст настоящий номер. */
+    const local = !!(window.LC && S.user && S.user.admin);
+    if(local) copy._local = true; else delete copy._local;
     PRODUCTS.push(copy); persist();
     dropReviewsForPid(copy.id);
     S.cart = (S.cart || []).filter(i => +i.id !== +copy.id);
     saveUser();
-    refresh(); render(true); toast('Товар скопирован'); return;
+    refresh(); render(true);
+    toast(local ? 'Копия готова — откройте её и нажмите «Добавить»' : 'Товар скопирован');
+    return;
   }
   if(tg){
     const p = byId(+tg.dataset.tog);
+    /* список мог устареть: товар уже убрали из PRODUCTS (удалён в другой
+       вкладке, пришёл свежий каталог) — тогда p пуст */
+    if(!p){ toast('Товар не найден — обновите страницу'); return; }
     p.on = !p.on;
     (async () => {
       try{
-        if(window.LC && S.user && S.user.admin) await LC.saveProduct(p);
+        /* несохранённую копию серверу не шлём — у неё ещё нет номера там */
+        if(window.LC && S.user && S.user.admin && !p._local) await LC.saveProduct(p);
         persist(); refresh(); render(true);
         toast(p.on ? 'Товар показан' : 'Товар скрыт');
       }catch(err){
         p.on = !p.on;
-        toast(err.message || 'Не удалось обновить');
+        toast(errText(err, 'Не удалось обновить'));
       }
     })();
     return;
@@ -17482,14 +17537,16 @@ adm.addEventListener('click', e => {
       text:'Товар пропадёт из каталога, корзин и избранного. Действие необратимо.',
       async onOk(){
         try{
-          if(window.LC && S.user && S.user.admin) await LC.removeProduct(p.id);
-          PRODUCTS = PRODUCTS.filter(x => x.id !== p.id);
+          /* несохранённая копия есть только здесь; её временный номер на
+             сервере может принадлежать другому товару */
+          if(window.LC && S.user && S.user.admin && !p._local) await LC.removeProduct(p.id);
+          PRODUCTS = p._local ? PRODUCTS.filter(x => x !== p) : PRODUCTS.filter(x => x.id !== p.id);
           S.cart = S.cart.filter(x => x.id !== p.id);
           S.favs = S.favs.filter(x => x !== p.id);
           dropReviewsForPid(p.id);
           persist(); refresh(); render(true); toast('Товар удалён');
         }catch(err){
-          toast(err.message || 'Не удалось удалить');
+          toast(errText(err, 'Не удалось удалить'));
         }
       }
     });
@@ -17525,7 +17582,10 @@ function pForm(p){
   /* Повторное «+ Товар» не должно класть вторую форму поверх первой:
      иначе сохранится каждая из них и товар задвоится. */
   adm.querySelectorAll('.ad__form').forEach(x => x.remove());
-  editId = p ? p.id : null;
+  /* Копия из «Дублировать», ещё не сохранённая: на сервере её нет, и номер у
+     неё временный. Сохраняется она как новый товар (POST без id). */
+  const isCopy = !!(p && p._local);
+  editId = p && !isCopy ? p.id : null;
   if(p) ensureProductMeta(p);
   const d = p || {name:'',cat:CATS_M[0],gender:'m',price:'',old:'',img:'',sku:'',sizes:[],on:true,desc:'',badge:'',stock:{},gal:[],tryon:false};
   const cats = [...new Set([...CATS_W, ...CATS_U, ...CATS_M, d.cat].filter(Boolean))];
@@ -17540,7 +17600,7 @@ function pForm(p){
   const w = document.createElement('div');
   w.className = 'ad__form';
   w.innerHTML = `<div class="ad__card">
-    <h2 class="ad__ct">${p ? 'Редактирование' : 'Новый товар'}</h2>
+    <h2 class="ad__ct">${p && !isCopy ? 'Редактирование' : 'Новый товар'}</h2>
     <label class="ad__l">Название</label>
     <input class="ad__f" id="xn" value="${(d.name||'').replace(/"/g,'&quot;')}" placeholder="Футболка Oversize Black">
     <label class="ad__l">Раздел</label>
@@ -17619,7 +17679,7 @@ function pForm(p){
     <label class="ad__sw"><input type="checkbox" id="xon" ${d.on!==false?'checked':''}> Показывать на сайте</label>
     <div class="ad__foot">
       <button class="ad__b" id="xCancel">Отмена</button>
-      <button class="ad__b ad__b--pri" id="xSave">${p?'Сохранить':'Добавить'}</button>
+      <button class="ad__b ad__b--pri" id="xSave">${p && !isCopy ? 'Сохранить' : 'Добавить'}</button>
     </div></div>`;
   adm.appendChild(w);
 
@@ -17886,7 +17946,7 @@ function pForm(p){
           paintGal();
         }catch(err){
           bad++;
-          toast((err && err.message) || 'Не удалось прочитать фото');
+          toast(errText(err, 'Не удалось прочитать фото'));
         }
         /* отдаём кадр интерфейсу, иначе список не успевает обновиться */
         await letUiBreathe();
@@ -17924,6 +17984,9 @@ function pForm(p){
     /* saving — от повторного тапа во время запроса, isConnected — от клика
        по кнопке уже закрытой формы. */
     if(saving || !w.isConnected) return;
+    /* editId общий на все формы: пока идёт запрос, могли открыть другую
+       форму, и ответ записался бы не в тот товар. Берём свой. */
+    const myId = p && !isCopy ? p.id : null;
     const name = w.querySelector('#xn').value.trim();
     const price = +w.querySelector('#xp').value;
     if(!name){ toast('Впишите название'); return w.querySelector('#xn').focus(); }
@@ -17959,20 +18022,46 @@ function pForm(p){
       tryon: w.querySelector('#xtry').checked,
       on:w.querySelector('#xon').checked
     };
+    /* Основа — товар целиком: в форме не все его поля (таблицы размеров,
+       например, тут нет), а сервер записывает то, что пришло. Пока форма была
+       открыта, PRODUCTS могли заменить свежим списком без этого товара
+       (витринным, без скрытых) — byId() тогда пуст, и раньше на сервер
+       уходили одни поля формы, а остальное стиралось. На этот случай —
+       снимок, с которым форму открыли. */
+    const base = Object.assign({}, (myId && byId(myId)) || p || {});
+    delete base._local;
     saving = true;
     saveBtn.disabled = true;
-    saveBtn.textContent = editId ? 'Сохраняем…' : 'Добавляем…';
+    saveBtn.textContent = myId ? 'Сохраняем…' : 'Добавляем…';
     (async () => {
       try{
         if(window.LC && S.user && S.user.admin){
-          const saved = await LC.saveProduct(editId ? Object.assign({}, byId(editId), data, {id: editId}) : data);
-          if(editId){
-            Object.assign(byId(editId), saved);
+          const body = Object.assign(base, data);
+          /* копия уходит новым товаром: временный номер серверу не нужен */
+          if(myId) body.id = myId; else delete body.id;
+          const saved = await LC.saveProduct(body);
+          /* Сервер ответил без товара — показываем по-русски, а не «Cannot
+             read properties of null» и не молчаливое «Изменения сохранены». */
+          if(!saved) throw Object.assign(new Error('Товар не сохранился — обновите страницу и повторите'), {status: 404});
+          if(myId){
+            /* Пока шёл запрос, PRODUCTS могли заменить витринным списком
+               (без скрытых товаров) — тогда byId() пуст, и Object.assign
+               падал с «Cannot convert undefined or null to object». */
+            const live = byId(myId);
+            if(live) Object.assign(live, saved); else PRODUCTS.push(saved);
             REVIEWS.forEach(r => { if(+r.pid === +saved.id) r.sku = String(saved.sku || ''); });
             (S.cart || []).forEach(i => { if(+i.id === +saved.id) i.sku = String(saved.sku || ''); });
             rvSave(); saveUser();
           } else {
-            PRODUCTS.push(saved);
+            /* копия сохранена — вместо неё в списке настоящий товар с сервера */
+            if(isCopy) PRODUCTS = PRODUCTS.filter(x => x !== p);
+            /* живое обновление могло принести его раньше ответа. Ищем только
+               настоящие товары: временный номер другой несохранённой копии
+               часто совпадает с номером, который выдал сервер */
+            const same = PRODUCTS.find(x => x && !x._local && +x.id === +saved.id);
+            if(same) Object.assign(same, saved); else PRODUCTS.push(saved);
+            /* совпавшую копию сдвигаем на свободный номер, сама она остаётся */
+            PRODUCTS = withLocalCopies(PRODUCTS.filter(x => !(x && x._local)));
             dropReviewsForPid(saved.id);
             S.cart = (S.cart || []).filter(i => +i.id !== +saved.id);
             S.favs = (S.favs || []).filter(id => +id !== +saved.id);
@@ -17980,15 +18069,18 @@ function pForm(p){
           }
           persist();
         } else {
-          if(editId){
-            Object.assign(byId(editId), data);
-            const p = byId(editId);
-            REVIEWS.forEach(r => { if(+r.pid === +editId) r.sku = String((p && p.sku) || data.sku || ''); });
-            (S.cart || []).forEach(i => { if(+i.id === +editId) i.sku = String((p && p.sku) || data.sku || ''); });
+          if(myId){
+            const live = byId(myId);
+            if(live) Object.assign(live, data);
+            else PRODUCTS.push(Object.assign(base, data, {id: myId}));
+            const cur = byId(myId);
+            REVIEWS.forEach(r => { if(+r.pid === +myId) r.sku = String((cur && cur.sku) || data.sku || ''); });
+            (S.cart || []).forEach(i => { if(+i.id === +myId) i.sku = String((cur && cur.sku) || data.sku || ''); });
             rvSave(); saveUser();
           } else {
+            if(isCopy) PRODUCTS = PRODUCTS.filter(x => x !== p);
             const nid = PRODUCTS.reduce((m,x) => Math.max(m,x.id),0) + 1;
-            PRODUCTS.push({id:nid, ...data});
+            PRODUCTS.push(Object.assign(base, data, {id: nid}));
             dropReviewsForPid(nid);
             S.cart = (S.cart || []).filter(i => +i.id !== +nid);
             S.favs = (S.favs || []).filter(id => +id !== +nid);
@@ -17997,9 +18089,9 @@ function pForm(p){
           persist();
         }
         w.remove(); refresh(); render(true);
-        toast(editId ? 'Изменения сохранены' : 'Товар добавлен');
+        toast(myId ? 'Изменения сохранены' : 'Товар добавлен');
       }catch(err){
-        toast(err.message || 'Не удалось сохранить товар');
+        toast(errText(err, 'Не удалось сохранить товар'));
       }finally{
         /* форму уже могли снять — тогда возвращать нечего */
         saving = false;
@@ -18015,10 +18107,41 @@ function pForm(p){
 /* ==========================================================
    СТАРТ
    ========================================================== */
+/* Главное фото с прошлого визита уже на экране (ранняя отрисовка), а на
+   сервере первым стоит другое — владелец сменил или переставил снимки.
+   Перерисовка поставила бы на место старого фото пустую серую рамку, пока
+   новое не догрузится. Поэтому новое качаем и раскодируем заранее, и смена
+   идёт фото в фото. Ждём не дольше 1,5 с: на плохой связи лучше рамка, чем
+   застывшая страница. */
+async function preloadHeroSwap(){
+  try{
+    if(S.screen !== 'home') return;
+    const shown = document.querySelector('#homeSlider .hs__img');
+    if(!shown) return;
+    const first = homeSlides()[0];
+    const want = first && first.img;
+    if(!want || shown.getAttribute('src') === want) return;
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = want;
+    const ready = img.decode ? img.decode() : new Promise((ok, bad) => { img.onload = ok; img.onerror = bad; });
+    await Promise.race([ready.catch(() => {}), new Promise(r => setTimeout(r, 1500))]);
+  }catch(_){}
+}
 async function bootFromServer(){
   loadUser();
   rvLoad();
   wipeStaleBrowserJunk();
+  /* Главная с прошлого раза уже в памяти (товары, фото, тексты) — рисуем её
+     сразу, не дожидаясь пяти ответов сервера подряд. Занавес из знакомства
+     уходит по load, и раньше под ним оказывался серый скелет без шапки, а
+     магазин появлялся уже на глазах. Главное фото, нарисованное здесь,
+     попадает в load — занавес дождётся и его. Только главная: остальные
+     входы (оплата, бот, Google, письмо, ссылка на товар, каталог с его
+     роликами) идут прежним путём. */
+  if(PRODUCTS.length && !location.search && location.hash === '#home'){
+    try{ restorePlace(); render(true); }catch(e){ _paintKey = ''; console.warn('early paint', e); }
+  }
   if(window.LC){
     try{
       const health = await LC.health();
@@ -18108,7 +18231,7 @@ async function bootFromServer(){
       try{ await openAdmin(); }catch(e){ console.warn(e); }
     }catch(err){
       history.replaceState(null, '', location.pathname + (location.hash || ''));
-      tgAdminStaleDialog(err && err.message);
+      tgAdminStaleDialog(errText(err, 'Ссылка из бота устарела'));
     }
   }
 
@@ -18147,7 +18270,7 @@ async function bootFromServer(){
       }
     }catch(e){
       console.warn('paid return', e);
-      toast((e && e.message) || 'Не удалось загрузить заказ после оплаты');
+      toast(errText(e, 'Не удалось загрузить заказ после оплаты'));
     }
   }
 
@@ -18199,7 +18322,7 @@ async function bootFromServer(){
         render(true);
       }
     }catch(err){
-      toast((err && err.message) || 'Google вход не удался');
+      toast(errText(err, 'Google вход не удался'));
       render(true);
     }
   }
@@ -18221,7 +18344,7 @@ async function bootFromServer(){
         });
       }
     }catch(err){
-      toast(err.message || 'Ссылка устарела');
+      toast(errText(err, 'Ссылка устарела'));
       history.replaceState(null, '', location.pathname + (location.hash || ''));
     }
   }
@@ -18263,7 +18386,13 @@ async function bootFromServer(){
       ? 'Часть товаров в корзине закончилась'
       : 'Корзина обновилась — часть позиций изменилась'), 600);
   }
-  render();
+  /* Тихо (true): этот экран уже нарисован — из сохранённого или после входа
+     в аккаунт. Полная отрисовка гасила весь экран в ноль (.scr.anim), а фото
+     героя и карточки въезжали снизу — уже после ухода занавеса, на глазах:
+     «моргает и дёргается». Ничего не поменялось — render(true) страницу не
+     трогает; поменялось — перерисует без вспышки. */
+  await preloadHeroSwap();
+  render(true);
   restorePlaceScroll();
   persistPlace();
   armBack();          /* с первого экрана «Назад» уже под нашим присмотром */
@@ -18286,7 +18415,7 @@ async function bootFromServer(){
       authMod.mask = (who && who.emailMask) || '';
       authModal('newpass');
     }catch(err){
-      toast((err && err.message) || 'Ссылка устарела — запросите смену пароля заново');
+      toast(errText(err, 'Ссылка устарела — запросите смену пароля заново'));
       setTimeout(() => authModal('forgot'), 900);
     }
   } else if(wantForgot){

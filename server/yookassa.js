@@ -251,8 +251,15 @@ async function createPayment({
     const hint = (data && data.parameter === 'receipt' && !receipt)
       ? ' Магазин требует чек, а у заказа нет email или телефона покупателя — заполните их на шаге «Получение».'
       : '';
-    const err = new Error(base + param + hint);
-    err.status = 502;
+    /* description от ЮKassa английский («Invalid receipt…»): на экран —
+       русская фраза, сам ответ ЮKassa — в console.error ниже (он уходит
+       владельцу в Telegram через error-report). */
+    const err = new Error(hint
+      ? 'Для оплаты нужен email или телефон покупателя — заполните их на шаге «Получение».'
+      : 'ЮKassa не приняла платёж. Попробуйте ещё раз через минуту.');
+    err.detail = base + param;
+    /* без email/телефона чинит сам покупатель — это 4xx, его текст дойдёт до экрана */
+    err.status = hint ? 400 : 502;
     err.details = data;
     console.error('ЮKassa отклонила платёж:', JSON.stringify(data));
     throw err;
