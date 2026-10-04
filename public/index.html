@@ -2929,6 +2929,39 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   flex:none;width:26px;height:26px;border-radius:var(--r-pill);background:var(--ink);color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700
 }
+/* --- админка: онбординг. Плитка 3 слайда — те же шесть квадратов, что на
+   сайте; фото обрезается так же (середина, чуть выше центра) --- */
+.onbg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-width:420px;margin:0 auto 14px}
+.onbg__c{position:relative;aspect-ratio:.9;border-radius:12px;overflow:hidden;background:var(--chip)}
+.onbg__c--s1{grid-column:1;grid-row:1}
+.onbg__c--l1{grid-column:2 / span 2;grid-row:1 / span 2;aspect-ratio:auto}
+.onbg__c--s2{grid-column:1;grid-row:2}
+.onbg__c--l2{grid-column:1 / span 2;grid-row:3 / span 2;aspect-ratio:auto}
+.onbg__c--s3{grid-column:3;grid-row:3}
+.onbg__c--s4{grid-column:3;grid-row:4}
+.onbg__ph{position:absolute;inset:0;display:block;width:100%;height:100%;padding:0;border:0;background:none;cursor:pointer}
+.onbg__ph img{width:100%;height:100%;object-fit:cover;object-position:50% 42%;display:block}
+.onbg__n{position:absolute;left:6px;top:6px;padding:2px 7px;border-radius:var(--r-pill);
+  background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:600;line-height:16px;pointer-events:none}
+.onbg__dots{position:absolute;left:0;right:0;bottom:7px;display:flex;justify-content:center;gap:5px;pointer-events:none}
+.onbg__dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.5);box-shadow:0 0 0 .5px rgba(0,0,0,.3)}
+.onbg__dots i.is-on{background:#fff}
+/* нажали на фото: затемнение и «Добавить» / «Удалить» поверх */
+.onbg__ov{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;padding:8px;background:rgba(12,12,12,.64);animation:onbgIn .18s var(--ease) both}
+@keyframes onbgIn{from{opacity:0}to{opacity:1}}
+.onbg__ov .ad__b{width:100%;max-width:140px;padding:7px 4px;font-size:12px;white-space:nowrap}
+.onbg__ov .onbg__del{color:var(--danger)}
+.onbg__ov .ad__b:disabled{opacity:.45}
+/* стрелки в нижних углах — листать фото квадрата; видны, если фото больше
+   одного и кнопки не открыты */
+.onbg__arr{position:absolute;bottom:4px;z-index:3;width:24px;height:24px;padding:0;border:0;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);cursor:pointer}
+.onbg__arr .ic{width:12px;height:12px;stroke:#fff}
+.onbg__arr--l{left:4px}
+.onbg__arr--r{right:4px}
+.onbg__dots{bottom:13px}
+@media (prefers-reduced-motion:reduce){.onbg__ov{animation:none}}
 /* цвета товара в админке */
 .ad__colors{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .ad__color{
@@ -15404,6 +15437,7 @@ function adNav(){
     ['clients','Клиенты','user'],
     ['logo','Лого','img'],
     ['slider','Главная','img'],
+    ['onb','Онбординг','play'],
     ['tryon','Примерка','camera'],
     ['promo','Промо','gift'],
     ['content','Контент','info']
@@ -15961,6 +15995,191 @@ function photoSpecHTML(kind){
     <div class="ad__spec-size">${s.size}<span>${s.ratio}</span></div>
     <ul class="ad__spec-l">${s.lines.map(l => `<li>${l}</li>`).join('')}</ul>
   </div>`;
+}
+
+/* ==========================================================
+   АДМИН: ОНБОРДИНГ
+   Знакомство при первом входе. Правится 3 слайд «Ткань и ощущения»: шесть
+   квадратов, как на сайте, в каждом — свои фото (на знакомстве они по
+   очереди сменяются наплывом). Нажатие на фото затемняет его и показывает
+   «Добавить» / «Удалить», стрелки листают фото квадрата. Пока в CMS.onb
+   пусто, и здесь, и на знакомстве — встроенные кадры (ONB3_DEFAULT).
+   ========================================================== */
+const ONB3_MAX = 6;   /* фото в квадрате; совпадает с ONB3_MAX в server/cms-safe.js */
+const ONB3_TILES = [['s1','Маленький, сверху слева'], ['l1','Большой, сверху справа'], ['s2','Маленький, второй слева'],
+  ['l2','Большой, снизу слева'], ['s3','Маленький, справа'], ['s4','Маленький, снизу справа']];
+const ONB3_DEFAULT = {
+  s1:['lesha-black-1','lesha-black-2'], l1:['leva-white-1','leva-white-2'], s2:['dasha-choc-1','dasha-choc-2'],
+  l2:['dasha-black-1','dasha-black-2','dasha-black-3','dasha-black-4'], s3:['leva-choc-1','leva-choc-2'],
+  s4:['dasha-red-1','dasha-red-2','dasha-red-3','dasha-red-4']
+};
+let onbOpen = '';        /* квадрат, у которого открыты «Добавить / Удалить» */
+let onbFor = '';         /* в какой квадрат идут выбранные файлы */
+const onbAt = {};        /* какое фото квадрата сейчас показано */
+
+/* фото квадратов: свои из CMS, а где своих нет — встроенные */
+function onb3(){
+  const own = CMS.onb && CMS.onb.s3;
+  const out = {};
+  ONB3_TILES.forEach(([k]) => {
+    const list = own && Array.isArray(own[k]) ? own[k].filter(x => typeof x === 'string' && x) : [];
+    out[k] = list.length ? list : ONB3_DEFAULT[k].map(n => `/onboarding/fx2-${n}.webp`);
+  });
+  return out;
+}
+function onb3Own(){
+  const own = CMS.onb && CMS.onb.s3;
+  return !!own && ONB3_TILES.some(([k]) => Array.isArray(own[k]) && own[k].length);
+}
+function onb3Save(lists){
+  CMS.onb = Object.assign({}, CMS.onb || {}, {s3: lists});
+  saveCms();
+}
+
+/* квадраты плитки — отдельно от раздела: листание и кнопки перерисовывают
+   только их, без повторного появления всей панели */
+function onbCells(){
+  const L = onb3();
+  return ONB3_TILES.map(([k, name]) => {
+    const list = L[k];
+    const at = Math.min(onbAt[k] || 0, list.length - 1);
+    const open = onbOpen === k;
+    const many = list.length > 1;
+    const dots = many ? `<span class="onbg__dots">${list.map((_, i) => `<i${i === at ? ' class="is-on"' : ''}></i>`).join('')}</span>` : '';
+    const arr = many ? `<button class="onbg__arr onbg__arr--l" data-onbgo="${k}:-1" aria-label="Предыдущее фото">${svg('arrowL','ic')}</button>
+      <button class="onbg__arr onbg__arr--r" data-onbgo="${k}:1" aria-label="Следующее фото">${svg('arrowR','ic')}</button>` : '';
+    const ov = open ? `<div class="onbg__ov" data-onbclose="${k}">
+        <button class="ad__b" data-onbadd="${k}"${list.length >= ONB3_MAX ? ' disabled' : ''}>+ Добавить</button>
+        <button class="ad__b onbg__del" data-onbdel="${k}">Удалить</button>
+      </div>` : '';
+    return `<div class="onbg__c onbg__c--${k}">
+      <button class="onbg__ph" data-onbtap="${k}" aria-label="${name}: фото ${at + 1} из ${list.length}"><img src="${esc(list[at])}" alt=""></button>
+      ${many ? `<span class="onbg__n">${at + 1}/${list.length}</span>` : ''}${dots}${ov}${open ? '' : arr}
+    </div>`;
+  }).join('');
+}
+function onbRepaint(){
+  const g = document.getElementById('aOnb');
+  if(!g || adTab !== 'onb'){ paintAdmin(); return; }
+  g.innerHTML = onbCells();
+  const r = document.getElementById('aOnbReset');
+  if(r) r.disabled = !onb3Own();
+  /* paintAdmin сверяет разметку с прошлой — пусть считает эту уже нарисованной */
+  _admPaintKey = 'onb\n' + viewOnb();
+}
+/* Тот же набор фото? Своё фото после сохранения приходит с сервера ссылкой
+   /media/cms/… вместо base64 — это не правка, перерисовывать не нужно. */
+function onbSame(a, b){
+  const A = (a && a.s3) || {}, B = (b && b.s3) || {};
+  return ONB3_TILES.every(([k]) => {
+    const x = Array.isArray(A[k]) ? A[k] : [], y = Array.isArray(B[k]) ? B[k] : [];
+    return x.length === y.length && x.every((u, i) => u === y[i] ||
+      (/^data:/.test(u) && /^\/media\/cms\//.test(y[i])) || (/^data:/.test(y[i]) && /^\/media\/cms\//.test(u)));
+  }) && !!(a && a.s3) === !!(b && b.s3);
+}
+
+function viewOnb(){
+  const cells = onbCells();
+  return `
+  <div class="ad__panel">
+    <div class="ad__hrow"><div>
+      <h1 class="ad__h">Онбординг</h1>
+      <p class="ad__sub">Знакомство с магазином при первом входе</p>
+    </div></div>
+
+    <div class="ad__step">
+      <div class="ad__step-h"><span class="ad__step-n">3</span>
+        <div><b>Слайд 3 · «Ткань и ощущения»</b>
+          <span>Шесть квадратов — как на сайте. В каждом свои фото, на знакомстве они по очереди
+            плавно сменяются. Стрелки листают фото квадрата, нажатие на фото — «Добавить» и «Удалить».</span></div>
+      </div>
+      <div class="onbg" id="aOnb">${cells}</div>
+      <input type="file" id="aOnbFile" accept="image/*" multiple hidden>
+      <p class="ad__hint" style="margin:0 0 14px">Лучше всего — человек от макушки до низа футболки, вертикальное или
+        квадратное фото. В квадрате видна середина фото, края обрезаются — как здесь. До ${ONB3_MAX} фото в квадрате.</p>
+      <button class="ad__b" id="aOnbReset"${onb3Own() ? '' : ' disabled'}>Вернуть встроенные фото</button>
+    </div>
+  </div>`;
+}
+
+/* добавить файлы в квадрат k — по одному, чтобы вкладка не подвисла */
+async function onbAdd(k, files){
+  if(!k || !files.length) return;
+  const L = onb3();
+  const free = ONB3_MAX - L[k].length;
+  if(free <= 0){ toast(`В квадрате уже ${ONB3_MAX} фото — сначала удалите лишнее`); return; }
+  const take = files.slice(0, free);
+  if(take.length > 1) toast(`Готовлю фото: ${take.length}…`);
+  let added = 0, bad = 0;
+  for(const f of take){
+    let data = '';
+    try{ data = await fileToPhotoDataUrl(f, 1100, 0.84, {flatten: true}); }catch(e){ data = ''; }
+    if(data && data.length <= 1.6e6){ L[k].push(data); added++; } else bad++;
+    await letUiBreathe();
+  }
+  if(!added){ toast('Не получилось прочитать фото — возьмите JPG или PNG'); return; }
+  onbAt[k] = L[k].length - 1;
+  onbOpen = '';
+  onb3Save(L);
+  onbRepaint();
+  let msg = `Добавлено фото: ${added}`;
+  if(bad) msg += ` · не подошло: ${bad}`;
+  if(files.length > take.length) msg += ` · сверх ${ONB3_MAX}: ${files.length - take.length}`;
+  toast(msg);
+}
+
+function onbDelete(k){
+  const L = onb3();
+  if(L[k].length <= 1){ toast('Последнее фото в квадрате не удалить — сначала добавьте другое'); return; }
+  const at = Math.min(onbAt[k] || 0, L[k].length - 1);
+  askConfirm({
+    title: 'Удалить это фото?',
+    text: 'Оно пропадёт из квадрата на третьем слайде знакомства.',
+    onOk(){
+      L[k].splice(at, 1);
+      onbAt[k] = Math.min(at, L[k].length - 1);
+      onbOpen = '';
+      onb3Save(L); onbRepaint(); toast('Фото удалено');
+    }
+  });
+}
+
+function bindOnb(){
+  const g = document.getElementById('aOnb');
+  const file = document.getElementById('aOnbFile');
+  if(g && file){
+    g.onclick = e => {
+      const add = e.target.closest('[data-onbadd]');
+      if(add){ onbFor = add.dataset.onbadd; file.value = ''; file.click(); return; }
+      const del = e.target.closest('[data-onbdel]');
+      if(del){ onbDelete(del.dataset.onbdel); return; }
+      const go = e.target.closest('[data-onbgo]');
+      if(go){
+        const [k, d] = go.dataset.onbgo.split(':');
+        const n = onb3()[k].length;
+        onbAt[k] = (Math.min(onbAt[k] || 0, n - 1) + +d + n) % n;
+        onbRepaint(); return;
+      }
+      const tap = e.target.closest('[data-onbtap]');
+      if(tap){ onbOpen = onbOpen === tap.dataset.onbtap ? '' : tap.dataset.onbtap; onbRepaint(); return; }
+      if(e.target.closest('[data-onbclose]')){ onbOpen = ''; onbRepaint(); }
+    };
+    file.onchange = () => onbAdd(onbFor, [...file.files]);
+  }
+  const r = document.getElementById('aOnbReset');
+  if(r) r.onclick = () => askConfirm({
+    title: 'Вернуть встроенные фото?',
+    text: 'Ваши фото на третьем слайде уберутся, вернутся кадры, которые стоят там сейчас по умолчанию.',
+    ok: 'Вернуть', danger: false,
+    onOk(){
+      CMS.onb = Object.assign({}, CMS.onb || {});
+      delete CMS.onb.s3;
+      saveCms();
+      onbOpen = '';
+      Object.keys(onbAt).forEach(k => delete onbAt[k]);
+      onbRepaint(); toast('Вернули встроенные фото');
+    }
+  });
 }
 
 /* ==========================================================
@@ -17423,7 +17642,7 @@ function paintAdmin(){
   }
   if(adTab === 'clients') loadAccounts();
   const views = {dash:viewDash, catalog:viewCatalog, orders:viewOrders, reviews:viewReviews, clients:viewClients,
-    logo:viewLogo, slider:viewSlider, tryon:viewTryon, promo:viewPromo, content:viewContent};
+    logo:viewLogo, slider:viewSlider, onb:viewOnb, tryon:viewTryon, promo:viewPromo, content:viewContent};
   if(adTab === 'pvz') adTab = 'dash';
   const html = (views[adTab]||viewDash)();
   const key = adTab + '\n' + html;
@@ -17530,6 +17749,7 @@ function bindAdminView(){
       if(again){ again.focus(); try{ again.setSelectionRange(hold, hold); }catch(e){} }
     };
   }
+  bindOnb();
   const sn = document.getElementById('aSlideNew');
   const sfl = document.getElementById('aSlideFiles');
   if(sn && sfl) sn.onclick = () => { sfl.value = ''; sfl.click(); };
@@ -19040,6 +19260,12 @@ bootFromServer().catch((err) => {
           CMS.usp = uspMerge(defaultCms().usp, cms.usp);
           if(cms.about && Array.isArray(cms.about.blocks)) CMS.about = cms.about;
           if(beforeHome !== homeKey()) dirty = true;
+          /* знакомство (раздел «Онбординг») — меняет только админку */
+          if(cms.onb && typeof cms.onb === 'object' && JSON.stringify(cms.onb) !== JSON.stringify(CMS.onb || {})){
+            const same = onbSame(CMS.onb, cms.onb);
+            CMS.onb = cms.onb;
+            if(adminOn && !same) dirty = true;
+          }
         }catch(_){}
       }
 

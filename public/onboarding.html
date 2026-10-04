@@ -959,8 +959,8 @@ html.js .g .g__co.is-show .co__lb > span{opacity:1;transform:none;transition:opa
    большой слева и два маленьких справа. Промежутки везде одинаковые.
    Плитка на телефоне — во всю ширину и встаёт посередине между текстом и
    «Листайте»; если экран низкий, она не сплющивается, а становится уже —
-   у каждой плитки всегда пропорция снимка (0,9), поэтому снимок не режется:
-   в кадре и лицо целиком, и вся футболка до низа. На компьютере текст
+   у каждой плитки всегда одна пропорция (0,9), поэтому кадр не режется:
+   в нём и лицо целиком, и вся футболка до низа. На компьютере текст
    слева, плитка справа.
 
    Появление — шторками с мягким краем, как худи на втором экране: рамка с
@@ -981,7 +981,7 @@ html.js .g .g__co.is-show .co__lb > span{opacity:1;transform:none;transition:opa
   --top:calc(var(--safe-t) + 74px);
   --g:7px;                                   /* промежуток между плитками */
   --r:14px;                                  /* скругление плитки */
-  --k:.9;                                    /* ширина / высота плитки — как у снимков (420×467, 820×911) */
+  --k:.9;                                    /* ширина / высота плитки; кадры шире (1,06) — запас по бокам */
   --sx:16px;                                 /* поля плитки по бокам */
   --cw:calc((min(100vw - var(--sx) * 2,560px) - var(--g) * 2) / 3);   /* на планшете стенка не шире 560 px */
   --gmax:calc(var(--cw) / var(--k) * 4 + var(--g) * 3);
@@ -1058,12 +1058,19 @@ html.js .g .g__co.is-show .co__lb > span{opacity:1;transform:none;transition:opa
 .fx__i::after{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:var(--r);
   box-shadow:inset 0 0 0 1px rgba(255,251,244,.24),inset 0 0 0 1.5px rgba(40,30,20,.05)}
 .fx__z,.fx__p{position:absolute;inset:0}
-/* Снимок той же пропорции, что плитка, — cover ничего не срезает. Запас
-   по краям кадра (над макушкой ~7 %, под подолом ~4 %) покрывает «дыхание»
-   больших снимков. Если плитка всё же другой пропорции (браузер без cq),
-   держим верх: лицо важнее подола. */
+/* Кадр шире плитки (1,06 против 0,9) — cover срезает только фон по бокам,
+   макушка и низ футболки целы. Если плитка всё же другой пропорции (браузер
+   без cq), держим верх: лицо важнее подола. */
 .fx__p img{width:100%;height:100%;object-fit:cover;object-position:50% 35%;-webkit-user-drag:none;-webkit-user-select:none;user-select:none}
-.fx__p--b{opacity:0}
+/* Смена кадра: новый проступает поверх (1,7 с) и чуть оседает, прежний
+   стоит под ним целиком и снимается, когда новый уже непрозрачен, — без
+   провала яркости посередине. */
+.fx__p{opacity:0;transition:opacity 0s linear}
+.fx__p.is-on{z-index:2;opacity:1;transition:opacity 1.7s cubic-bezier(.45,0,.25,1)}
+.fx__p.is-was{z-index:1;opacity:1}
+.fx__p img{transform:scale(1.03)}
+.fx__p.is-on img,.fx__p.is-was img{transform:none}
+.fx__p.is-on img{transition:transform 3.4s var(--out)}
 
 /* Шторки. Рамка (.fx__w) длиннее плитки в сторону движения, её край
    растушёван маской; снимок внутри (.fx__i) едет навстречу и стоит на месте.
@@ -1153,21 +1160,13 @@ html.js .fx.is-go .fx__c::before{opacity:1;transition:opacity .9s var(--ease) ca
 html.js .fx.is-go .fx__sh::before{animation:fxSheen 1.6s var(--io) calc(1.95s + var(--sd,0s)) both}
 @keyframes fxSheen{from{transform:translateX(-160%) skewX(-18deg)}to{transform:translateX(330%) skewX(-18deg)}}
 
-/* большие снимки еле заметно «дышат» — после того как открылись. Наезд
-   скромный: на пике прячется не больше ~2,6 % кадра с любого края — меньше
-   запаса над макушкой и под подолом. */
-html.js .fx.is-go .fx__c--l1 .fx__p--a{animation:fxKbA 17s ease-in-out 2.6s infinite alternate}
-html.js .fx.is-go .fx__c--l2 .fx__p--a{animation:fxKbB 19s ease-in-out 2.9s infinite alternate}
-@keyframes fxKbA{from{transform:none}to{transform:scale(1.04) translate(-.6%,.6%)}}
-@keyframes fxKbB{from{transform:none}to{transform:scale(1.04) translate(.6%,-.6%)}}
-/* смена маленькой плитки: новый снимок проступает и оседает, прежний чуть
-   отъезжает вглубь; обратно — так же */
-.fx__c[data-alt] .fx__p{transition:opacity 1s cubic-bezier(.4,0,.2,1),transform 2.8s var(--out)}
-.fx__c[data-alt] .fx__p--b{transform:scale(1.06)}
-.fx__c.is-alt .fx__p--b{opacity:1;transform:none}
-.fx__c.is-alt .fx__p--a{transform:scale(1.04)}
+/* большие снимки еле заметно «дышат» — после того как открылись */
+html.js .fx.is-go .fx__c--l1 .fx__z{animation:fxKbA 17s ease-in-out 2.6s infinite alternate}
+html.js .fx.is-go .fx__c--l2 .fx__z{animation:fxKbB 19s ease-in-out 2.9s infinite alternate}
+@keyframes fxKbA{from{transform:none}to{transform:scale(1.03) translate(-.7%,.6%)}}
+@keyframes fxKbB{from{transform:none}to{transform:scale(1.03) translate(.7%,-.5%)}}
 .fx.is-off .fx__p,.fx.is-off .fx__go svg,.fx.is-off .fx__sh::before{animation-play-state:paused}
-html.js .fx.is-go.is-off .fx__c--l1 .fx__p--a,html.js .fx.is-go.is-off .fx__c--l2 .fx__p--a{animation-play-state:paused}
+html.js .fx.is-go.is-off .fx__c--l1 .fx__z,html.js .fx.is-go.is-off .fx__c--l2 .fx__z{animation-play-state:paused}
 
 /* низкий экран: текст плотнее (плиткам остаётся больше высоты),
    «Листайте» со стрелкой в одну строку */
@@ -1180,8 +1179,8 @@ html.js .fx.is-go.is-off .fx__c--l1 .fx__p--a,html.js .fx.is-go.is-off .fx__c--l
 }
 
 /* компьютер: текст и «Листайте» слева, стенка из снимков — справа,
-   по центру высоты. Пропорция плитки та же, что на телефоне (снимка); если
-   правой половины не хватает по ширине, стенка становится ниже, а не уже. */
+   по центру высоты. Пропорция плитки та же, что на телефоне; если правой
+   половины не хватает по ширине, стенка становится ниже, а не уже. */
 @media (min-width:900px){
   .fx{
     --g:10px;--r:16px;
@@ -1211,8 +1210,8 @@ html.js .fx.is-go.is-off .fx__c--l1 .fx__p--a,html.js .fx.is-go.is-off .fx__c--l
   html.js .fx .fx__c::before,html.js .fx .fx__spot{opacity:1;transform:none;transition:none}
   html.js .fx .fx__k,html.js .fx .fx__k::before,html.js .fx .fx__k::after,html.js .fx .fx__t i,html.js .fx .fx__d{transform:none;transition:none}
   html.js .fx.is-in .fx__k,html.js .fx.is-in .fx__d,html.js .fx.is-go .fx__go{opacity:1;transition:opacity .4s linear}
-  html.js .fx.is-go .fx__sh::before,html.js .fx.is-go .fx__c--l1 .fx__p--a,html.js .fx.is-go .fx__c--l2 .fx__p--a,.fx__go svg{animation:none}
-  .fx__c[data-alt] .fx__p{transition:none}
+  html.js .fx.is-go .fx__sh::before,html.js .fx.is-go .fx__c--l1 .fx__z,html.js .fx.is-go .fx__c--l2 .fx__z,.fx__go svg{animation:none}
+  .fx__p,.fx__p.is-on,.fx__p img,.fx__p.is-on img{transition:none}
   html.js .fx.is-in .fx__t > span + span i{animation:none}
 }
 
@@ -2148,17 +2147,14 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 </section>
 
 <!-- ====== 03: ткань — плитка ======
-     Шесть снимков стенкой по образцу владельца: сверху два маленьких слева и
-     большой справа, снизу большой слева и два маленьких справа. В каждом
-     кадре человек целиком от макушки до низа футболки: и лицо, и вся
-     футболка (кадры той же съёмки, фон по бокам дорисован под пропорцию
-     плитки 0,9). У трёх маленьких плиток второй снимок того же цвета —
-     раз в ~5 с одна из них сменяется. Белая маленькая — без второго снимка:
-     других белых кадров с головой и подолом целиком в съёмке нет, а
-     повторять большой белый снимок рядом с ним нельзя. data-w — откуда
-     открывается шторка, --d — её задержка, --sd — когда по плитке пройдёт
-     отблеск. Снимки качаются после первого экрана (data-src), шторки —
-     только по скачанным и распакованным. -->
+     Шесть квадратов стенкой по образцу владельца: сверху два маленьких слева
+     и большой справа, снизу большой слева и два маленьких справа. В каждом
+     квадрате один человек в одном цвете (Леша, Лева, Даша могут повторяться),
+     кадры «от макушки до низа футболки» выровнены между собой и по очереди
+     сменяются наплывом. data-w — откуда открывается шторка, --d — её
+     задержка, --sd — когда по плитке пройдёт отблеск. Первые кадры качаются
+     после первого экрана (data-src), шторки — только по скачанным и
+     распакованным; остальные кадры — после шторок. -->
 <section class="fx snap" id="s3" data-n="3" aria-labelledby="t3">
   <div class="fx__bg" aria-hidden="true"><i class="fx__vig"></i><i class="fx__spot"></i><i class="fx__grain"></i></div>
 
@@ -2170,37 +2166,44 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 
   <div class="fx__room">
     <div class="fx__grid">
-      <figure class="fx__c fx__c--s1" data-w="t" data-alt style="--d:.12s;--sd:0s">
+      <figure class="fx__c fx__c--s1" data-w="t" style="--d:.12s;--sd:0s">
         <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
-          <div class="fx__p fx__p--a"><img data-src="/onboarding/fx2-s-choc-leva.jpg" alt="Парень в шоколадной футболке" width="420" height="467" decoding="async"></div>
-          <div class="fx__p fx__p--b"><img data-src="/onboarding/fx2-s-choc-leva-side.jpg" alt="" width="420" height="467" decoding="async" aria-hidden="true"></div>
+          <div class="fx__p is-on"><img data-src="/onboarding/fx2-lesha-black-1.webp" alt="Парень в чёрном лонгсливе" width="480" height="453" decoding="async"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-lesha-black-2.webp" alt="" width="480" height="453" decoding="async" aria-hidden="true"></div>
         </div></div></div><i class="fx__sh"></i></div>
       </figure>
       <figure class="fx__c fx__c--l1" data-w="tr" style="--d:0s;--sd:.12s">
         <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
-          <div class="fx__p fx__p--a"><img data-src="/onboarding/fx2-l-white-pinch.jpg" alt="Парень в очках оттягивает полотно белой футболки" width="820" height="911" decoding="async"></div>
+          <div class="fx__p is-on"><img data-src="/onboarding/fx2-leva-white-1.webp" alt="Парень в белой футболке" width="880" height="830" decoding="async"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-leva-white-2.webp" alt="" width="880" height="830" decoding="async" aria-hidden="true"></div>
         </div></div></div><i class="fx__sh"></i></div>
       </figure>
-      <figure class="fx__c fx__c--s2" data-w="l" data-alt style="--d:.24s;--sd:.1s">
+      <figure class="fx__c fx__c--s2" data-w="l" style="--d:.24s;--sd:.1s">
         <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
-          <div class="fx__p fx__p--a"><img data-src="/onboarding/fx2-s-red-arms.jpg" alt="Девушка в красной футболке скрестила руки" width="420" height="467" decoding="async"></div>
-          <div class="fx__p fx__p--b"><img data-src="/onboarding/fx2-s-red-front.jpg" alt="" width="420" height="467" decoding="async" aria-hidden="true"></div>
+          <div class="fx__p is-on"><img data-src="/onboarding/fx2-dasha-choc-1.webp" alt="Девушка в шоколадной футболке" width="480" height="453" decoding="async"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-dasha-choc-2.webp" alt="" width="480" height="453" decoding="async" aria-hidden="true"></div>
         </div></div></div><i class="fx__sh"></i></div>
       </figure>
       <figure class="fx__c fx__c--l2" data-w="bl" style="--d:.34s;--sd:.25s">
         <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
-          <div class="fx__p fx__p--a"><img data-src="/onboarding/fx2-l-black-dasha.jpg" alt="Девушка в чёрной футболке" width="820" height="911" decoding="async"></div>
+          <div class="fx__p is-on"><img data-src="/onboarding/fx2-dasha-black-1.webp" alt="Девушка в чёрной футболке" width="880" height="830" decoding="async"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-dasha-black-2.webp" alt="" width="880" height="830" decoding="async" aria-hidden="true"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-dasha-black-3.webp" alt="" width="880" height="830" decoding="async" aria-hidden="true"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-dasha-black-4.webp" alt="" width="880" height="830" decoding="async" aria-hidden="true"></div>
         </div></div></div><i class="fx__sh"></i></div>
       </figure>
       <figure class="fx__c fx__c--s3" data-w="r" style="--d:.46s;--sd:.3s">
         <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
-          <div class="fx__p fx__p--a"><img data-src="/onboarding/fx2-s-white-side.jpg" alt="Парень в белой футболке вполоборота" width="420" height="467" decoding="async"></div>
+          <div class="fx__p is-on"><img data-src="/onboarding/fx2-leva-choc-1.webp" alt="Парень в шоколадной футболке" width="480" height="453" decoding="async"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-leva-choc-2.webp" alt="" width="480" height="453" decoding="async" aria-hidden="true"></div>
         </div></div></div><i class="fx__sh"></i></div>
       </figure>
-      <figure class="fx__c fx__c--s4" data-w="b" data-alt style="--d:.58s;--sd:.38s">
+      <figure class="fx__c fx__c--s4" data-w="b" style="--d:.58s;--sd:.38s">
         <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
-          <div class="fx__p fx__p--a"><img data-src="/onboarding/fx2-s-choc-profile.jpg" alt="Девушка в шоколадной футболке в профиль" width="420" height="467" decoding="async"></div>
-          <div class="fx__p fx__p--b"><img data-src="/onboarding/fx2-s-choc-dasha.jpg" alt="" width="420" height="467" decoding="async" aria-hidden="true"></div>
+          <div class="fx__p is-on"><img data-src="/onboarding/fx2-dasha-red-1.webp" alt="Девушка в красной футболке" width="480" height="453" decoding="async"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-dasha-red-2.webp" alt="" width="480" height="453" decoding="async" aria-hidden="true"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-dasha-red-3.webp" alt="" width="480" height="453" decoding="async" aria-hidden="true"></div>
+          <div class="fx__p"><img data-src="/onboarding/fx2-dasha-red-4.webp" alt="" width="480" height="453" decoding="async" aria-hidden="true"></div>
         </div></div></div><i class="fx__sh"></i></div>
       </figure>
     </div>
@@ -2719,19 +2722,65 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   })();
 
   /* --- 03: ткань — плитка ---
-     Снимки качаются после первого экрана (и сразу, если экран уже рядом).
-     Экран встал на место хотя бы наполовину — поднимается текст, а шторки
-     идут, только когда все шесть снимков скачаны и распакованы (не дольше
-     2,6 с ожидания). Вторые снимки маленьких плиток качаются после шторок;
-     раз в SWAP одна плитка (по кругу) сменяется ими — только если её второй
-     снимок готов. Экран ушёл из виду или вкладка скрыта — смена стоит,
-     «дыхание» больших снимков на паузе. */
+     Первые кадры качаются после первого экрана (и сразу, если экран уже
+     рядом). Экран встал на место хотя бы наполовину — поднимается текст, а
+     шторки идут, только когда все шесть первых кадров скачаны и распакованы
+     (не дольше 2,6 с ожидания). Остальные кадры качаются после шторок; раз в
+     SWAP один квадрат (по кругу) переходит к следующему своему кадру — только
+     если тот готов. Экран ушёл из виду или вкладка скрыта — смена стоит,
+     «дыхание» больших квадратов на паузе. */
   var fx = document.getElementById('s3');
   if(fx && fx.classList.contains('fx')) (function(){
-    var SWAP = 5000, FIRST = 5600, ALT_AFTER = 1600;
-    var prim = [].slice.call(fx.querySelectorAll('.fx__p--a img'));
-    var order = ['s3', 's1', 's4', 's2'].map(function(n){ return fx.querySelector('.fx__c--' + n); }).filter(Boolean);
-    var ready = order.map(function(){ return false; });   /* второй снимок плитки скачан и распакован */
+    var SWAP = 2600, FIRST = 4400, ALT_AFTER = 1600, FADE = 1800;
+    var order = ['s3', 'l1', 's1', 'l2', 's4', 's2'].map(function(n){ return fx.querySelector('.fx__c--' + n); }).filter(Boolean);
+    var prim, sets, cur, ready, drop;
+    function collect(){
+      prim = [].slice.call(fx.querySelectorAll('.fx__p.is-on img'));
+      sets = order.map(function(c){ return [].slice.call(c.querySelectorAll('.fx__p')); });
+      cur = sets.map(function(ps){ return Math.max(0, ps.findIndex(function(p){ return p.classList.contains('is-on'); })); });
+      ready = sets.map(function(ps){ return ps.map(function(p){ return p.classList.contains('is-on'); }); });   /* кадр скачан и распакован */
+      drop = sets.map(function(){ return 0; });
+    }
+    collect();
+    /* Фото квадратов из админки (раздел «Онбординг», CMS.onb.s3). Ждём их
+       не дольше CFG_WAIT и до первой загрузки кадров: пришли — квадрат
+       собирается из них, нет (сеть, сервер, пусто) — остаются встроенные. */
+    var CFG_WAIT = 2500, cfgDone = false, cfgQ = [];
+    function afterCfg(f){ if(cfgDone) f(); else cfgQ.push(f); }
+    function cfgEnd(){ if(cfgDone) return; cfgDone = true; cfgQ.splice(0).forEach(function(f){ f(); }); }
+    var RE_IMG = /^(\/media\/cms\/[0-9a-f]+\.(jpg|png|webp)|\/onboarding\/[a-z0-9-]+\.(webp|jpe?g|png))$/;
+    function applyCfg(s3){
+      var changed = false;
+      order.forEach(function(c){
+        var k = (c.className.match(/fx__c--(\w+)/) || [])[1];
+        var list = (s3 && Array.isArray(s3[k]) ? s3[k] : []).filter(function(u){ return typeof u === 'string' && RE_IMG.test(u); }).slice(0, 6);
+        if(!list.length) return;
+        var z = c.querySelector('.fx__z'), first = z.querySelector('img');
+        var alt = first ? first.getAttribute('alt') : '', w = first ? first.getAttribute('width') : '', h = first ? first.getAttribute('height') : '';
+        while(z.firstChild) z.removeChild(z.firstChild);
+        list.forEach(function(u, i){
+          var p = document.createElement('div'), im = document.createElement('img');
+          p.className = i ? 'fx__p' : 'fx__p is-on';
+          im.setAttribute('data-src', u);
+          im.setAttribute('alt', i ? '' : alt);
+          if(i) im.setAttribute('aria-hidden', 'true');
+          if(w) im.setAttribute('width', w);
+          if(h) im.setAttribute('height', h);
+          im.decoding = 'async';
+          p.appendChild(im); z.appendChild(p);
+        });
+        changed = true;
+      });
+      if(changed) collect();
+    }
+    try{
+      fetch('/api/cms', { cache: 'no-store', credentials: 'same-origin' })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){ if(!cfgDone && d && d.cms && d.cms.onb) applyCfg(d.cms.onb.s3); })
+        .catch(function(){})
+        .then(cfgEnd);
+    }catch(e){ cfgEnd(); }
+    setTimeout(cfgEnd, CFG_WAIT);
     var next = 0, vis = false, started = false, pending = false, altAsked = false;
     var tmr = 0, at = 0, left = 0;
 
@@ -2751,12 +2800,31 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     function loadAlts(){
       if(altAsked) return;
       altAsked = true;
-      order.forEach(function(c, i){
-        var im = c.querySelector('.fx__p--b img');
-        if(!im) return;
-        load([im]);
-        decoded(im).then(function(){ if(im.naturalWidth) ready[i] = true; });
+      sets.forEach(function(ps, t){
+        ps.forEach(function(p, i){
+          if(ready[t][i]) return;
+          var im = p.querySelector('img');
+          load([im]);
+          decoded(im).then(function(){ if(im.naturalWidth) ready[t][i] = true; });
+        });
       });
+    }
+    /* квадрат t — к следующему готовому кадру; прежний снимаем под новым */
+    function advance(t){
+      var ps = sets[t], n = ps.length;
+      for(var k = 1; k < n; k++){
+        var nx = (cur[t] + k) % n;
+        if(!ready[t][nx]) continue;
+        var was = ps[cur[t]], nw = ps[nx];
+        ps.forEach(function(p){ p.classList.remove('is-was'); });
+        was.classList.remove('is-on'); was.classList.add('is-was');
+        nw.classList.add('is-on');
+        cur[t] = nx;
+        clearTimeout(drop[t]);
+        drop[t] = setTimeout(function(){ was.classList.remove('is-was'); }, FADE);
+        return true;
+      }
+      return false;
     }
 
     function run(){ return started && vis && !document.hidden && !reduce; }
@@ -2777,10 +2845,10 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       if(run()) resume(); else hold();
     }
     function swap(){
-      /* следующая по кругу плитка, у которой второй снимок готов */
+      /* следующий по кругу квадрат, у которого готов следующий кадр */
       for(var k = 0; k < order.length; k++){
         var i = (next + k) % order.length;
-        if(ready[i]){ order[i].classList.toggle('is-alt'); next = i + 1; break; }
+        if(advance(i)){ next = i + 1; break; }
       }
       later(SWAP);
     }
@@ -2789,6 +2857,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       if(started || pending) return;
       pending = true;
       fx.classList.add('is-in');
+      afterCfg(function(){
       load(prim);
       var done = false;
       var go = function(){
@@ -2804,12 +2873,13 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       };
       Promise.all(prim.map(decoded)).then(go, go);
       setTimeout(go, 2600);
+      });
     }
 
     if('IntersectionObserver' in window){
       new IntersectionObserver(function(rows){
         rows.forEach(function(r){
-          if(r.isIntersecting) load(prim);
+          if(r.isIntersecting) afterCfg(function(){ load(prim); });
           vis = r.isIntersecting && r.intersectionRatio >= .5;
           if(vis) begin();
           sync();
@@ -2818,7 +2888,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     } else { vis = true; begin(); }
     document.addEventListener('visibilitychange', sync);
     /* заранее — когда первый экран уже показался и второй начал качаться */
-    var pre = function(){ setTimeout(function(){ load(prim); }, 1400); };
+    var pre = function(){ setTimeout(function(){ afterCfg(function(){ load(prim); }); }, 1400); };
     if(document.readyState === 'complete') pre();
     else window.addEventListener('load', pre);
   })();

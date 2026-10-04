@@ -5,6 +5,13 @@
 const RE_VIDEO_URL = /^\/media\/v\/[0-9a-f]{16}\.(mp4|webm)$/;
 /* Сколько роликов можно поставить в каталог. Совпадает с MAX_CAT_VIDS в index.html. */
 const MAX_CAT_VIDS = 12;
+/* Знакомство, 3 слайд: квадраты плитки и сколько фото в каждом. Совпадает
+   с ONB3_TILES / ONB3_MAX в index.html. */
+const ONB3_TILES = ['s1', 'l1', 's2', 'l2', 's3', 's4'];
+const ONB3_MAX = 6;
+/* Своё фото (уже base64 — ссылки /media/cms/… восстановлены до проверки)
+   или встроенный кадр сайта. Чужие адреса на знакомство не пускаем. */
+const RE_ONB_IMG = /^(data:image\/(jpeg|png|webp);base64,|\/onboarding\/[a-z0-9-]+\.(webp|jpe?g|png)$)/;
 
 function tryonServerConfigured() {
   /* Реальная примерка — только через свой эндпоинт (фото уходят туда). */
@@ -84,6 +91,20 @@ function scrubCmsInput(cms) {
         else delete v.pid;
       }
     });
+  }
+  /* Знакомство: фото квадратов третьего слайда — только свои картинки, до
+     ONB3_MAX в квадрате. Пустой квадрат на знакомстве показывает встроенные. */
+  if (out.onb != null) {
+    const o = out.onb && typeof out.onb === 'object' ? out.onb : {};
+    const clean = {};
+    if (o.s3 && typeof o.s3 === 'object') {
+      clean.s3 = {};
+      ONB3_TILES.forEach((k) => {
+        const list = Array.isArray(o.s3[k]) ? o.s3[k] : [];
+        clean.s3[k] = list.filter((x) => typeof x === 'string' && RE_ONB_IMG.test(x)).slice(0, ONB3_MAX);
+      });
+    }
+    out.onb = clean;
   }
   return out;
 }
