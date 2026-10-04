@@ -340,6 +340,15 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   --bby:calc(var(--by) + (var(--hh) - var(--bh)) * var(--bk));
   --oh:calc(var(--ow) * .553333);
   --oby:calc(var(--bby) + var(--bh) - var(--oh));
+  /* жилет: кадр спереди и сзади 840×1151, раскрытый — 1100×955 (низ — по низу
+     жилета). Высота вещи во всех трёх видах одна: кадр «внутри» в 1,0057 раза
+     выше переднего и в 1,1579 раза шире его высоты — ширину экрана задаёт он */
+  --vh:min(var(--hh),calc((100vw - 8px) / 1.1579));
+  --vw:calc(var(--vh) * .73);
+  --voh:calc(var(--vh) * 1.0057);
+  --vow:calc(var(--voh) * 1.1513);
+  --vby:calc(var(--by) + (var(--hh) - var(--vh)) * .7);
+  --voby:calc(var(--vby) + var(--vh) - var(--voh));
   --eL:var(--gut);
   --eR:calc(100% - var(--gut));
   position:relative;height:100vh;height:100svh;min-height:520px;overflow:hidden;isolation:isolate;
@@ -449,6 +458,8 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 .g__shp{position:absolute;inset:0;opacity:0;transform:scale(.55,.4);transition:opacity .45s var(--ease),transform .6s cubic-bezier(.5,0,.75,0)}
 .g__shp.is-on{opacity:1;transform:none;transition:opacity 1.1s var(--ease) .5s,transform 1.5s var(--out) .5s}
 .g__shp--bm{left:50%;right:auto;width:calc(var(--bw) * .9);margin-left:calc(var(--bw) * -.45);top:-25%;bottom:-25%}
+.g__shp--vs{left:50%;right:auto;width:calc(var(--vw) * 1.1);margin-left:calc(var(--vw) * -.55);top:-25%;bottom:-25%}
+.g__pc--vs{--bw:var(--vw);--bh:var(--vh);--ow:var(--vow);--oh:var(--voh);--bby:var(--vby);--oby:var(--voby)}
 .g__shf,.g__shf i{position:absolute;inset:0}
 .g__shf i:first-child{background:radial-gradient(closest-side,rgba(52,40,28,.30),rgba(52,40,28,.12) 55%,rgba(52,40,28,0))}
 .g__shf i:last-child{inset:32% 12%;background:radial-gradient(closest-side,rgba(26,20,14,.52),rgba(26,20,14,.18) 58%,rgba(26,20,14,0))}
@@ -533,6 +544,8 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   -webkit-mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat;mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat}
 .g.is-loadb .g__pc--bm .g__sheen{opacity:1;
   -webkit-mask:url(/onboarding/bm-front.webp) center/100% 100% no-repeat;mask:url(/onboarding/bm-front.webp) center/100% 100% no-repeat}
+.g.is-loadb .g__pc--vs .g__sheen{
+  -webkit-mask-image:url(/onboarding/vs-front.webp);mask-image:url(/onboarding/vs-front.webp)}
 .g.is-iv .g__pc--bm .g__sheen{opacity:0}
 .g__sheen i{position:absolute;top:0;bottom:0;left:0;width:60%;transform:translateX(-120%);
   background:linear-gradient(102deg,rgba(255,255,255,0) 22%,rgba(255,255,255,.035) 40%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.035) 60%,rgba(255,255,255,0) 78%)}
@@ -847,9 +860,10 @@ html.js .g .g__co.is-show .co__lb > span{opacity:1;transform:none;transition:opa
     --hh:min(calc(100 * var(--u) - 320px),660px,calc(52vw * 1.06905));
     --by:calc(50 * var(--u) - var(--hh) * .5 + 4px);
     --lift:30px;--drop:60px;--offB:12px;
-    --nr:max(calc(var(--hw) * .5 + 78px),calc((var(--ow) + var(--rv) * 2 + 8px) * .5));--nT:calc(var(--by) - var(--hh) * .1 - 14px);--rv:14px;--fh:9px;--ov:34px;
+    --nr:max(calc(var(--hw) * .5 + 78px),calc((var(--ow) + var(--rv) * 2 + 8px) * .5),calc((var(--vow) + var(--rv) * 2 + 8px) * .5));--nT:calc(var(--by) - var(--hh) * .1 - 14px);--rv:14px;--fh:9px;--ov:34px;
     --bw:min(calc(var(--hw) * 1.2),calc((max(calc(60vw - 40px),calc(var(--hw) + 156px)) - var(--rv) * 2 - 8px) / 1.1719));
     --ow:calc(var(--bw) * 1.1719);
+    --vh:min(var(--hh),calc((max(calc(60vw - 40px),calc(var(--hw) + 156px)) - var(--rv) * 2 - 8px) / 1.1579));
     --eL:calc(50% - var(--hw) * .5 - 70px);
     --eR:calc(50% + var(--hw) * .5 + 70px)
   }
@@ -2000,8 +2014,8 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   <!-- у каждой вещи свой заголовок и подпись (data-p — номер вещи) -->
   <header class="g__tx">
     <p class="g__k"><span>02 / 07</span></p>
-    <h2 class="g__t" id="t2"><span class="g__tn is-on" data-p="0"><span><i>Худи</i></span> <span><i>на&nbsp;молнии</i></span></span><span class="g__tn" data-p="1" aria-hidden="true"><span><i>Чёрный</i></span> <span><i>бомбер</i></span></span></h2>
-    <p class="g__d"><span class="g__dn is-on" data-p="0">Тёплая и&nbsp;мягкая — к&nbsp;любой футболке</span><span class="g__dn" data-p="1" aria-hidden="true">Серебристая подкладка и&nbsp;карман внутри</span></p>
+    <h2 class="g__t" id="t2"><span class="g__tn is-on" data-p="0"><span><i>Худи</i></span> <span><i>на&nbsp;молнии</i></span></span><span class="g__tn" data-p="1" aria-hidden="true"><span><i>Чёрный</i></span> <span><i>бомбер</i></span></span><span class="g__tn" data-p="2" aria-hidden="true"><span><i>Чёрный</i></span> <span><i>жилет</i></span></span></h2>
+    <p class="g__d"><span class="g__dn is-on" data-p="0">Тёплая и&nbsp;мягкая — к&nbsp;любой футболке</span><span class="g__dn" data-p="1" aria-hidden="true">Серебристая подкладка и&nbsp;карман внутри</span><span class="g__dn" data-p="2" aria-hidden="true">Утеплённый подклад и&nbsp;карман внутри</span></p>
   </header>
 
   <div class="g__stage">
@@ -2019,6 +2033,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     <div class="g__shadow" aria-hidden="true">
       <div class="g__shp g__shp--hd is-on"><div class="g__shf"><i></i><i></i></div></div>
       <div class="g__shp g__shp--bm"><div class="g__shf"><i></i><i></i></div></div>
+      <div class="g__shp g__shp--vs"><div class="g__shf"><i></i><i></i></div></div>
     </div>
     <div class="g__enter"><div class="g__float">
       <!-- ===== вещь 0: худи на молнии (спереди, сзади) ===== -->
@@ -2133,12 +2148,57 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
           <span class="co co--t co--l" style="--ax:.4650;--ay:.4970"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-lining.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
         </div>
       </div>
+      <!-- ===== вещь 2: жилет (спереди, сзади, внутри) =====
+           Снимки качаются вместе с бомбером (data-srcb). Кадр спереди и сзади
+           840×1151 (спина подогнана по высоте и низу), раскрытый — 1100×955,
+           низом по низу жилета; все три одной высоты. Точки — доли кадра. -->
+      <div class="g__pc g__pc--bm g__pc--vs" data-p="2" data-views="f b i" aria-hidden="true">
+        <div class="g__box g__box--bm g__box--vs" role="img" aria-label="Чёрный утеплённый жилет">
+          <div class="g__rev"><div class="g__rin"><div class="g__turn">
+            <div class="g__face is-on" data-v="f"><img data-srcb="/onboarding/vs-front.webp" alt="" width="840" height="1151" decoding="async"></div>
+            <div class="g__face" data-v="b"><img data-srcb="/onboarding/vs-back.webp" alt="" width="840" height="1151" decoding="async"></div>
+            <div class="g__face g__face--i" data-v="i"><div class="g__ob"><img data-srcb="/onboarding/vs-open.webp" alt="" width="1100" height="955" decoding="async"></div></div>
+            <div class="g__sheen" aria-hidden="true"><i></i></div>
+          </div></div></div>
+        </div>
+        <ul class="g__co g__co--z" data-v="f" aria-label="Детали жилета спереди">
+          <li class="co co--t co--l" style="--ax:.4566;--ay:.4520;--e:.0116">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>01</b>Ветрозащитная планка</span></button>
+          </li>
+          <li class="co co--b co--r" style="--ax:.1326;--ay:.9469;--e:.9578;--ax2:.8614;--ay2:.9469;--e2:.9585;--lf:var(--offB)">
+            <i class="co__stem"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__dot is-2"></i><i class="co__hit" aria-hidden="true"></i><i class="co__hit is-2" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>02</b>Утяжка по&nbsp;низу</span></button>
+          </li>
+        </ul>
+        <!-- спина: без выносок, только вещь и подпись бренда под полкой -->
+        <ul class="g__co" data-v="b" aria-label="Жилет сзади"></ul>
+        <!-- внутри: карман на молнии и утеплённый подклад; крупный план висит на линии -->
+        <ul class="g__co g__co--z" data-v="i" aria-label="Жилет внутри">
+          <li class="co co--t co--r" style="--ax:.6684;--ay:.4510;--e:.1731;--lf:var(--offT)">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>03</b>Внутренний карман</span></button>
+          </li>
+          <li class="co co--t co--l" style="--ax:.4923;--ay:.5974;--e:.0198">
+            <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+            <button class="co__lb" type="button" tabindex="-1"><span><b>04</b>Утеплённый подклад</span></button>
+          </li>
+        </ul>
+        <div class="g__zs" data-v="f" aria-hidden="true">
+          <span class="co co--t co--l" style="--ax:.4566;--ay:.4520"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/vz-placket.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--b co--r" style="--ax:.1326;--ay:.9469;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/vz-cord.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        </div>
+        <div class="g__zs g__zs--p" data-v="i" aria-hidden="true">
+          <span class="co co--t co--r" style="--ax:.6684;--ay:.4510;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/vz-pocket.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--l" style="--ax:.4923;--ay:.5974"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/vz-lining.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        </div>
+      </div>
     </div></div>
   </div>
 
-  <!-- главный выбор — вещь; под ним — сторона (у бомбера ещё «Внутри») -->
+  <!-- главный выбор — вещь; под ним — сторона (у бомбера и жилета ещё «Внутри») -->
   <div class="g__pr" role="group" aria-label="Вещь на витрине">
-    <button type="button" data-p="0" aria-pressed="true"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></span>Худи</button><button type="button" data-p="1" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt g__pt--w" aria-hidden="true"><img data-src="/onboarding/bm-front.webp" alt="" width="1200" height="776" decoding="async" crossorigin="anonymous"></span>Бомбер</button>
+    <button type="button" data-p="0" aria-pressed="true"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></span>Худи</button><button type="button" data-p="1" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt g__pt--w" aria-hidden="true"><img data-src="/onboarding/bm-front.webp" alt="" width="1200" height="776" decoding="async" crossorigin="anonymous"></span>Бомбер</button><button type="button" data-p="2" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/vs-pt.webp" alt="" width="72" height="99" decoding="async"></span>Жилет</button>
   </div>
   <div class="g__view" role="group" aria-label="Сторона">
     <div class="g__vw"><button type="button" data-v="f" aria-pressed="true">Спереди</button><button type="button" data-v="b" aria-pressed="false">Сзади</button><button type="button" data-v="i" aria-pressed="false" hidden>Внутри</button></div>
@@ -2355,7 +2415,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     });
   });
 
-  /* --- 02: худи на молнии --- и бомбер: «витрина» ---
+  /* --- 02: худи на молнии, бомбер и жилет: «витрина» ---
      Экран проявляется, когда встаёт на место (как остальные): худи шторкой
      сверху вниз, потом выноски по одной. Дальше всё идёт по «плану» вещи:
      у худи — спереди (экскурсия 01–04 с крупными планами) и спиной (05–06);
