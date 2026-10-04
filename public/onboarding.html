@@ -117,10 +117,9 @@ img{display:block;max-width:100%}
   .snap{scroll-snap-align:start;scroll-snap-stop:always}
 }
 
-/* ================= ЗНАК И «ПРОПУСТИТЬ» =================
-   Знак — на каждом экране свой, едет вместе с экраном. «Пропустить» стоит
-   на месте: уйти из знакомства можно в любой момент. */
-.s__lc{position:absolute;z-index:3;left:20px;top:calc(var(--safe-t) + 14px);width:auto;height:36px}
+/* ================= «ПРОПУСТИТЬ» =================
+   Стоит на месте: уйти из знакомства можно в любой момент. Маленького знака
+   LC слева сверху на экранах больше нет — владелец убрал (2026-10-04). */
 /* «Пропустить» — просто текст со стрелкой, без подложки (так просил владелец).
    Мягкий светлый ореол держит его читаемым и над тёмным краем снимка. */
 .skip{
@@ -302,6 +301,717 @@ html.js .hero.is-on .hero__go{opacity:1;transition:opacity .8s var(--ease) 1.3s}
 /* После заставки запуска знак уже стоит на месте — туда приехал белый знак. */
 html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;transform:none;transition:none}
 
+/* ================= 02: ХУДИ НА МОЛНИИ — «ГАЛЕРЕЯ» =================
+   Вся геометрия — от размера худи: --hh (высота кадра), --hw (ширина),
+   --by (верх кадра). Худи на телефоне упирается в ширину экрана, по высоте
+   встаёт посередине между текстом и капсулой «Спереди / Сзади». */
+.g{
+  --io:cubic-bezier(.65,0,.35,1);
+  --wall:#e8e3db;
+  --num:#9b9389;
+  --rule:#c7c0b5;
+  --lnA:rgba(28,22,16,.40);          /* линия выноски на стене */
+  --lnF:rgba(255,255,255,.45);       /* та же линия на чёрной ткани — тише, не режет вещь */
+  --u:1vh;
+  --tt:clamp(30px,min(9.4vw,calc(4.6 * var(--u))),40px);
+  --top:calc(var(--safe-t) + 74px);
+  --txh:calc(59px + var(--tt) * 1.06);
+  --lift:22px;                       /* ряд верхних подписей над капюшоном */
+  --drop:46px;                       /* ряд нижних подписей — под полкой ниши */
+  --offT:12px;--offB:0px;            /* 02 сдвинута: верхний ряд не складывается в рамку; нижний — ровно под полкой */
+  --above:calc(var(--top) + var(--txh) + 76px);
+  --below:calc(var(--safe-b) + 186px);
+  --room:calc(100 * var(--u) - var(--above) - var(--below));
+  --hh:min(var(--room),calc((100vw - 40px) * 1.06905));
+  --hw:calc(var(--hh) * .935407);
+  --by:calc(var(--above) + (var(--room) - var(--hh)) * .5);
+  --eL:var(--gut);
+  --eR:calc(100% - var(--gut));
+  position:relative;height:100vh;height:100svh;min-height:520px;overflow:hidden;isolation:isolate;
+  background:var(--wall)
+}
+@supports (height:1svh){.g{--u:1svh}}
+
+/* свет: виньетка, зерно, пятно света на вещь, чуть тёплый пол */
+.g__bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.g__vig{position:absolute;inset:0;
+  background:
+    radial-gradient(120% 80% at 50% 44%,rgba(70,54,38,0) 52%,rgba(70,54,38,.13) 100%),
+    linear-gradient(to bottom,rgba(255,255,255,.22),rgba(255,255,255,0) 30%)}
+.g__grain{position:absolute;inset:0;opacity:.55;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .27 0 0 0 0 .21 .55 0 0 0 -.22'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.g__stage{position:absolute;inset:0;z-index:1}
+
+/* ---------- ниша ----------
+   Арка утоплена в стену: светлая кромка по краю, откос в тени, задняя
+   стенка глубже стены и подсвечена сверху. Внизу — дно ниши и каменная
+   полка чуть шире проёма, по её лицу — латунная жилка. На телефоне ниша
+   шире экрана: видна только дуга свода между знаком и «Пропустить», текст
+   и вещь — внутри. На компьютере арка целиком, подписи — на стене вокруг.
+   --nr радиус свода (= половина ширины), --nT верх свода, --F0 дно ниши у
+   задней стенки, --F1 передний край дна, --fh лицо полки. */
+.g{
+  --nr:calc(50vw + 62px);
+  --nT:calc(var(--safe-t) + 46px);
+  --rv:11px;
+  --sd:calc(var(--hh) * .04);
+  --fh:6px;
+  --ov:26px;
+  --F0:calc(var(--by) + var(--hh) + 2px);
+  --F1:calc(var(--F0) + var(--sd))
+}
+.g__niche{position:absolute;inset:0;pointer-events:none}
+.g__arch{
+  position:absolute;left:calc(50% - var(--nr));width:calc(var(--nr) * 2);top:var(--nT);height:calc(var(--F1) - var(--nT));
+  border-radius:var(--nr) var(--nr) 0 0;overflow:hidden;
+  /* откос: под сводом темнее, к низу светлеет; по самой кромке — свет */
+  background:linear-gradient(to bottom,#d6cdc0 0,#e0d8cd 40%,#e9e3da 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.72)
+}
+.g__back{
+  position:absolute;left:var(--rv);right:var(--rv);top:var(--rv);bottom:var(--sd);overflow:hidden;
+  border-radius:calc(var(--nr) - var(--rv)) calc(var(--nr) - var(--rv)) 0 0;
+  background:#d6cec2;
+  /* снаружи — тень в углу между откосом и стенкой, внутри — тень под сводом и у боков */
+  box-shadow:0 0 10px 1px rgba(0,0,0,.13),
+    inset 0 30px 38px -20px rgba(74,56,38,.30),inset 20px 0 32px -20px rgba(74,56,38,.18),inset -20px 0 32px -20px rgba(74,56,38,.18)
+}
+/* зерно — как на стене, чтобы задняя стенка была тем же камнем */
+.g__back::after{content:'';position:absolute;inset:0;opacity:.5;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .27 0 0 0 0 .21 .55 0 0 0 -.22'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+/* тёплый свет внутри ниши — на входе «разгорается» */
+.g__warm{position:absolute;inset:0;
+  background:
+    radial-gradient(70% 58% at 50% 46%,rgba(255,249,238,.96) 0%,rgba(252,244,230,.62) 48%,rgba(248,238,222,.1) 100%),
+    linear-gradient(to bottom,rgba(250,241,226,.0),rgba(250,241,226,.35) 70%,rgba(240,228,210,.15))}
+/* светильник под сводом: светлая дуга и мягкий конус вниз по стенке */
+.g__beam{position:absolute;left:50%;top:0;width:calc(var(--nr) * 1.3);height:calc(var(--nr) * 1.6);margin-left:calc(var(--nr) * -.65);
+  transform-origin:50% 0;
+  background:radial-gradient(46% 62% at 50% 0%,rgba(255,252,246,.62) 0%,rgba(255,251,243,.26) 46%,rgba(255,250,240,0) 100%)}
+.g__spot{
+  position:absolute;left:50%;top:calc(var(--by) + var(--hh) * .44 - var(--nT) - var(--rv));
+  width:calc(var(--hw) * 2.3);height:calc(var(--hw) * 2.1);
+  margin:calc(var(--hw) * -1.05) 0 0 calc(var(--hw) * -1.15);
+  background:radial-gradient(closest-side,rgba(255,254,251,.9) 0%,rgba(255,253,249,.62) 30%,rgba(255,252,247,.22) 60%,rgba(255,252,247,0) 100%);
+  pointer-events:none
+}
+/* дно ниши — видно сверху, светлее стенки */
+.g__fl{position:absolute;left:0;right:0;bottom:0;height:var(--sd);
+  -webkit-clip-path:polygon(var(--rv) 0,calc(100% - var(--rv)) 0,100% 100%,0 100%);clip-path:polygon(var(--rv) 0,calc(100% - var(--rv)) 0,100% 100%,0 100%);
+  background:linear-gradient(to bottom,#d9d1c5,#ebe5dc 70%,#f1ece5)}
+/* полка: светлая кромка сверху, лицо в тени, тень на стену */
+.g__ledge{position:absolute;left:calc(50% - var(--nr) - var(--ov));width:calc(var(--nr) * 2 + var(--ov) * 2);top:var(--F1);height:calc(var(--fh) + 2px);
+  background:linear-gradient(to bottom,#fbf8f3 0,#f4efe7 2px,#d6cdc0 2px,#cbc2b4 100%);
+  box-shadow:0 14px 22px -12px rgba(58,44,30,.34),0 2px 3px rgba(58,44,30,.10)}
+.g__brass{position:absolute;left:0;right:0;top:2px;height:1px;overflow:hidden;transform-origin:50% 50%;
+  background:linear-gradient(to right,rgba(176,140,84,0),rgba(176,140,84,.7) 14%,#bda06f 50%,rgba(176,140,84,.7) 86%,rgba(176,140,84,0))}
+.g__brass b{position:absolute;top:0;bottom:0;left:0;width:16%;transform:translateX(-110%);
+  background:linear-gradient(to right,rgba(255,244,214,0),rgba(255,246,220,.6) 50%,rgba(255,244,214,0))}
+/* стена под полкой чуть теплее и темнее книзу — без резкой границы */
+.g__floor{position:absolute;left:-100vw;right:-100vw;top:calc(var(--F1) + var(--fh) + 2px);bottom:0;pointer-events:none;
+  background:linear-gradient(to bottom,rgba(112,92,70,0),rgba(112,92,70,.06) 45%,rgba(112,92,70,.09))}
+/* подпись бренда под полкой — проступает, когда худи повёрнуто спиной
+   (выноски в этот момент скрыты) */
+.g__plq{position:absolute;left:0;right:0;top:calc(var(--F1) + var(--fh) + 22px);margin:0;text-align:center;
+  font-size:11.5px;line-height:14px;font-weight:500;letter-spacing:.46em;text-indent:.46em;white-space:nowrap;
+  color:rgba(92,76,58,.58);text-shadow:0 1px 0 rgba(255,255,255,.55);opacity:0;transform:translateY(4px);
+  transition:opacity .5s var(--ease),transform .6s var(--out)}
+.g__plq::before,.g__plq::after{content:'';display:inline-block;width:22px;height:1px;background:var(--rule);vertical-align:middle;margin:0 14px}
+.g.is-bk .g__plq{opacity:1;transform:none;transition:opacity 1s var(--ease) .5s,transform 1.2s var(--out) .5s}
+/* тень касания: ядро и полутень; лежит на дне ниши, дышит в такт парению */
+.g__shadow{
+  position:absolute;left:50%;top:calc(var(--F0) + var(--sd) * .5);
+  width:calc(var(--hw) * 1.02);height:calc(var(--hw) * .1);
+  margin:calc(var(--hw) * -.05) 0 0 calc(var(--hw) * -.51);pointer-events:none
+}
+.g__shf,.g__shf i{position:absolute;inset:0}
+.g__shf i:first-child{background:radial-gradient(closest-side,rgba(52,40,28,.30),rgba(52,40,28,.12) 55%,rgba(52,40,28,0))}
+.g__shf i:last-child{inset:32% 12%;background:radial-gradient(closest-side,rgba(26,20,14,.52),rgba(26,20,14,.18) 58%,rgba(26,20,14,0))}
+.g__enter,.g__float{position:absolute;inset:0}
+.g__float{transform-origin:50% calc(var(--by) + var(--hh) * .5)}
+
+/* кадр худи */
+.g__box{
+  position:absolute;left:calc(50% - var(--hw) * .5);top:var(--by);width:var(--hw);height:var(--hh);
+  cursor:pointer;-webkit-user-select:none;user-select:none
+}
+/* Проявление сверху вниз с мягким краем — тот же приём, что шторка цвета на
+   первом экране: рамка выше кадра на 28 % и с растушёвкой внизу едет вниз,
+   а содержимое — навстречу, так что вещь стоит на месте, а движется только
+   край. Без жёсткого среза, как у clip-path. */
+.g__rev{position:absolute;left:0;top:0;width:100%;height:128%;
+  -webkit-mask:linear-gradient(to bottom,#000 78.125%,transparent) no-repeat;mask:linear-gradient(to bottom,#000 78.125%,transparent) no-repeat}
+.g__rin{position:absolute;left:0;top:0;width:100%;height:78.125%}
+.g__turn{position:absolute;inset:0;transform-origin:50% 55%}
+.g__face{position:absolute;inset:0;z-index:1;opacity:0;transition:opacity 0s linear 1.2s}
+.g__face.is-on{z-index:2;opacity:1;transition:opacity .85s var(--io) .3s}
+.g__face img{width:100%;height:100%;-webkit-user-drag:none;pointer-events:none}
+/* блик: узкая полоса света скользит по ткани, только внутри силуэта
+   (маска — тот же снимок; ставится, когда снимки начали грузиться) */
+.g__sheen{position:absolute;inset:0;z-index:3;overflow:hidden;pointer-events:none;opacity:0}
+.g.is-load .g__sheen{opacity:1;
+  -webkit-mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat;mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat}
+.g__sheen i{position:absolute;top:0;bottom:0;left:0;width:60%;transform:translateX(-120%);
+  background:linear-gradient(102deg,rgba(255,255,255,0) 22%,rgba(255,255,255,.035) 40%,rgba(255,255,255,.09) 50%,rgba(255,255,255,.035) 60%,rgba(255,255,255,0) 78%)}
+
+/* ---------- выноски ----------
+   Точка — линия от её ореола — плечо к краю — подпись. Линия белая над
+   тканью и тёмная над стеной, смена ровно на краю силуэта. Плечи к краю
+   экрана гаснут, ряды 01/02 и 03/04 разведены по высоте — вещь не в рамке. */
+.g__co{position:absolute;inset:0;pointer-events:none;margin:0;padding:0;list-style:none}
+.co{position:absolute;inset:0;--d:0s;--lf:0px}
+.co > *{
+  --X:calc(50% + (var(--ax) - .5) * var(--hw));
+  --Y:calc(var(--by) + var(--ay) * var(--hh));
+  --rT:calc(var(--by) - var(--lift) - var(--lf));
+  --rB:calc(var(--by) + var(--hh) + var(--drop) + var(--lf));
+  position:absolute
+}
+.co .is-2{--ax:var(--ax2);--ay:var(--ay2);--e:var(--e2)}
+.co__stem{left:var(--X);width:1px;margin-left:-.5px}
+.co--t .co__stem{top:var(--rT);height:calc(var(--Y) - var(--rT) - 6px);transform-origin:50% 100%;
+  --cut:calc(var(--lift) + var(--lf) + var(--e) * var(--hh));
+  background:linear-gradient(to bottom,var(--lnA) 0,var(--lnA) calc(var(--cut) - 1px),var(--lnF) calc(var(--cut) + 1px),var(--lnF) 100%)}
+.co--b .co__stem{top:calc(var(--Y) + 6px);height:calc(var(--rB) - var(--Y) - 6px);transform-origin:50% 0;
+  --cut:calc((var(--e) - var(--ay)) * var(--hh) - 6px);
+  background:linear-gradient(to bottom,var(--lnF) 0,var(--lnF) calc(var(--cut) - 1px),var(--lnA) calc(var(--cut) + 1px),var(--lnA) 100%)}
+.co__arm{height:1px;margin-top:-.5px}
+.co--t .co__arm{top:var(--rT)}
+.co--b .co__arm{top:var(--rB)}
+.co--l .co__arm{left:var(--eL);width:calc(var(--X) - var(--eL));transform-origin:100% 50%;
+  background:linear-gradient(to right,rgba(28,22,16,0),var(--lnA) 28px)}
+.co--r .co__arm{left:var(--X);width:calc(var(--eR) - var(--X));transform-origin:0 50%;
+  background:linear-gradient(to left,rgba(28,22,16,0),var(--lnA) 28px)}
+.co__dot{left:var(--X);top:var(--Y);width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.92);box-shadow:0 0 0 3px rgba(255,255,255,.06),0 1px 3px rgba(0,0,0,.28)}
+.co__dot::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%;background:#fff}
+.co__lb{white-space:nowrap;font-size:12.5px;line-height:16px;font-weight:400;letter-spacing:.005em;color:#3d3731}
+.co__lb b{font-family:var(--f-display);font-weight:400;font-size:11.5px;color:var(--num);margin-right:7px;letter-spacing:.02em}
+.co__lb > span{display:block}
+.co--l .co__lb{left:var(--eL)}
+.co--r .co__lb{right:calc(100% - var(--eR));text-align:right}
+.co--t .co__lb{bottom:calc(100% - var(--rT) + 7px)}
+.co--b .co__lb{top:calc(var(--rB) + 7px)}
+.co--l .co__lb{text-align:left}
+
+/* ---------- экскурсия: крупный план ----------
+   Выноски спереди идут по очереди: текущая в полную силу, остальные тише,
+   у её точки расходится кольцо, а со стороны подписи проявляется круглый
+   крупный план этой детали (свой слой .g__zs — не притихает с выносками).
+   Телефон: сверху он висит под плечом выноски, снизу — стоит над точкой;
+   край — ровно по краю подписи (у экрана). Компьютер — см. ниже. Снимок в
+   светлой каменной оправе, с нейтральной тенью, как вещь над стеной.
+   --zs размер, --zg зазор до плеча / точки, --zr оправа; --zox/--zoy —
+   угол, ближний к точке: оттуда круг раскрывается и туда же уходит. */
+.g{--zs:clamp(96px,calc(var(--hw) * .335),120px);--zg:12px;--zr:3px}
+.co__z{width:var(--zs);height:var(--zs);border-radius:50%;pointer-events:none;
+  --zox:50%;--zoy:50%;transform-origin:var(--zox) var(--zoy)}
+.co--t .co__z{top:calc(var(--rT) + var(--zg))}
+.co--b .co__z{top:calc(var(--Y) - 4.5px - var(--zg) - var(--zs))}
+.co--l .co__z{left:var(--eL)}
+.co--r .co__z{left:calc(var(--eR) - var(--zs))}
+.co--t.co--l .co__z{--zox:100%;--zoy:80%}
+.co--t.co--r .co__z{--zox:0%;--zoy:80%}
+.co--b.co--l .co__z{--zox:85%;--zoy:100%}
+.co--b.co--r .co__z{--zox:45%;--zoy:100%}
+.co__z::before{content:'';position:absolute;inset:0;border-radius:50%;
+  box-shadow:0 0 0 .5px rgba(60,44,28,.18),0 22px 34px -18px rgba(26,18,10,.55),0 5px 12px -5px rgba(26,18,10,.3)}
+.co__zc{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:#ece5db}
+.co__zc img{width:100%;height:100%;-webkit-user-drag:none}
+/* снимок чуть утоплен под оправу */
+.co__zc::before{content:'';position:absolute;z-index:1;inset:var(--zr);border-radius:50%;
+  box-shadow:inset 0 2px 6px rgba(20,14,8,.42),inset 0 0 0 .5px rgba(20,14,8,.3)}
+/* оправа: светлый камень, сверху светлее — как кромка ниши (вне круга-маски:
+   сначала встаёт оправа, в неё со стороны точки входит снимок) */
+.co__z::after{content:'';position:absolute;z-index:2;inset:0;border-radius:50%;
+  background:linear-gradient(to bottom,#fefcf8 0%,#f3ede4 45%,#e2d8ca 100%);
+  -webkit-mask:radial-gradient(closest-side,transparent calc(100% - var(--zr) - .6px),#000 calc(100% - var(--zr)));
+  mask:radial-gradient(closest-side,transparent calc(100% - var(--zr) - .6px),#000 calc(100% - var(--zr)))}
+
+/* касание: точка (≥34 px вокруг) и подпись (по высоте 34 px) */
+.co__hit{left:var(--X);top:var(--Y);width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;cursor:pointer}
+.co__lb::before{content:'';position:absolute;left:-5px;right:-5px;top:-9px;bottom:-9px}
+.g__zs{position:absolute;inset:0;pointer-events:none}
+.g__co--f .co__hit,.g__co--f .co__lb{pointer-events:none}
+.g.is-co .g__co--f .co__hit,.g.is-co .g__co--f .co__lb{pointer-events:auto}
+.g.is-co .g__zs .co.is-on .co__z{pointer-events:auto;cursor:pointer}
+.g__co--b .co__lb{pointer-events:none}
+
+/* тише — вся выноска разом, кроме текущей */
+.g__co--f .co{transition:opacity .6s var(--ease)}
+.g.is-tour .g__co--f .co{opacity:.42}
+.g.is-tour .g__co--f .co.is-on{opacity:1}
+/* номер активной детали — латунью, как жилка на полке */
+.co__lb b{transition:color .5s var(--ease)}
+.g.is-tour .g__co--f .co.is-on .co__lb b{color:#8a6d43}
+/* кольцо у точки текущей детали (у 04 — у манжеты) */
+.co__dot::before{content:'';position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.85);opacity:0;transform:scale(.3);pointer-events:none}
+html.js .g.is-tour .co.is-on .co__dot:not(.is-h)::before{animation:coRing 1.8s cubic-bezier(.22,.6,.3,1) .15s infinite}
+@keyframes coRing{0%{transform:scale(.3);opacity:.9}70%,100%{transform:scale(1);opacity:0}}
+/* проявление: сначала встаёт оправа (чуть подрастает от угла у точки), в неё
+   со стороны точки кругом входит снимок и садится из лёгкого приближения;
+   тень — когда снимок уже есть. Уход — снимок тем же кругом обратно к точке,
+   оправа тает следом (без полупрозрачного «призрака»). */
+html.js .co__z{--zd:.42s;opacity:0;transform:scale(.9);transition:opacity .18s linear .2s,transform .38s cubic-bezier(.5,0,.75,0)}
+html.js .co__z::before,html.js .co__z::after{opacity:0;transition:opacity .12s linear}
+html.js .co__z::after{transition:opacity .2s linear .15s}
+html.js .co__zc{-webkit-clip-path:circle(0% at var(--zox) var(--zoy));clip-path:circle(0% at var(--zox) var(--zoy));transition:clip-path .38s cubic-bezier(.5,0,.75,0)}
+html.js .co__zc img{transform:scale(1.12);transition:transform 0s linear .45s}
+html.js .g .co.is-on .co__z{opacity:1;transform:none;transition:opacity .3s var(--ease) var(--zd),transform 1.1s var(--out) var(--zd)}
+html.js .g .co.is-on .co__z::before{opacity:1;transition:opacity .8s var(--ease) calc(var(--zd) + .35s)}
+html.js .g .co.is-on .co__z::after{opacity:1;transition:opacity .35s var(--ease) calc(var(--zd) + .15s)}
+html.js .g .co.is-on .co__zc{-webkit-clip-path:circle(106% at var(--zox) var(--zoy));clip-path:circle(106% at var(--zox) var(--zoy));
+  transition:clip-path .8s cubic-bezier(.5,.05,.2,1) var(--zd)}
+html.js .g .co.is-on .co__zc img{transform:none;transition:transform 1.2s var(--out) var(--zd)}
+
+/* ---------- текст ---------- */
+.g__tx{position:absolute;z-index:2;left:var(--gut);right:var(--gut);top:var(--top);text-align:center}
+.g__k{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;line-height:14px;font-weight:600;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2)}
+.g__k span{padding-left:.2em}
+.g__k::before,.g__k::after{content:'';width:30px;height:1px;background:var(--rule)}
+.g__t{margin-top:14px;font-family:var(--f-display);font-weight:400;font-size:var(--tt);line-height:1.06;letter-spacing:-.015em}
+.g__t > span{display:inline-block;overflow:hidden;padding:0 .04em .06em;vertical-align:top}
+.g__t i{display:block;font-style:normal}
+/* «на молнии» — тот же переход от тёмно-серого к серому и блик, что у второй
+   строки первого экрана */
+.g__t > span + span i{
+  background-image:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.7) 50%,transparent 62%),linear-gradient(100deg,#2e2c2a 0%,#55514c 50%,#7d776f 100%);
+  background-size:260% 100%,100% 100%;background-position:130% 0,0 0;background-repeat:no-repeat;
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+.g__d{margin-top:10px;font-size:15px;line-height:21px;color:var(--soft)}
+
+/* ---------- спереди / сзади ----------
+   Светлая капсула, как цвета на первом экране (на компьютере): по выбранной
+   стороне идёт заливка — отсчёт до поворота. */
+.g__view{position:absolute;z-index:3;left:50%;bottom:calc(var(--safe-b) + 72px);transform:translateX(-50%);
+  display:flex;align-items:center;gap:2px;padding:4px;border-radius:999px;
+  background:rgba(255,255,255,.5);border:1px solid rgba(60,45,30,.08);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 12px 30px -16px rgba(0,0,0,.25)}
+.g__view button{position:relative;height:34px;padding:0 15px;border-radius:999px;overflow:hidden;isolation:isolate;
+  font-size:13px;font-weight:500;letter-spacing:.01em;color:var(--muted);transition:color .45s var(--ease),background-color .45s var(--out)}
+.g__view button::before{content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;background:rgba(0,0,0,.06);
+  transform-origin:0 50%;transform:scaleX(0)}
+.g__view button[aria-pressed="true"]{color:var(--ink);background-color:rgba(0,0,0,.05)}
+.g__view button.is-run::before{animation:tnRun var(--hold,5s) linear both}
+.g__view button:active{opacity:.7}
+/* в каждой кнопке — сама вещь этой стороной, крошечным снимком */
+.g__view button{display:flex;align-items:center;gap:7px;padding:0 15px 0 8px}
+.g__th{position:relative;flex:none;width:22px;height:24px}
+.g__th img{display:block;width:100%;height:100%;-webkit-user-drag:none}
+
+/* ---------- «Листайте» — как на первом экране ---------- */
+.g__go{position:absolute;z-index:3;left:50%;bottom:calc(var(--safe-b) + 14px);transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:4px 24px;color:var(--ink-2);
+  font-size:10.5px;line-height:14px;font-weight:600;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase}
+.g__go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+  animation:nudge 2.2s var(--ease) infinite}
+.g__go:active{opacity:.6}
+
+/* ---------- движение ----------
+   Только transform, opacity и маска-шторка. Худи парит, тень дышит в такт;
+   раз в ~6 с выноски гаснут, по ткани проходит блик и худи поворачивается
+   спиной (смена снимков + лёгкий наклон), через ~3 с — обратно. Экран не
+   виден — всё стоит. */
+.g__float{animation:gFloat 7s ease-in-out infinite alternate}
+.g__shf{animation:gShade 7s ease-in-out infinite alternate}
+.g.is-off .g__float,.g.is-off .g__shf,.g.is-off .g__go svg,.g.is-off .g__view button::before,.g.is-off .co__dot::before{animation-play-state:paused}
+@keyframes gFloat{from{transform:translateY(0)}to{transform:translateY(-9px)}}
+@keyframes gShade{from{transform:none;opacity:1}to{transform:scale(.9,.84);opacity:.7}}
+.g__turn.t1{animation:gTurnA 1.6s var(--io)}
+.g__turn.t2{animation:gTurnB 1.6s var(--io)}
+@keyframes gTurnA{0%,100%{transform:none}50%{transform:perspective(1400px) rotateY(8deg) scale(.975)}}
+@keyframes gTurnB{0%,100%{transform:none}50%{transform:perspective(1400px) rotateY(-8deg) scale(.975)}}
+.g__shadow.t1,.g__shadow.t2{animation:gShTurn 1.6s var(--io)}
+@keyframes gShTurn{0%,100%{transform:none}50%{transform:scaleX(.93)}}
+
+html.js .g .g__spot{opacity:0;transform:scale(.86)}
+/* ниша: свет внутри разгорается, светильник под сводом раскрывает конус,
+   латунная жилка проводится от центра, по ней пробегает отблеск */
+html.js .g .g__warm{opacity:0;transform:scale(.9)}
+html.js .g .g__beam{opacity:0;transform:scaleY(.55)}
+html.js .g .g__brass{transform:scaleX(0)}
+html.js .g.is-in .g__warm{opacity:1;transform:none;transition:opacity 2.4s var(--ease) .1s,transform 3s var(--out) .1s}
+html.js .g.is-in .g__beam{opacity:1;transform:none;transition:opacity 1.8s var(--ease) .35s,transform 2.6s var(--out) .35s}
+html.js .g.is-in .g__brass{transform:none;transition:transform 1.9s var(--out) .55s}
+html.js .g.is-in .g__brass b{animation:gGlint0 2.2s var(--io) 1.5s both}
+html.js .g .g__brass.t1 b{animation:gGlint 1.7s var(--io) .15s both}
+html.js .g .g__brass.t2 b{animation:gGlintB 1.7s var(--io) .15s both}
+@keyframes gGlint0{from{transform:translateX(-110%)}to{transform:translateX(640%)}}
+@keyframes gGlint{from{transform:translateX(-110%)}to{transform:translateX(640%)}}
+@keyframes gGlintB{from{transform:translateX(640%)}to{transform:translateX(-110%)}}
+html.js .g .g__floor{opacity:0}
+html.js .g .g__enter{transform:translateY(30px) scale(.965)}
+html.js .g .g__rev{transform:translateY(-100%)}
+html.js .g .g__rin{transform:translateY(128%)}
+html.js .g .g__shadow{opacity:0}
+html.js .g .g__k{opacity:0;transform:translateY(10px)}
+html.js .g .g__k::before,html.js .g .g__k::after{transform:scaleX(0)}
+html.js .g .g__k::before{transform-origin:100% 50%}
+html.js .g .g__k::after{transform-origin:0 50%}
+html.js .g .g__t i{transform:translateY(108%)}
+html.js .g .g__d{opacity:0;transform:translateY(12px)}
+html.js .g .g__view,html.js .g .g__go{opacity:0}
+
+html.js .g.is-in .g__spot{opacity:1;transform:none;transition:opacity 1.6s var(--ease),transform 2.4s var(--out)}
+html.js .g.is-in .g__floor{opacity:1;transition:opacity 1.2s var(--ease) .1s}
+html.js .g.is-in .g__enter{transform:none;transition:transform 1.8s var(--out) .1s}
+html.js .g.is-in .g__rev,html.js .g.is-in .g__rin{transform:none;transition:transform 1.7s cubic-bezier(.45,0,.2,1) .1s}
+html.js .g.is-in .g__shadow{opacity:1;transition:opacity 1.4s var(--ease) .45s}
+html.js .g.is-in .g__k{opacity:1;transform:none;transition:opacity .8s var(--ease) .05s,transform 1s var(--out) .05s}
+html.js .g.is-in .g__k::before,html.js .g.is-in .g__k::after{transform:none;transition:transform 1.1s var(--out) .35s}
+html.js .g.is-in .g__t i{transform:none;transition:transform 1.2s var(--out) .16s}
+html.js .g.is-in .g__t > span + span i{transition-delay:.24s;animation:heroShine 2.4s var(--ease) 1.1s both}
+html.js .g.is-in .g__d{opacity:1;transform:none;transition:opacity .9s var(--ease) .38s,transform 1.1s var(--out) .38s}
+html.js .g.is-in .g__view{opacity:1;transition:opacity .9s var(--ease) 1.6s}
+html.js .g.is-in .g__go{opacity:1;transition:opacity .9s var(--ease) 1.8s}
+html.js .g.is-in .g__sheen i{animation:gSheen0 2.1s var(--io) .95s both}
+html.js .g .g__turn.t1 .g__sheen i{animation:gSheenA 1.7s var(--io) .1s both}
+html.js .g .g__turn.t2 .g__sheen i{animation:gSheenB 1.7s var(--io) .1s both}
+@keyframes gSheen0{from{transform:translateX(-120%)}to{transform:translateX(190%)}}
+@keyframes gSheenA{from{transform:translateX(-120%)}to{transform:translateX(190%)}}
+@keyframes gSheenB{from{transform:translateX(190%)}to{transform:translateX(-120%)}}
+
+/* выноски: точка — линия — плечо — подпись, по очереди; гаснут разом.
+   Спереди — 01–04 (.is-co), спиной — 05–06 (.is-cb). */
+html.js .co__dot,html.js .co__stem,html.js .co__arm,html.js .co__lb > span{opacity:0;
+  transition:opacity .35s var(--ease),transform 0s linear .4s}
+html.js .co__dot{transform:scale(.3)}
+html.js .co__stem{transform:scaleY(0)}
+html.js .co__arm{transform:scaleX(0)}
+html.js .co__lb > span{transform:translateY(5px)}
+html.js .g.is-co .g__co--f .co__dot,html.js .g.is-cb .g__co--b .co__dot{opacity:var(--o,1);transform:none;transition:opacity .4s var(--ease) var(--d),transform .7s var(--out) var(--d)}
+html.js .g.is-co .g__co--f .co__stem,html.js .g.is-cb .g__co--b .co__stem{opacity:var(--o,1);transform:none;transition:opacity .15s linear calc(var(--d) + .12s),transform .75s var(--out) calc(var(--d) + .12s)}
+html.js .g.is-co .g__co--f .co__arm,html.js .g.is-cb .g__co--b .co__arm{opacity:1;transform:none;transition:opacity .15s linear calc(var(--d) + .55s),transform .7s var(--out) calc(var(--d) + .55s)}
+html.js .g.is-co .g__co--f .co__lb > span,html.js .g.is-cb .g__co--b .co__lb > span{opacity:1;transform:none;transition:opacity .7s var(--ease) calc(var(--d) + .72s),transform .9s var(--out) calc(var(--d) + .72s)}
+.co:nth-child(1){--d:0s}.co:nth-child(2){--d:.2s}.co:nth-child(3){--d:.4s}.co:nth-child(4){--d:.6s}
+.co:nth-child(4) .is-2{--d:.72s}
+/* у 04 главная точка — манжета; кромка низа — вторая, тише */
+.co .is-h{--o:.5}
+
+/* низкий экран: нижний ряд подписей без сдвига, капсула ниже,
+   «Листайте» со стрелкой в одну строку */
+@media (max-height:700px){
+  .g{--top:calc(var(--safe-t) + 58px);--tt:clamp(27px,8.4vw,33px);--txh:calc(55px + var(--tt) * 1.06);
+     --above:calc(var(--top) + var(--txh) + 84px);--below:calc(var(--safe-b) + 168px);--lift:20px;--drop:34px;--offB:0px;
+     --nT:calc(var(--safe-t) + 42px);--sd:calc(var(--hh) * .035);--fh:4px;--rv:9px}
+  .g__d{font-size:14px;margin-top:8px}
+  .g__view{bottom:calc(var(--safe-b) + 50px)}
+  .g__view button{height:30px;padding:0 13px 0 7px;gap:6px}
+  .g__th{width:20px;height:22px}
+  .g__go{bottom:calc(var(--safe-b) + 10px);flex-direction:row;gap:8px}
+}
+
+/* компьютер: текст и капсула слева, вещь — в правой части, выноски в поля */
+@media (min-width:900px){
+  .g{
+    --tt:clamp(44px,4.4vw,66px);
+    --txh:calc(82px + var(--tt) * 2.12);
+    --hh:min(calc(100 * var(--u) - 320px),660px,calc(52vw * 1.06905));
+    --by:calc(50 * var(--u) - var(--hh) * .5 + 4px);
+    --lift:30px;--drop:60px;--offB:12px;
+    --nr:calc(var(--hw) * .5 + 78px);--nT:calc(var(--by) - var(--hh) * .1 - 14px);--rv:14px;--fh:9px;--ov:34px;
+    --eL:calc(50% - var(--hw) * .5 - 70px);
+    --eR:calc(50% + var(--hw) * .5 + 70px)
+  }
+  .g__stage{left:34vw}
+  .g__tx{left:7vw;right:auto;width:30vw;top:calc(50% - (var(--txh) + 96px) * .5);text-align:left}
+  .g__k{justify-content:flex-start}
+  .g__k::before{display:none}
+  .g__k::after{width:38px}
+  .g__k span{padding-left:0}
+  .g__t{margin-top:22px}
+  .g__t > span{display:block;width:max-content}
+  .g__d{margin-top:20px;font-size:16px;line-height:26px}
+  .g__view{left:7vw;bottom:auto;top:calc(50% - (var(--txh) + 96px) * .5 + var(--txh) + 36px);transform:none}
+  .g__go{left:7vw;bottom:calc(var(--safe-b) + 34px);transform:none;flex-direction:row;gap:10px;padding:4px 0;text-indent:0}
+  .co__lb{font-size:13px;line-height:18px}
+  .co__lb b{font-size:12.5px;margin-right:9px}
+  /* крупный план вправлен в обрамление ниши — центром на внешней кромке
+     арки: 01/02 — на плечах свода (52° от вертикали), под своей подписью;
+     03/04 — на боковых откосах, на высоте своей точки (не ниже полки) */
+  .g{--zs:clamp(116px,calc(var(--hh) * .235),140px);--zg:14px;--zr:3.5px}
+  .co--t .co__z{top:calc(var(--nT) + var(--nr) * .384 - var(--zs) * .5)}
+  .co--t.co--l .co__z{left:calc(50% - var(--nr) * .788 - var(--zs) * .5)}
+  .co--t.co--r .co__z{left:calc(50% + var(--nr) * .788 - var(--zs) * .5)}
+  .co--b .co__z{top:min(calc(var(--Y) - var(--zs) * .5),calc(var(--F1) - 14px - var(--zs)))}
+  .co--b.co--l .co__z{left:calc(50% - var(--nr) - var(--zs) * .5);--zox:100%;--zoy:50%}
+  .co--b.co--r .co__z{left:min(calc(50% + var(--nr) - var(--zs) * .5),calc(100% - var(--zs) - 16px));--zox:0%;--zoy:65%}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .g__float,.g__shf,.g__go svg,.g__turn.t1,.g__turn.t2,.g__shadow.t1,.g__shadow.t2{animation:none}
+  html.js .g .g__sheen i{animation:none;opacity:0}
+  html.js .g .g__warm,html.js .g .g__beam,html.js .g .g__brass{opacity:1;transform:none;transition:none}
+  html.js .g .g__brass b,html.js .g.is-in .g__brass b{animation:none;opacity:0}
+  .g__plq,.g.is-bk .g__plq{transition:opacity .4s linear;transform:none}
+  html.js .g .g__rev,html.js .g .g__rin,html.js .g.is-in .g__rev,html.js .g.is-in .g__rin{transform:none;transition:none}
+  html.js .g .g__spot,html.js .g .g__floor,html.js .g .g__enter,html.js .g .g__shadow,html.js .g .g__k,
+  html.js .g .g__k::before,html.js .g .g__k::after,html.js .g .g__t i,html.js .g .g__d,
+  html.js .co__dot,html.js .co__stem,html.js .co__arm,html.js .co__lb > span{transform:none;transition:none}
+  /* капсула и «Листайте» центрируются сдвигом — его не трогаем */
+  html.js .g .g__view,html.js .g .g__go{transition:none}
+  html.js .g.is-in .g__spot,html.js .g.is-in .g__floor,html.js .g.is-in .g__enter,html.js .g.is-in .g__shadow,
+  html.js .g.is-in .g__k,html.js .g.is-in .g__d,html.js .g.is-in .g__view,html.js .g.is-in .g__go{opacity:1;transition:opacity .4s linear}
+  html.js .g.is-in .g__t > span + span i{animation:none}
+  .g__face{transition:opacity 0s linear .5s}
+  .g__face.is-on{transition:opacity .45s linear}
+  .g__view button.is-run::before{animation:none}
+  /* экскурсии нет: крупный план — только по касанию, сразу, без движения */
+  .g__co--f .co,html.js .co__z,html.js .co__z::before,html.js .co__zc,html.js .co__zc img,
+  html.js .co__z::after,html.js .g .co.is-on .co__z,html.js .g .co.is-on .co__z::before,html.js .g .co.is-on .co__z::after,html.js .g .co.is-on .co__zc,html.js .g .co.is-on .co__zc img{transition:none}
+  html.js .co__z{transform:none}
+  html.js .co__zc,html.js .g .co.is-on .co__zc{-webkit-clip-path:none;clip-path:none}
+  html.js .co__zc img{transform:none}
+  html.js .g.is-tour .co.is-on .co__dot:not(.is-h)::before{animation:none;opacity:.55;transform:scale(.7)}
+}
+
+/* ================= 03: ТКАНЬ — ПЛИТКА =================
+   Продолжение второго экрана: та же тёплая стена с зерном и мягким светом,
+   на ней — шесть снимков «галерейной стенкой» по образцу владельца (вариант 2):
+   сетка 3 × 4, сверху два маленьких слева и большой справа, снизу наоборот —
+   большой слева и два маленьких справа. Промежутки везде одинаковые.
+   Плитка на телефоне — во всю ширину; по высоте она ужимается, если экран
+   низкий (плитки становятся чуть шире, чем выше), и встаёт посередине между
+   текстом и «Листайте». На компьютере текст слева, плитка справа.
+
+   Появление — шторками с мягким краем, как худи на втором экране: рамка с
+   растушёвкой едет в одну сторону, снимок внутри — навстречу, так что движется
+   только край. Каждая плитка открывается со своей стороны к середине стенки
+   (маленькие — сверху, слева, справа, снизу; большие — по диагонали из своих
+   углов), снимок при этом оседает с 1,08 до 1. Потом по стенке один раз
+   проходит отблеск света, большие снимки еле заметно «дышат» (Ken Burns),
+   а раз в ~5 с одна маленькая плитка мягко сменяется другим снимком того же
+   цвета. Экран не виден — всё стоит. */
+.fx{
+  --wall:#e8e3db;
+  --rule:#c7c0b5;
+  --io:cubic-bezier(.65,0,.35,1);
+  --wipe:cubic-bezier(.33,0,.17,1);
+  --u:1vh;
+  --tt:clamp(30px,min(9.4vw,calc(4.6 * var(--u))),40px);
+  --top:calc(var(--safe-t) + 74px);
+  --g:7px;                                   /* промежуток между плитками */
+  --r:14px;                                  /* скругление плитки */
+  --k:.9;                                    /* ширина / высота маленькой плитки */
+  --sx:16px;                                 /* поля плитки по бокам */
+  --cw:calc((min(100vw - var(--sx) * 2,560px) - var(--g) * 2) / 3);   /* на планшете стенка не шире 560 px */
+  --gmax:calc(var(--cw) / var(--k) * 4 + var(--g) * 3);
+  position:relative;height:100vh;height:100svh;min-height:520px;overflow:hidden;isolation:isolate;
+  display:flex;flex-direction:column;align-items:center;
+  padding:var(--top) 0 calc(var(--safe-b) + 14px);
+  background:var(--wall)
+}
+@supports (height:1svh){.fx{--u:1svh}}
+
+/* свет: виньетка, зерно и мягкое пятно света на стенке за снимками */
+.fx__bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.fx__bg i{position:absolute;inset:0}
+.fx__vig{
+  background:
+    radial-gradient(120% 80% at 50% 50%,rgba(70,54,38,0) 52%,rgba(70,54,38,.13) 100%),
+    linear-gradient(to bottom,rgba(255,255,255,.22),rgba(255,255,255,0) 30%)}
+.fx__bg .fx__spot{inset:auto;left:-25vw;width:150vw;top:24%;height:78%;
+  background:radial-gradient(closest-side,rgba(255,252,246,.72) 0%,rgba(255,250,242,.34) 46%,rgba(255,250,242,0) 100%)}
+.fx__grain{opacity:.55;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .27 0 0 0 0 .21 .55 0 0 0 -.22'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ---------- текст — как на втором экране ---------- */
+.fx__tx{position:relative;z-index:2;flex:none;width:calc(100% - var(--gut) * 2);margin-bottom:20px;text-align:center}
+.fx__k{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;line-height:14px;font-weight:600;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--ink-2)}
+.fx__k span{padding-left:.2em}
+.fx__k::before,.fx__k::after{content:'';width:30px;height:1px;background:var(--rule)}
+.fx__t{margin-top:14px;font-family:var(--f-display);font-weight:400;font-size:var(--tt);line-height:1.06;letter-spacing:-.015em}
+.fx__t > span{display:inline-block;overflow:hidden;padding:0 .04em .06em;vertical-align:top}
+.fx__t i{display:block;font-style:normal}
+/* «и ощущения» — тот же переход от тёмно-серого к серому, что «на молнии» */
+.fx__t > span + span i{
+  background-image:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.7) 50%,transparent 62%),linear-gradient(100deg,#2e2c2a 0%,#55514c 50%,#7d776f 100%);
+  background-size:260% 100%,100% 100%;background-position:130% 0,0 0;background-repeat:no-repeat;
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.fx__d{margin:10px auto 0;max-width:33ch;font-size:15px;line-height:21px;color:var(--soft)}
+
+/* ---------- плитка ----------
+   Высота — сколько есть между текстом и «Листайте», но не больше, чем нужно
+   маленьким плиткам для пропорции 0,9. Свободное место делится поровну
+   сверху и снизу. */
+.fx__room{position:relative;z-index:1;flex:0 1 var(--gmax);min-height:0;width:calc(100% - var(--sx) * 2);max-width:560px;margin:auto 0}
+.fx__grid{position:absolute;inset:0;display:grid;gap:var(--g);
+  grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr))}
+.fx__c{position:relative;margin:0;min-width:0;min-height:0;border-radius:var(--r)}
+.fx__c--s1{grid-column:1;grid-row:1}
+.fx__c--s2{grid-column:1;grid-row:2}
+.fx__c--l1{grid-column:2 / span 2;grid-row:1 / span 2}
+.fx__c--l2{grid-column:1 / span 2;grid-row:3 / span 2}
+.fx__c--s3{grid-column:3;grid-row:3}
+.fx__c--s4{grid-column:3;grid-row:4}
+/* тень на стене — отдельным слоем: проявляется, когда снимок уже открылся */
+.fx__c::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:0 0 0 .5px rgba(58,44,30,.10),0 2px 3px rgba(58,44,30,.08),0 16px 26px -16px rgba(58,44,30,.40)}
+.fx__clip{position:absolute;inset:0;overflow:hidden;border-radius:inherit;
+  -webkit-clip-path:inset(0 round var(--r));clip-path:inset(0 round var(--r))}
+.fx__w{position:absolute;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.fx__i{position:absolute;overflow:hidden;background:#d9d1c5}
+/* тонкая светлая кромка по краю и еле заметный блик «стекла» сверху */
+.fx__i::before{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(162deg,rgba(255,255,255,.10),rgba(255,255,255,0) 36%)}
+.fx__i::after{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:var(--r);
+  box-shadow:inset 0 0 0 1px rgba(255,251,244,.24),inset 0 0 0 1.5px rgba(40,30,20,.05)}
+.fx__z,.fx__p{position:absolute;inset:0}
+.fx__p img{width:100%;height:100%;object-fit:cover;object-position:var(--op,50% 30%);-webkit-user-drag:none;-webkit-user-select:none;user-select:none}
+.fx__p--b{opacity:0}
+
+/* Шторки. Рамка (.fx__w) длиннее плитки в сторону движения, её край
+   растушёван маской; снимок внутри (.fx__i) едет навстречу и стоит на месте.
+   Диагональ у больших: рамка втрое выше плитки, край маски — под 45°, и рамка
+   едет по вертикали — край идёт из угла в угол. Пропорции маски (53 % / 70 %)
+   держат край целиком вне плитки при высоте/ширине большой плитки 0,8–1,2. */
+.fx__c[data-w="t"] .fx__w{left:0;top:0;width:100%;height:128%;
+  -webkit-mask-image:linear-gradient(to bottom,#000 78.125%,transparent);mask-image:linear-gradient(to bottom,#000 78.125%,transparent)}
+.fx__c[data-w="t"] .fx__i{left:0;top:0;width:100%;height:78.125%}
+.fx__c[data-w="b"] .fx__w{left:0;bottom:0;width:100%;height:128%;
+  -webkit-mask-image:linear-gradient(to top,#000 78.125%,transparent);mask-image:linear-gradient(to top,#000 78.125%,transparent)}
+.fx__c[data-w="b"] .fx__i{left:0;bottom:0;width:100%;height:78.125%}
+.fx__c[data-w="l"] .fx__w{left:0;top:0;width:128%;height:100%;
+  -webkit-mask-image:linear-gradient(to right,#000 78.125%,transparent);mask-image:linear-gradient(to right,#000 78.125%,transparent)}
+.fx__c[data-w="l"] .fx__i{left:0;top:0;width:78.125%;height:100%}
+.fx__c[data-w="r"] .fx__w{right:0;top:0;width:128%;height:100%;
+  -webkit-mask-image:linear-gradient(to left,#000 78.125%,transparent);mask-image:linear-gradient(to left,#000 78.125%,transparent)}
+.fx__c[data-w="r"] .fx__i{right:0;top:0;width:78.125%;height:100%}
+.fx__c[data-w="tr"] .fx__w{left:0;top:0;width:100%;height:300%;
+  -webkit-mask-image:linear-gradient(225deg,#000 56%,transparent 65%);mask-image:linear-gradient(225deg,#000 56%,transparent 65%)}
+.fx__c[data-w="tr"] .fx__i{left:0;top:0;width:100%;height:33.3334%}
+.fx__c[data-w="bl"] .fx__w{left:0;bottom:0;width:100%;height:300%;
+  -webkit-mask-image:linear-gradient(45deg,#000 56%,transparent 65%);mask-image:linear-gradient(45deg,#000 56%,transparent 65%)}
+.fx__c[data-w="bl"] .fx__i{left:0;bottom:0;width:100%;height:33.3334%}
+/* снимок оседает к той стороне, откуда пришёл */
+.fx__c[data-w="t"] .fx__z{transform-origin:50% 0}
+.fx__c[data-w="b"] .fx__z{transform-origin:50% 100%}
+.fx__c[data-w="l"] .fx__z{transform-origin:0 50%}
+.fx__c[data-w="r"] .fx__z{transform-origin:100% 50%}
+.fx__c[data-w="tr"] .fx__z{transform-origin:100% 0}
+.fx__c[data-w="bl"] .fx__z{transform-origin:0 100%}
+
+/* отблеск: светлая полоса проходит по стенке слева сверху направо вниз —
+   у каждой плитки своя задержка по её месту (--sd) */
+.fx__sh{position:absolute;inset:0;z-index:4;overflow:hidden;pointer-events:none}
+.fx__sh::before{content:'';position:absolute;top:-30%;bottom:-30%;left:0;width:46%;transform:translateX(-160%) skewX(-18deg);
+  background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.06) 32%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.06) 68%,rgba(255,255,255,0) 100%)}
+
+/* ---------- «Листайте» — как на втором экране ---------- */
+.fx__go{position:relative;z-index:3;flex:none;margin-top:18px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:4px 24px;color:var(--ink-2);
+  font-size:10.5px;line-height:14px;font-weight:600;letter-spacing:.3em;text-indent:.3em;text-transform:uppercase}
+.fx__go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+  animation:fxNudge 2.2s var(--ease) infinite}
+.fx__go:active{opacity:.6}
+@keyframes fxNudge{0%,60%,100%{transform:none}30%{transform:translateY(4px)}}
+
+/* ---------- движение ----------
+   Пока скрипт не отметил экран, всё видно — без скрипта страница не пустая
+   (снимки, правда, качает он же). .is-in — экран встал на место (текст),
+   .is-go — снимки скачаны и распакованы (шторки). */
+html.js .fx .fx__spot{opacity:0;transform:scale(.88)}
+html.js .fx .fx__k{opacity:0;transform:translateY(10px)}
+html.js .fx .fx__k::before,html.js .fx .fx__k::after{transform:scaleX(0)}
+html.js .fx .fx__k::before{transform-origin:100% 50%}
+html.js .fx .fx__k::after{transform-origin:0 50%}
+html.js .fx .fx__t i{transform:translateY(108%)}
+html.js .fx .fx__d{opacity:0;transform:translateY(12px)}
+html.js .fx .fx__go{opacity:0}
+html.js .fx.is-in .fx__spot{opacity:1;transform:none;transition:opacity 1.8s var(--ease),transform 2.6s var(--out)}
+html.js .fx.is-in .fx__k{opacity:1;transform:none;transition:opacity .8s var(--ease) .05s,transform 1s var(--out) .05s}
+html.js .fx.is-in .fx__k::before,html.js .fx.is-in .fx__k::after{transform:none;transition:transform 1.1s var(--out) .35s}
+html.js .fx.is-in .fx__t i{transform:none;transition:transform 1.2s var(--out) .16s}
+html.js .fx.is-in .fx__t > span + span i{transition-delay:.26s;animation:heroShine 2.4s var(--ease) 1.2s both}
+html.js .fx.is-in .fx__d{opacity:1;transform:none;transition:opacity .9s var(--ease) .38s,transform 1.1s var(--out) .38s}
+html.js .fx.is-go .fx__go{opacity:1;transition:opacity .9s var(--ease) 1.5s}
+
+/* шторки: исходное положение и ход */
+html.js .fx .fx__c[data-w="t"] .fx__w{transform:translateY(-100%)}
+html.js .fx .fx__c[data-w="t"] .fx__i{transform:translateY(128%)}
+html.js .fx .fx__c[data-w="b"] .fx__w{transform:translateY(100%)}
+html.js .fx .fx__c[data-w="b"] .fx__i{transform:translateY(-128%)}
+html.js .fx .fx__c[data-w="l"] .fx__w{transform:translateX(-100%)}
+html.js .fx .fx__c[data-w="l"] .fx__i{transform:translateX(128%)}
+html.js .fx .fx__c[data-w="r"] .fx__w{transform:translateX(100%)}
+html.js .fx .fx__c[data-w="r"] .fx__i{transform:translateX(-128%)}
+html.js .fx .fx__c[data-w="tr"] .fx__w{transform:translateY(-100%)}
+html.js .fx .fx__c[data-w="tr"] .fx__i{transform:translateY(300%)}
+html.js .fx .fx__c[data-w="bl"] .fx__w{transform:translateY(100%)}
+html.js .fx .fx__c[data-w="bl"] .fx__i{transform:translateY(-300%)}
+html.js .fx .fx__z{transform:scale(1.08)}
+html.js .fx .fx__c::before{opacity:0}
+html.js .fx.is-go .fx__c[data-w] .fx__w,html.js .fx.is-go .fx__c[data-w] .fx__i{transform:none;transition:transform var(--wd,1.35s) var(--wipe) var(--d,0s)}
+html.js .fx.is-go .fx__c[data-w="tr"],html.js .fx.is-go .fx__c[data-w="bl"]{--wd:1.6s}
+html.js .fx.is-go .fx__z{transform:none;transition:transform 2.4s var(--out) var(--d,0s)}
+html.js .fx.is-go .fx__c::before{opacity:1;transition:opacity .9s var(--ease) calc(var(--d,0s) + .95s)}
+html.js .fx.is-go .fx__sh::before{animation:fxSheen 1.6s var(--io) calc(1.95s + var(--sd,0s)) both}
+@keyframes fxSheen{from{transform:translateX(-160%) skewX(-18deg)}to{transform:translateX(330%) skewX(-18deg)}}
+
+/* большие снимки еле заметно «дышат» — после того как открылись */
+html.js .fx.is-go .fx__c--l1 .fx__p--a{animation:fxKbA 17s ease-in-out 2.6s infinite alternate}
+html.js .fx.is-go .fx__c--l2 .fx__p--a{animation:fxKbB 19s ease-in-out 2.9s infinite alternate}
+@keyframes fxKbA{from{transform:none}to{transform:scale(1.055) translate(-1%,1.2%)}}
+@keyframes fxKbB{from{transform:none}to{transform:scale(1.05) translate(1.2%,-.8%)}}
+/* смена маленькой плитки: новый снимок проступает и оседает, прежний чуть
+   отъезжает вглубь; обратно — так же */
+.fx__c[data-alt] .fx__p{transition:opacity 1s cubic-bezier(.4,0,.2,1),transform 2.8s var(--out)}
+.fx__c[data-alt] .fx__p--b{transform:scale(1.06)}
+.fx__c.is-alt .fx__p--b{opacity:1;transform:none}
+.fx__c.is-alt .fx__p--a{transform:scale(1.04)}
+.fx.is-off .fx__p,.fx.is-off .fx__go svg,.fx.is-off .fx__sh::before{animation-play-state:paused}
+html.js .fx.is-go.is-off .fx__c--l1 .fx__p--a,html.js .fx.is-go.is-off .fx__c--l2 .fx__p--a{animation-play-state:paused}
+
+/* низкий экран: текст плотнее, плитки чуть шире, чем выше,
+   «Листайте» со стрелкой в одну строку */
+@media (max-height:700px){
+  .fx{--top:calc(var(--safe-t) + 58px);--tt:clamp(27px,8.4vw,33px);--g:6px;padding-bottom:calc(var(--safe-b) + 6px)}
+  .fx__tx{margin-bottom:14px}
+  .fx__t{margin-top:12px}
+  .fx__d{margin-top:8px;font-size:14px;line-height:20px}
+  .fx__go{margin-top:8px;flex-direction:row;gap:8px;padding:10px 24px}
+}
+
+/* компьютер: текст и «Листайте» слева, стенка из снимков — справа,
+   по центру высоты */
+@media (min-width:900px){
+  .fx{
+    --g:10px;--r:16px;--k:.94;
+    --tt:clamp(44px,4.4vw,66px);
+    --rh:calc((min(100 * var(--u) - 128px,860px) - var(--g) * 3) / 4);
+    --cw:min(calc(var(--rh) * var(--k)),calc((50vw - var(--g) * 2) / 3));
+    --gw:calc(var(--cw) * 3 + var(--g) * 2);
+    --gh:calc(var(--rh) * 4 + var(--g) * 3);
+    display:block;padding:0
+  }
+  .fx__bg .fx__spot{left:12vw;width:110vw;top:-10%;height:120%}
+  .fx__tx{position:absolute;left:7vw;width:30vw;top:50%;margin:0;transform:translateY(-50%);text-align:left}
+  .fx__k{justify-content:flex-start}
+  .fx__k::before{display:none}
+  .fx__k::after{width:38px}
+  .fx__k span{padding-left:0}
+  .fx__t{margin-top:22px}
+  .fx__t > span{display:block;width:max-content}
+  .fx__d{margin:20px 0 0;font-size:16px;line-height:26px;max-width:34ch}
+  .fx__room{position:absolute;margin:0;width:var(--gw);max-width:none;height:var(--gh);
+    left:calc(67vw - var(--gw) / 2);top:calc(50 * var(--u) - var(--gh) / 2)}
+  .fx__go{position:absolute;left:7vw;bottom:calc(var(--safe-b) + 34px);margin:0;flex-direction:row;gap:10px;padding:10px 0;text-indent:0}
+}
+
+@media (prefers-reduced-motion:reduce){
+  html.js .fx .fx__c[data-w] .fx__w,html.js .fx .fx__c[data-w] .fx__i,html.js .fx .fx__z,html.js .fx.is-go .fx__z{transform:none;transition:none}
+  html.js .fx .fx__c::before,html.js .fx .fx__spot{opacity:1;transform:none;transition:none}
+  html.js .fx .fx__k,html.js .fx .fx__k::before,html.js .fx .fx__k::after,html.js .fx .fx__t i,html.js .fx .fx__d{transform:none;transition:none}
+  html.js .fx.is-in .fx__k,html.js .fx.is-in .fx__d,html.js .fx.is-go .fx__go{opacity:1;transition:opacity .4s linear}
+  html.js .fx.is-go .fx__sh::before,html.js .fx.is-go .fx__c--l1 .fx__p--a,html.js .fx.is-go .fx__c--l2 .fx__p--a,.fx__go svg{animation:none}
+  .fx__c[data-alt] .fx__p{transition:none}
+  html.js .fx.is-in .fx__t > span + span i{animation:none}
+}
+
 /* ================= ЭКРАН ================= */
 .s{position:relative;height:100vh;height:100svh;overflow:hidden;background:var(--bg)}
 /* Снимок сверху во всю ширину и плавно уходит в фон — как на образце. */
@@ -450,7 +1160,6 @@ html.js .s.is-in .s__ft{opacity:1}
 /* ================= КОМПЬЮТЕР ================= */
 @media (min-width:900px){
   :root{--gut:7vw;--t:clamp(44px,4.4vw,66px)}
-  .s__lc{left:28px;top:24px;height:40px}
   .skip{top:22px;right:var(--skip-r,28px)}
   /* Снимок — правая половина во всю высоту, текст — слева. */
   .s__ph{left:50%;height:100%}
@@ -1075,36 +1784,155 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   <button class="hero__go" type="button" data-next aria-label="Листайте — следующий экран">Листайте<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
 </section>
 
-<!-- ====== 02: чёрное и белое ====== -->
-<section class="s snap" data-n="2" aria-labelledby="t2">
-  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
-  <div class="s__ph s__ph--duo">
-    <div><img src="/onboarding/ob-t-leva-black.jpg" alt="Чёрная футболка" width="1000" height="1100" loading="lazy" decoding="async"></div>
-    <div><img src="/onboarding/ob-t-leva-white.jpg" alt="Белая футболка" width="1000" height="1017" loading="lazy" decoding="async"></div>
+<!-- ====== 02: худи на молнии — «галерея» ======
+     Вещь владельца (фото из папки «фото», фон убран): hd-front / hd-back, кадр
+     782×836, у обеих сторон один и тот же. Худи парит под мягким светом на
+     тёплой стене; выноски показывают детали, которые видны на снимке, — ничего
+     не придумано. Точки выносок заданы в долях кадра (--ax/--ay; --e — край
+     силуэта над или под точкой), поэтому попадают в молнию, люверс, карман и
+     манжету на любом экране. Снимки грузятся после первого экрана (data-src). -->
+<section class="g snap" id="s2" aria-labelledby="t2">
+  <div class="g__bg" aria-hidden="true"><div class="g__vig"></div><div class="g__grain"></div></div>
+
+  <header class="g__tx">
+    <p class="g__k"><span>02 / 07</span></p>
+    <h2 class="g__t" id="t2"><span><i>Худи</i></span> <span><i>на&nbsp;молнии</i></span></h2>
+    <p class="g__d">Тёплая и&nbsp;мягкая — к&nbsp;любой футболке</p>
+  </header>
+
+  <div class="g__stage">
+    <!-- ниша в стене: арка, откосы, задняя стенка с подсветкой, каменная
+         полка с латунной жилкой; ниже полки — подпись бренда на заднем виде -->
+    <div class="g__niche" aria-hidden="true">
+      <div class="g__arch">
+        <div class="g__back"><i class="g__warm"></i><div class="g__spot"></div><i class="g__beam"></i></div>
+        <i class="g__fl"></i>
+      </div>
+      <div class="g__ledge"><i class="g__brass"><b></b></i></div>
+    </div>
+    <div class="g__floor" aria-hidden="true"></div>
+    <p class="g__plq" aria-hidden="true">LUXE CANVAS</p>
+    <div class="g__shadow" aria-hidden="true"><div class="g__shf"><i></i><i></i></div></div>
+    <div class="g__enter"><div class="g__float">
+      <div class="g__box" id="gBox" role="img" aria-label="Чёрное худи на молнии">
+        <div class="g__rev"><div class="g__rin"><div class="g__turn">
+          <div class="g__face g__face--f is-on"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></div>
+          <div class="g__face g__face--b"><img data-src="/onboarding/hd-back.webp" alt="" width="782" height="836" decoding="async"></div>
+          <div class="g__sheen" aria-hidden="true"><i></i></div>
+        </div></div></div>
+      </div>
+      <!-- спереди: после выносок — «экскурсия» по одной детали; у каждой свой
+           крупный план (тот же снимок, увеличенный, hd-z-*, слой .g__zs ниже),
+           он только для глаз — деталь и так названа подписью. Подпись и точка
+           принимают касание: сразу к этой детали, дальше экскурсия идёт с неё. -->
+      <ul class="g__co g__co--f" aria-label="Детали спереди">
+        <li class="co co--t co--l" style="--ax:.5115;--ay:.2943;--e:.0048">
+          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+          <button class="co__lb" type="button" tabindex="-1"><span><b>01</b>Металлическая молния</span></button>
+        </li>
+        <li class="co co--t co--r" style="--ax:.6164;--ay:.1758;--e:.0108;--lf:var(--offT)">
+          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+          <button class="co__lb" type="button" tabindex="-1"><span><b>02</b>Капюшон на&nbsp;шнурках</span></button>
+        </li>
+        <li class="co co--b co--l" style="--ax:.2916;--ay:.7177;--e:.9785">
+          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
+          <button class="co__lb" type="button" tabindex="-1"><span><b>03</b>Карман-кенгуру</span></button>
+        </li>
+        <li class="co co--b co--r" style="--ax:.7353;--ay:.9450;--e:.9761;--ax2:.9028;--ay2:.9569;--e2:.9952;--lf:var(--offB)">
+          <i class="co__stem is-h"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot is-h"></i><i class="co__dot is-2"></i><i class="co__hit is-h" aria-hidden="true"></i><i class="co__hit is-2" aria-hidden="true"></i>
+          <button class="co__lb" type="button" tabindex="-1"><span><b>04</b>Манжеты и&nbsp;низ в&nbsp;рубчик</span></button>
+        </li>
+      </ul>
+      <!-- спина: то, что видно сзади, — капюшон (шов по центру) и спущенное плечо;
+           внизу, под полкой, в это время проступает LUXE CANVAS -->
+      <ul class="g__co g__co--b" aria-label="Детали сзади">
+        <li class="co co--t co--l" style="--ax:.4945;--ay:.1600;--e:.0048">
+          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i>
+          <span class="co__lb"><span><b>05</b>Объёмный капюшон</span></span>
+        </li>
+        <li class="co co--t co--r" style="--ax:.8560;--ay:.2982;--e:.2300;--lf:var(--offT)">
+          <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i>
+          <span class="co__lb"><span><b>06</b>Спущенное плечо</span></span>
+        </li>
+      </ul>
+      <!-- крупные планы 01–04 — отдельным слоем (не притихают вместе с выносками);
+           место считается от той же выноски, поэтому у каждого её --ax/--ay -->
+      <div class="g__zs" aria-hidden="true">
+        <span class="co co--t co--l" style="--ax:.5115;--ay:.2943"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-zip.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        <span class="co co--t co--r" style="--ax:.6164;--ay:.1758;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-eyelet.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        <span class="co co--b co--l" style="--ax:.2916;--ay:.7177"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-pocket.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+        <span class="co co--b co--r" style="--ax:.7353;--ay:.9450;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-src="/onboarding/hd-z-cuff.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+      </div>
+    </div></div>
   </div>
-  <div class="s__tx">
-    <p class="s__k">02 / 07</p>
-    <h2 class="s__t" id="t2">Чёрное и&nbsp;белое</h2>
-    <p class="s__d">Два цвета, с&nbsp;которых начинается гардероб. Такую футболку надеваешь не&nbsp;задумываясь.</p>
+
+  <div class="g__view" role="group" aria-label="Сторона худи">
+    <button type="button" data-v="f" aria-pressed="true"><span class="g__th" aria-hidden="true"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></span>Спереди</button><button type="button" data-v="b" aria-pressed="false"><span class="g__th" aria-hidden="true"><img data-src="/onboarding/hd-back.webp" alt="" width="782" height="836" decoding="async"></span>Сзади</button>
   </div>
-  <div class="s__ft s__ft--a"><button class="s__next" type="button" data-next aria-label="Листайте — следующий экран"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button></div>
+  <button class="g__go" type="button" data-next aria-label="Листайте — следующий экран">Листайте<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
 </section>
 
-<!-- ====== 03: ткань ====== -->
-<section class="s snap" data-n="3" aria-labelledby="t3">
-  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
-  <div class="s__ph"><img src="/onboarding/ob-leva-white-pull.jpg" alt="Руки оттягивают полотно белой футболки" width="1000" height="1235" loading="lazy" decoding="async" style="object-position:50% 0"></div>
-  <div class="s__tx">
-    <p class="s__k">03 / 07</p>
-    <h2 class="s__t" id="t3">Ткань и&nbsp;ощущения</h2>
-    <p class="s__d">Плотное полотно высокого класса: приятное к&nbsp;коже, не&nbsp;просвечивает и&nbsp;держит форму даже после многих стирок.</p>
+<!-- ====== 03: ткань — плитка ======
+     Шесть снимков стенкой по образцу владельца: сверху два маленьких слева и
+     большой справа, снизу большой слева и два маленьких справа. Крупно —
+     руки на ткани (белая, шоколад, красная) и двое в футболках. У маленьких
+     плиток по второму снимку того же цвета — раз в ~5 с одна из них
+     сменяется. data-w — откуда открывается шторка, --d — её задержка,
+     --sd — когда по плитке пройдёт отблеск. Снимки качаются после первого
+     экрана (data-src), шторки — только по скачанным и распакованным. -->
+<section class="fx snap" id="s3" data-n="3" aria-labelledby="t3">
+  <div class="fx__bg" aria-hidden="true"><i class="fx__vig"></i><i class="fx__spot"></i><i class="fx__grain"></i></div>
+
+  <header class="fx__tx">
+    <p class="fx__k"><span>03 / 07</span></p>
+    <h2 class="fx__t" id="t3"><span><i>Ткань</i></span> <span><i>и&nbsp;ощущения</i></span></h2>
+    <p class="fx__d">Плотное полотно высокого класса: приятное к&nbsp;коже, не&nbsp;просвечивает и&nbsp;держит форму даже после многих стирок.</p>
+  </header>
+
+  <div class="fx__room">
+    <div class="fx__grid">
+      <figure class="fx__c fx__c--s1" data-w="t" data-alt style="--d:.12s;--sd:0s">
+        <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
+          <div class="fx__p fx__p--a" style="--op:50% 40%"><img data-src="/onboarding/fx-s-choc-hem2.jpg" alt="Рука держит край шоколадной футболки" width="420" height="467" decoding="async"></div>
+          <div class="fx__p fx__p--b" style="--op:50% 30%"><img data-src="/onboarding/fx-s-choc-face.jpg" alt="" width="420" height="467" decoding="async" aria-hidden="true"></div>
+        </div></div></div><i class="fx__sh"></i></div>
+      </figure>
+      <figure class="fx__c fx__c--l1" data-w="tr" style="--d:0s;--sd:.12s">
+        <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
+          <div class="fx__p fx__p--a" style="--op:50% 0%"><img data-src="/onboarding/fx-l-white-pull.jpg" alt="Парень оттягивает полотно белой футболки" width="820" height="911" decoding="async"></div>
+        </div></div></div><i class="fx__sh"></i></div>
+      </figure>
+      <figure class="fx__c fx__c--s2" data-w="l" data-alt style="--d:.24s;--sd:.1s">
+        <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
+          <div class="fx__p fx__p--a" style="--op:40% 45%"><img data-src="/onboarding/fx-s-red-arms.jpg" alt="Девушка в красной футболке скрестила руки" width="420" height="467" decoding="async"></div>
+          <div class="fx__p fx__p--b" style="--op:50% 30%"><img data-src="/onboarding/fx-s-red-face.jpg" alt="" width="420" height="467" decoding="async" aria-hidden="true"></div>
+        </div></div></div><i class="fx__sh"></i></div>
+      </figure>
+      <figure class="fx__c fx__c--l2" data-w="bl" style="--d:.34s;--sd:.25s">
+        <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
+          <div class="fx__p fx__p--a" style="--op:50% 10%"><img data-src="/onboarding/fx-l-black-dasha.jpg" alt="Девушка в чёрной футболке" width="820" height="911" decoding="async"></div>
+        </div></div></div><i class="fx__sh"></i></div>
+      </figure>
+      <figure class="fx__c fx__c--s3" data-w="r" data-alt style="--d:.46s;--sd:.3s">
+        <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
+          <div class="fx__p fx__p--a" style="--op:50% 40%"><img data-src="/onboarding/fx-s-white-pinch.jpg" alt="Пальцы сжимают полотно белой футболки" width="420" height="467" decoding="async"></div>
+          <div class="fx__p fx__p--b" style="--op:50% 30%"><img data-src="/onboarding/fx-s-white-look.jpg" alt="" width="420" height="467" decoding="async" aria-hidden="true"></div>
+        </div></div></div><i class="fx__sh"></i></div>
+      </figure>
+      <figure class="fx__c fx__c--s4" data-w="b" data-alt style="--d:.58s;--sd:.38s">
+        <div class="fx__clip"><div class="fx__w"><div class="fx__i"><div class="fx__z">
+          <div class="fx__p fx__p--a" style="--op:50% 30%"><img data-src="/onboarding/fx-s-choc-back.jpg" alt="Длинные волосы на спине шоколадной футболки" width="420" height="467" decoding="async"></div>
+          <div class="fx__p fx__p--b" style="--op:50% 30%"><img data-src="/onboarding/fx-s-choc-side.jpg" alt="" width="420" height="467" decoding="async" aria-hidden="true"></div>
+        </div></div></div><i class="fx__sh"></i></div>
+      </figure>
+    </div>
   </div>
-  <div class="s__ft s__ft--a"><button class="s__next" type="button" data-next aria-label="Листайте — следующий экран"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button></div>
+
+  <button class="fx__go" type="button" data-next aria-label="Листайте — следующий экран">Листайте<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
 </section>
 
 <!-- ====== 04: посадка ====== -->
 <section class="s snap" data-n="4" aria-labelledby="t4">
-  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__col">
     <div><img src="/onboarding/ob-t-leva-white-side.jpg" alt="Белая футболка в профиль" width="1000" height="1244" loading="lazy" decoding="async"></div>
     <div><img src="/onboarding/ob-t-leva-black.jpg" alt="Чёрная футболка спереди" width="1000" height="1100" loading="lazy" decoding="async"></div>
@@ -1122,7 +1950,6 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
      Кнопки-цвета: текст кнопки — только название, его берёт шторка «Цвет
      вживую». Порядок кнопок = порядок TONES в её скрипте. -->
 <section class="s pal snap" data-n="5" aria-labelledby="t5">
-  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__tx">
     <p class="s__k">05 / 07</p>
     <h2 class="s__t" id="t5">Пять цветов и&nbsp;один крой</h2>
@@ -1147,7 +1974,6 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 
 <!-- ====== 06: доставка и оплата ====== -->
 <section class="s dlv snap" data-n="6" aria-labelledby="t6">
-  <img class="s__lc" src="/logo.png?v=lc2" alt="" width="325" height="520" aria-hidden="true">
   <div class="s__ph"><img src="/onboarding/ob-t-lesha.jpg" alt="Парень в чёрном" width="1000" height="734" loading="lazy" decoding="async"></div>
   <div class="s__tx">
     <p class="s__k">06 / 07</p>
@@ -1247,6 +2073,275 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       if(next) next.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
     });
   });
+
+  /* --- 02: худи на молнии ---
+     Экран проявляется, когда встаёт на место (как остальные): худи шторкой
+     сверху вниз, потом выноски по одной. Затем «экскурсия»: детали 01–04 по
+     очереди, у каждой — свой крупный план; после 04 худи поворачивается
+     спиной, ~4 с — и обратно, всё снова. Касание по подписи или точке —
+     сразу к этой детали, дальше экскурсия идёт с неё. «Спереди / Сзади» и
+     касание по худи — сразу; после своего выбора поворот ждёт подольше.
+     Экран ушёл из виду или вкладка скрыта — отсчёт стоит и продолжается с
+     того же места. Снимки качаются после первого экрана, чтобы не отнимать
+     у него сеть. */
+  var gs = document.getElementById('s2');
+  if(gs && gs.classList.contains('g')) (function(){
+    var turn = gs.querySelector('.g__turn'), shadow = gs.querySelector('.g__shadow'), brass = gs.querySelector('.g__brass');
+    var faceF = gs.querySelector('.g__face--f'), faceB = gs.querySelector('.g__face--b');
+    var imgF = faceF.querySelector('img');
+    var btns = [].slice.call(gs.querySelectorAll('.g__view button'));
+    var cos = [].slice.call(gs.querySelectorAll('.g__co--f .co')), zs = [].slice.call(gs.querySelectorAll('.g__zs .co'));
+    /* выноски рисуются с CO_AT; через TOUR_AT — первая деталь, по STEP на
+       каждую (выбранная касанием — STEP_U), после 04 — поворот. Спиной —
+       HOLD_B (у неё свои выноски 05–06). Свой выбор — плюс HOLD_U. */
+    var CO_AT = 1000, TOUR_AT = 1400, STEP = 2100, STEP_U = 3200, HOLD_B = 4400, HOLD_U = 2400, TURN = 1600, CO_OFF = 380;
+    var CO_IN = CO_OFF + Math.round(TURN * .62);
+    var back = false, flip = 0, asked = false, started = false, vis = false, cur = -1, lng = false;
+    var tmr = 0, fn = null, at = 0, left = 0;
+
+    function run(){ return started && vis && !document.hidden && !reduce; }
+    /* таймер, который можно поставить на паузу */
+    function resume(){
+      if(tmr || !fn || !run()) return;
+      at = Date.now();
+      tmr = setTimeout(function(){ tmr = 0; var f = fn; fn = null; f(); }, left);
+    }
+    function hold(){
+      if(!tmr) return;
+      clearTimeout(tmr); tmr = 0;
+      left = Math.max(400, left - (Date.now() - at));
+    }
+    function later(f, ms){ if(tmr){ clearTimeout(tmr); tmr = 0; } fn = f; left = ms; resume(); }
+    function sync(){
+      gs.classList.toggle('is-off', started && !run());
+      if(run()) resume(); else hold();
+    }
+
+    function face(b){ faceB.classList.toggle('is-on', b); faceF.classList.toggle('is-on', !b); gs.classList.toggle('is-bk', b); }
+    function mark(ms){
+      btns.forEach(function(b){
+        var on = (b.getAttribute('data-v') === 'b') === back;
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.classList.remove('is-run');
+        if(on && ms && !reduce){ b.style.setProperty('--hold', ms + 'ms'); void b.offsetWidth; b.classList.add('is-run'); }
+      });
+    }
+    function spin(){
+      var c = flip ? 't2' : 't1'; flip ^= 1;
+      [turn, shadow, brass].forEach(function(el){ if(!el) return; el.classList.remove('t1', 't2'); void el.offsetWidth; el.classList.add(c); });
+    }
+    /* деталь k — в полную силу и крупным планом, остальные тише; -1 — все ровно */
+    /* подписи спереди — в порядке Tab, только пока их видно */
+    function keys(on){ cos.forEach(function(li){ li.querySelector('.co__lb').tabIndex = on ? 0 : -1; }); }
+    function hi(k){
+      cur = k;
+      cos.forEach(function(li, i){ li.classList.toggle('is-on', i === k); zs[i].classList.toggle('is-on', i === k); });
+      gs.classList.toggle('is-tour', k >= 0);
+    }
+    function step(k, ms){
+      hi(k);
+      later(function(){ if(k < cos.length - 1) step(k + 1, STEP); else end(); }, ms);
+    }
+    function end(){
+      if(!lng){ show(true, true); return; }
+      lng = false; hi(-1);
+      later(function(){ show(true, true); }, HOLD_U);
+    }
+    function show(toBack, auto){
+      if(toBack === back) return;
+      back = toBack;
+      var was = back;
+      /* крупный план уходит сразу, выноски — следом; «тише» снимаем, когда их уже нет */
+      cur = -1; cos.forEach(function(li, i){ li.classList.remove('is-on'); zs[i].classList.remove('is-on'); });
+      gs.classList.remove(back ? 'is-co' : 'is-cb');
+      if(back) keys(false);
+      setTimeout(function(){ if(back === was){ if(cur < 0) gs.classList.remove('is-tour'); face(back); if(!reduce) spin(); } }, reduce ? 0 : CO_OFF);
+      setTimeout(function(){ if(back === was){ gs.classList.add(back ? 'is-cb' : 'is-co'); if(!back) keys(true); } }, reduce ? 0 : CO_IN);
+      if(reduce){ mark(0); return; }
+      if(back){
+        var h = HOLD_B + (auto ? 0 : HOLD_U);
+        mark(auto ? h + CO_OFF : 0);
+        later(function(){ show(false, true); }, h + CO_OFF);
+      } else {
+        lng = !auto;
+        mark(auto ? CO_IN + TOUR_AT + STEP * cos.length : 0);
+        later(function(){ step(0, STEP); }, CO_IN + TOUR_AT);
+      }
+    }
+    function user(toBack){
+      if(!started || toBack === back) return;
+      show(toBack, false);
+    }
+    /* касание по детали: сразу к ней, дольше на ней, дальше — по порядку */
+    function pick(k){
+      if(!started || back || !gs.classList.contains('is-co')) return;
+      if(reduce){ hi(cur === k ? -1 : k); return; }
+      lng = true; mark(0);
+      step(k, STEP_U);
+    }
+    btns.forEach(function(b){ b.addEventListener('click', function(){ user(b.getAttribute('data-v') === 'b'); }); });
+    document.getElementById('gBox').addEventListener('click', function(){ user(!back); });
+    cos.forEach(function(li, i){
+      [].forEach.call(li.querySelectorAll('.co__lb, .co__hit'), function(el){
+        el.addEventListener('click', function(){ pick(i); });
+      });
+      zs[i].querySelector('.co__z').addEventListener('click', function(){ pick(i); });
+    });
+
+    function load(){
+      if(asked) return;
+      asked = true;
+      [].forEach.call(gs.querySelectorAll('img[data-src]'), function(im){
+        im.src = im.getAttribute('data-src'); im.removeAttribute('data-src');
+        if(im.decode && im.closest('.co__zc')) im.decode().catch(function(){});
+      });
+      gs.classList.add('is-load');
+    }
+    function start(){
+      gs.classList.add('is-in');
+      if(reduce){ gs.classList.add('is-co'); keys(true); mark(0); return; }
+      setTimeout(function(){ gs.classList.add('is-co'); keys(true); }, CO_AT);
+      mark(CO_AT + TOUR_AT + STEP * cos.length);
+      later(function(){ step(0, STEP); }, CO_AT + TOUR_AT);
+    }
+    /* шторка — только по готовому (скачанному и распакованному) снимку */
+    var pending = false;
+    function begin(){
+      if(started || pending) return;
+      pending = true;
+      load();
+      var done = false;
+      var go = function(){
+        if(done) return; done = true;
+        started = true;
+        sync();
+        requestAnimationFrame(function(){ requestAnimationFrame(start); });
+      };
+      var ready = function(){ if(imgF.decode) imgF.decode().then(go, go); else go(); };
+      if(imgF.complete && imgF.naturalWidth) ready();
+      else { imgF.addEventListener('load', ready); imgF.addEventListener('error', go); }
+      setTimeout(go, 2500);
+    }
+
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(rows){
+        rows.forEach(function(r){
+          if(r.isIntersecting) load();
+          vis = r.isIntersecting && r.intersectionRatio >= .35;
+          if(vis) begin();
+          sync();
+        });
+      }, { threshold: [0, .35, .6] }).observe(gs);
+    } else { vis = true; begin(); }
+    document.addEventListener('visibilitychange', sync);
+    if(document.readyState === 'complete') setTimeout(load, 300);
+    else window.addEventListener('load', function(){ setTimeout(load, 300); });
+  })();
+
+  /* --- 03: ткань — плитка ---
+     Снимки качаются после первого экрана (и сразу, если экран уже рядом).
+     Экран встал на место хотя бы наполовину — поднимается текст, а шторки
+     идут, только когда все шесть снимков скачаны и распакованы (не дольше
+     2,6 с ожидания). Вторые снимки маленьких плиток качаются после шторок;
+     раз в SWAP одна плитка (по кругу) сменяется ими — только если её второй
+     снимок готов. Экран ушёл из виду или вкладка скрыта — смена стоит,
+     «дыхание» больших снимков на паузе. */
+  var fx = document.getElementById('s3');
+  if(fx && fx.classList.contains('fx')) (function(){
+    var SWAP = 5000, FIRST = 5600, ALT_AFTER = 1600;
+    var prim = [].slice.call(fx.querySelectorAll('.fx__p--a img'));
+    var order = ['s3', 's1', 's4', 's2'].map(function(n){ return fx.querySelector('.fx__c--' + n); }).filter(Boolean);
+    var ready = order.map(function(){ return false; });   /* второй снимок плитки скачан и распакован */
+    var next = 0, vis = false, started = false, pending = false, altAsked = false;
+    var tmr = 0, at = 0, left = 0;
+
+    function load(list){
+      list.forEach(function(im){
+        var s = im.getAttribute('data-src');
+        if(s){ im.src = s; im.removeAttribute('data-src'); }
+      });
+    }
+    function decoded(im){
+      return new Promise(function(res){
+        var d = function(){ if(im.decode) im.decode().then(res, res); else res(); };
+        if(im.complete && im.naturalWidth) d();
+        else { im.addEventListener('load', d); im.addEventListener('error', res); }
+      });
+    }
+    function loadAlts(){
+      if(altAsked) return;
+      altAsked = true;
+      order.forEach(function(c, i){
+        var im = c.querySelector('.fx__p--b img');
+        if(!im) return;
+        load([im]);
+        decoded(im).then(function(){ if(im.naturalWidth) ready[i] = true; });
+      });
+    }
+
+    function run(){ return started && vis && !document.hidden && !reduce; }
+    /* таймер смены, который можно поставить на паузу */
+    function resume(){
+      if(tmr || !left || !run()) return;
+      at = Date.now();
+      tmr = setTimeout(function(){ tmr = 0; left = 0; swap(); }, left);
+    }
+    function hold(){
+      if(!tmr) return;
+      clearTimeout(tmr); tmr = 0;
+      left = Math.max(800, left - (Date.now() - at));
+    }
+    function later(ms){ if(tmr){ clearTimeout(tmr); tmr = 0; } left = ms; resume(); }
+    function sync(){
+      fx.classList.toggle('is-off', started && !run());
+      if(run()) resume(); else hold();
+    }
+    function swap(){
+      /* следующая по кругу плитка, у которой второй снимок готов */
+      for(var k = 0; k < order.length; k++){
+        var i = (next + k) % order.length;
+        if(ready[i]){ order[i].classList.toggle('is-alt'); next = i + 1; break; }
+      }
+      later(SWAP);
+    }
+
+    function begin(){
+      if(started || pending) return;
+      pending = true;
+      fx.classList.add('is-in');
+      load(prim);
+      var done = false;
+      var go = function(){
+        if(done) return; done = true;
+        started = true;
+        requestAnimationFrame(function(){ requestAnimationFrame(function(){
+          fx.classList.add('is-go');
+          if(reduce) return;
+          setTimeout(loadAlts, ALT_AFTER);
+          later(FIRST);
+          sync();
+        }); });
+      };
+      Promise.all(prim.map(decoded)).then(go, go);
+      setTimeout(go, 2600);
+    }
+
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(rows){
+        rows.forEach(function(r){
+          if(r.isIntersecting) load(prim);
+          vis = r.isIntersecting && r.intersectionRatio >= .5;
+          if(vis) begin();
+          sync();
+        });
+      }, { threshold: [0, .5, .75] }).observe(fx);
+    } else { vis = true; begin(); }
+    document.addEventListener('visibilitychange', sync);
+    /* заранее — когда первый экран уже показался и второй начал качаться */
+    var pre = function(){ setTimeout(function(){ load(prim); }, 1400); };
+    if(document.readyState === 'complete') pre();
+    else window.addEventListener('load', pre);
+  })();
 
   /* --- первый экран: футболки меняют цвет ---
      У каждого цвета свой слой (и у чёрного — иначе к нему нечем было бы
