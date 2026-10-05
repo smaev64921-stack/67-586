@@ -330,12 +330,15 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   --hh:min(var(--room),calc((100vw - 40px) * 1.06905));
   --hw:calc(var(--hh) * .935407);
   --by:calc(var(--above) + (var(--room) - var(--hh)) * .5);
-  /* бомбер: кадр 1200×776, раскрытый — 1200×664 (низ — по низу бомбера).
-     Раскрытый снят ниже и шире: его кадр в 1,1719 раза шире (--ow), чтобы все
-     три вида были одной высоты; ширину экрана/ниши задаёт он */
-  --bw:min(calc((100vw - 4px) / 1.1719),calc(var(--hh) * 1.5));
-  --ow:calc(var(--bw) * 1.1719);
-  --bh:calc(var(--bw) * .646667);
+  /* бомбер: кадр спереди и сзади 1200×743 (оба вида одной высоты, низ по
+     низу), раскрытый — 1200×664 (низ — по низу бомбера). Ширину экрана или
+     ниши задаёт раскрытый вид (--ow); --bw0 — основа размеров. Спереди и сзади
+     вещь на 8 % крупнее, чем внутри: кадр ×1,1268 к основе (1,0433 — он шире
+     прежнего 1200×776, ×1,08) */
+  --bw0:min(calc((100vw - 4px) / 1.1719),calc(var(--hh) * 1.5));
+  --bw:calc(var(--bw0) * 1.1268);
+  --ow:calc(var(--bw0) * 1.1719);
+  --bh:calc(var(--bw) * .619413);
   --bk:.62;                          /* где висит: 0 — вровень с верхом худи, 1 — на дне ниши */
   --bby:calc(var(--by) + (var(--hh) - var(--bh)) * var(--bk));
   --oh:calc(var(--ow) * .553333);
@@ -543,7 +546,7 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
 .g.is-load .g__pc--hd .g__sheen{opacity:1;
   -webkit-mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat;mask:url(/onboarding/hd-front.webp) center/100% 100% no-repeat}
 .g.is-loadb .g__pc--bm .g__sheen{opacity:1;
-  -webkit-mask:url(/onboarding/bm-front.webp) center/100% 100% no-repeat;mask:url(/onboarding/bm-front.webp) center/100% 100% no-repeat}
+  -webkit-mask:url(/onboarding/bm-front2.webp) center/100% 100% no-repeat;mask:url(/onboarding/bm-front2.webp) center/100% 100% no-repeat}
 .g.is-loadb .g__pc--vs .g__sheen{
   -webkit-mask-image:url(/onboarding/vs-front.webp);mask-image:url(/onboarding/vs-front.webp)}
 .g.is-iv .g__pc--bm .g__sheen{opacity:0}
@@ -861,8 +864,9 @@ html.js .g .g__co.is-show .co__lb > span{opacity:1;transform:none;transition:opa
     --by:calc(50 * var(--u) - var(--hh) * .5 + 4px);
     --lift:30px;--drop:60px;--offB:12px;
     --nr:max(calc(var(--hw) * .5 + 78px),calc((var(--ow) + var(--rv) * 2 + 8px) * .5),calc((var(--vow) + var(--rv) * 2 + 8px) * .5));--nT:calc(var(--by) - var(--hh) * .1 - 14px);--rv:14px;--fh:9px;--ov:34px;
-    --bw:min(calc(var(--hw) * 1.2),calc((max(calc(60vw - 40px),calc(var(--hw) + 156px)) - var(--rv) * 2 - 8px) / 1.1719));
-    --ow:calc(var(--bw) * 1.1719);
+    --bw0:min(calc(var(--hw) * 1.2),calc((max(calc(60vw - 40px),calc(var(--hw) + 156px)) - var(--rv) * 2 - 8px) / 1.1719));
+    --bw:calc(var(--bw0) * 1.1268);
+    --ow:calc(var(--bw0) * 1.1719);
     --vh:min(var(--hh),calc((max(calc(60vw - 40px),calc(var(--hw) + 156px)) - var(--rv) * 2 - 8px) / 1.1579));
     --eL:calc(50% - var(--hw) * .5 - 70px);
     --eR:calc(50% + var(--hw) * .5 + 70px)
@@ -2256,38 +2260,38 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
       </div>
 
       <!-- ===== вещь 1: бомбер (спереди, сзади, внутри) =====
-           Снимки качаются после худи (data-srcb). Кадр 1200×776, спина в том же
-           кадре; раскрытый — 1200×664, низом по низу бомбера. Точки — доли кадра. -->
+           Снимки качаются после худи (data-srcb). Кадр 1200×743, спина в том же
+           кадре (одна высота вещи); раскрытый — 1200×664, низом по низу бомбера. Точки — доли кадра. -->
       <div class="g__pc g__pc--bm" data-p="1" data-views="f b i" aria-hidden="true">
         <div class="g__box g__box--bm" id="gBoxB" role="img" aria-label="Чёрный бомбер">
           <div class="g__rev"><div class="g__rin"><div class="g__turn">
-            <div class="g__face is-on" data-v="f"><img data-srcb="/onboarding/bm-front.webp" alt="" width="1200" height="776" decoding="async" crossorigin="anonymous"></div>
-            <div class="g__face" data-v="b"><img data-srcb="/onboarding/bm-back2.webp" alt="" width="1200" height="776" decoding="async"></div>
+            <div class="g__face is-on" data-v="f"><img data-srcb="/onboarding/bm-front2.webp" alt="" width="1200" height="743" decoding="async" crossorigin="anonymous"></div>
+            <div class="g__face" data-v="b"><img data-srcb="/onboarding/bm-back3.webp" alt="" width="1200" height="743" decoding="async"></div>
             <div class="g__face g__face--i" data-v="i"><div class="g__ob"><img data-srcb="/onboarding/bm-open.webp" alt="" width="1200" height="664" decoding="async"><div class="g__sw" aria-hidden="true"><b><i></i></b></div></div></div>
             <div class="g__sheen" aria-hidden="true"><i></i></div>
           </div></div></div>
         </div>
         <ul class="g__co g__co--z" data-v="f" aria-label="Детали бомбера спереди">
-          <li class="co co--t co--l" style="--ax:.5025;--ay:.2384;--e:.0129">
+          <li class="co co--t co--l" style="--ax:.4979;--ay:.2243;--e:.0175">
             <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
             <button class="co__lb" type="button" tabindex="-1"><span><b>01</b>Молния во&nbsp;всю длину</span></button>
           </li>
-          <li class="co co--t co--r" style="--ax:.5750;--ay:.1095;--e:.0193;--lf:var(--offT)">
+          <li class="co co--t co--r" style="--ax:.5610;--ay:.0615;--e:.0227;--lf:var(--offT)">
             <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
             <button class="co__lb" type="button" tabindex="-1"><span><b>02</b>Воротник в&nbsp;рубчик</span></button>
           </li>
-          <li class="co co--b co--l" style="--ax:.3680;--ay:.6560;--e:.9549">
+          <li class="co co--b co--l" style="--ax:.3690;--ay:.6236;--e:.9773">
             <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
             <button class="co__lb" type="button" tabindex="-1"><span><b>03</b>Косые карманы</span></button>
           </li>
-          <li class="co co--b co--r" style="--ax:.6583;--ay:.9278;--e:.9639;--ax2:.9167;--ay2:.9343;--e2:.9858;--lf:var(--offB)">
+          <li class="co co--b co--r" style="--ax:.5870;--ay:.9441;--e:.9794;--ax2:.9528;--ay2:.9021;--e2:.9608;--lf:var(--offB)">
             <i class="co__stem is-h"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot is-h"></i><i class="co__dot is-2"></i><i class="co__hit is-h" aria-hidden="true"></i><i class="co__hit is-2" aria-hidden="true"></i>
             <button class="co__lb" type="button" tabindex="-1"><span><b>04</b>Манжеты и&nbsp;низ в&nbsp;рубчик</span></button>
           </li>
         </ul>
         <!-- спина: обе сборки рукавов одной скобкой -->
         <ul class="g__co" data-v="b" aria-label="Детали бомбера сзади">
-          <li class="co co--t co--r" style="--ax:.2983;--ay:.3093;--e:.1624;--ax2:.7100;--ay2:.3093;--e2:.1688">
+          <li class="co co--t co--r" style="--ax:.3038;--ay:.3055;--e:.1773;--ax2:.6984;--ay2:.3055;--e2:.1825">
             <i class="co__stem"></i><i class="co__stem is-2"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__dot is-2"></i>
             <span class="co__lb"><span><b>05</b>Рукава со&nbsp;сборкой</span></span>
           </li>
@@ -2304,10 +2308,10 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
           </li>
         </ul>
         <div class="g__zs" data-v="f" aria-hidden="true">
-          <span class="co co--t co--l" style="--ax:.5025;--ay:.2384"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-zip.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
-          <span class="co co--t co--r" style="--ax:.5750;--ay:.1095;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-collar.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
-          <span class="co co--b co--l" style="--ax:.3680;--ay:.6560"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-welt.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
-          <span class="co co--b co--r" style="--ax:.6583;--ay:.9278;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-cuff.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--l" style="--ax:.4979;--ay:.2243"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-zip2.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--r" style="--ax:.5610;--ay:.0615;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-collar2.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--b co--l" style="--ax:.3690;--ay:.6236"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-welt2.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--b co--r" style="--ax:.5870;--ay:.9441;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-cuff2.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
         </div>
         <div class="g__zs g__zs--p" data-v="i" aria-hidden="true">
           <span class="co co--t co--r" style="--ax:.6583;--ay:.4925;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-pocket-in.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
@@ -2364,7 +2368,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 
   <!-- главный выбор — вещь; под ним — сторона (у бомбера и жилета ещё «Внутри») -->
   <div class="g__pr" role="group" aria-label="Вещь на витрине">
-    <button type="button" data-p="0" aria-pressed="true"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></span>Худи</button><button type="button" data-p="1" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt g__pt--w" aria-hidden="true"><img data-src="/onboarding/bm-front.webp" alt="" width="1200" height="776" decoding="async" crossorigin="anonymous"></span>Бомбер</button><button type="button" data-p="2" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/vs-pt.webp" alt="" width="72" height="99" decoding="async"></span>Жилет</button>
+    <button type="button" data-p="0" aria-pressed="true"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/hd-front.webp" alt="" width="782" height="836" decoding="async" crossorigin="anonymous"></span>Худи</button><button type="button" data-p="1" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt g__pt--w" aria-hidden="true"><img data-src="/onboarding/bm-front2.webp" alt="" width="1200" height="743" decoding="async" crossorigin="anonymous"></span>Бомбер</button><button type="button" data-p="2" aria-pressed="false"><i class="g__pf" aria-hidden="true"></i><span class="g__pt" aria-hidden="true"><img data-src="/onboarding/vs-pt.webp" alt="" width="72" height="99" decoding="async"></span>Жилет</button>
   </div>
   <div class="g__view" role="group" aria-label="Сторона">
     <div class="g__vw"><button type="button" data-v="f" aria-pressed="true">Спереди</button><button type="button" data-v="b" aria-pressed="false">Сзади</button><button type="button" data-v="i" aria-pressed="false" hidden>Внутри</button></div>
