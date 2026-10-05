@@ -19740,21 +19740,18 @@ bootFromServer().catch((err) => {
   }catch(e){ visits = 1; }
   var OFFER_DELAY = 20000;
 
+  /* Полоса — только там, где браузер сам умеет ставить (компьютер, Android).
+     На iPhone её нет по просьбе владельца: там установка — руками через
+     «Поделиться», и полоса только мешала. Пункт «Приложение» в настройках
+     на iPhone остаётся. */
   function offerInstall(){
-    if(standalone || visits < 2 || !dueNow() || !canInstall()) return;
+    if(standalone || visits < 2 || !dueNow() || !deferred) return;
     /* Показали — значит на сегодня хватит, чем бы человек ни ответил. */
     snooze(1);
-    if(deferred){
-      showBar("Установить Luxe Canvas", "Свой значок на экране, запускается быстрее", "Установить",
-        runPrompt, null,
-        [{ t: "Напомнить завтра", on: function(){ snooze(1); } },
-         { t: "Больше не показывать", on: function(){ snooze(7); } }]);
-    } else {
-      showBar("Добавьте Luxe Canvas на экран", "Поделиться → «На экран «Домой»»", "Понятно",
-        function(){}, null,
-        [{ t: "Напомнить завтра", on: function(){ snooze(1); } },
-         { t: "Больше не показывать", on: function(){ snooze(7); } }]);
-    }
+    showBar("Установить Luxe Canvas", "Свой значок на экране, запускается быстрее", "Установить",
+      runPrompt, null,
+      [{ t: "Напомнить завтра", on: function(){ snooze(1); } },
+       { t: "Больше не показывать", on: function(){ snooze(7); } }]);
   }
 
   window.addEventListener("beforeinstallprompt", function(e){
@@ -19762,7 +19759,6 @@ bootFromServer().catch((err) => {
     deferred = e;
     setTimeout(offerInstall, OFFER_DELAY);
   });
-  if(iosSafari) setTimeout(offerInstall, OFFER_DELAY);
 
   window.addEventListener("appinstalled", function(){
     deferred = null; hideBar(); closeAppModal();
