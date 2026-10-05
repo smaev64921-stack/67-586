@@ -350,6 +350,7 @@ function healthPayload() {
        на карте». Это разные вопросы: точки у нас есть и без договора. */
     pvz: cdek.configured() || cdekOpen.ready(),
     pvzCount: cdekOpen.count(),
+    migrate: require('./migrate').status(),
     time: new Date().toISOString()
   };
 }

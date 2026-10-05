@@ -189,13 +189,24 @@ async function pull() {
 
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 15 * 60 * 1000);
-  const res = await fetch(from + '/api/migrate/export', {
-    headers: { 'x-migrate-token': token() },
-    signal: ctl.signal
-  });
+  let res;
+  try {
+    res = await fetch(from + '/api/migrate/export', {
+      headers: { 'x-migrate-token': token() },
+      signal: ctl.signal
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    throw new Error('нет связи со старым сервером ' + from + ' (' + ((e.cause && e.cause.code) || e.message) + ')');
+  }
   if (res.status !== 200) {
     clearTimeout(timer);
-    throw new Error('старый сервер ответил ' + res.status);
+    const why = {
+      404: 'на старом сервере нет MIGRATE_TOKEN (или он не обновлён из Git)',
+      403: 'MIGRATE_TOKEN на старом и новом сервере не совпадают',
+      429: 'слишком много попыток — повторить через 15 минут'
+    }[res.status] || '';
+    throw new Error('старый сервер ответил ' + res.status + (why ? ': ' + why : ''));
   }
 
   /* разбор потока: заголовок → байты файла → следующий заголовок */
@@ -275,8 +286,16 @@ async function pull() {
 }
 
 /** Вызывается из server/index.js до открытия базы — синхронно, отдельным процессом. */
+function markPending(error) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(PENDING, JSON.stringify({ at: new Date().toISOString(), error: String(error) }));
+  } catch (_) {}
+}
+
 function pullBeforeBoot() {
   if (!pullSource()) return;
+  const started = Date.now();
   try {
     require('child_process').execFileSync(process.execPath, [__filename, '--pull'], {
       stdio: 'inherit',
@@ -284,13 +303,30 @@ function pullBeforeBoot() {
     });
   } catch (e) {
     /* не вышло (старый ещё не обновлён, сеть) — отметка «повторить»: при
-       следующем запуске заберём снова, даже если пустая база уже создана */
-    console.error('[MIGRATE] перенос не удался, сервер стартует как есть:', e.message);
-    try {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-      fs.writeFileSync(PENDING, JSON.stringify({ at: new Date().toISOString(), error: String(e.message || e) }));
-    } catch (_) {}
+       следующем запуске заберём снова, даже если пустая база уже создана.
+       Причину пишет сам перенос; если он не успел (таймаут) — пишем здесь. */
+    let fresh = false;
+    try { fresh = fs.statSync(PENDING).mtimeMs >= started - 1000; } catch (_) {}
+    if (!fresh) markPending(e.message || e);
+    console.error('[MIGRATE] перенос не удался, сервер стартует как есть:', (status() || {}).error || e.message);
   }
+}
+
+/* Для /api/health, только пока идёт переезд (стоит MIGRATE_TOKEN): видно без
+   логов, забрал ли новый сервер данные и почему нет. Ключей и данных тут нет. */
+function status() {
+  if (!token()) return undefined;
+  try {
+    if (fs.existsSync(MARKER)) {
+      const m = JSON.parse(fs.readFileSync(MARKER, 'utf8'));
+      return { state: 'done', at: m.at, files: m.files, products: m.products };
+    }
+    if (fs.existsSync(PENDING)) {
+      const p = JSON.parse(fs.readFileSync(PENDING, 'utf8'));
+      return { state: 'failed', at: p.at, error: p.error };
+    }
+  } catch (_) {}
+  return { state: 'source' };
 }
 
 if (require.main === module && process.argv.includes('--pull')) {
@@ -299,6 +335,7 @@ if (require.main === module && process.argv.includes('--pull')) {
   }).catch((e) => {
     console.error('[MIGRATE] ошибка:', e.message);
     try { fs.rmSync(INBOX, { recursive: true, force: true }); } catch (_) {}
+    markPending(e.message);
     process.exit(1);
   });
 }
@@ -311,4 +348,4 @@ function holdTelegram() {
   return !!token() && (fs.existsSync(MARKER) || fs.existsSync(PENDING));
 }
 
-module.exports = { exportHandler, pullBeforeBoot, pullSource, listDataFiles, holdTelegram };
+module.exports = { exportHandler, pullBeforeBoot, pullSource, listDataFiles, holdTelegram, status };
