@@ -4225,6 +4225,11 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   window.addEventListener('error', function(e){
     /* у битой картинки нет message — это не ошибка скрипта, пропускаем */
     if(!e || !e.message) return;
+    /* «Script error.» без файла и строки — так браузер прячет ошибку в чужом
+       скрипте: вход через Google, карта, вставки самого браузера (MIUI и
+       т. п.). Что сломалось, из неё не узнать, а свой код всегда приходит
+       с файлом и строкой — владельцу такое не шлём. */
+    if(/^script error\.?$/i.test(e.message) && !e.filename) return;
     tell(e.message + ' (' + (e.filename || '?') + ':' + (e.lineno || 0) + ')',
       e.error && e.error.stack);
   });

@@ -726,8 +726,12 @@ function authRateLimit(scope, limit) {
 app.post('/api/client-error', authRateLimit('client-error', 30), (req, res) => {
   const b = req.body || {};
   const msg = String(b.message || '').trim();
+  /* «Script error. (?:0)» — ошибка в чужом скрипте, браузер спрятал подробности;
+     починить по ней нечего. Страница их уже не шлёт, а это — для вкладок,
+     открытых до обновления. */
+  const opaque = /^script error\.?( \(\?:0\))?$/i.test(msg);
   /* пустое и запредельное не принимаем: эндпоинт открытый */
-  if (msg && msg.length < 2000) {
+  if (msg && msg.length < 2000 && !opaque) {
     errors.report('client', { message: msg, stack: String(b.stack || '').slice(0, 2000) }, {
       page: String(b.page || '').slice(0, 300),
       browser: String(req.headers['user-agent'] || '').slice(0, 200),
