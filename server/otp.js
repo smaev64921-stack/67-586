@@ -50,7 +50,7 @@ async function resolveBotUsername() {
   const token = botToken();
   if (!token) return '';
   try {
-    const r = await fetch(tgApi.botUrl(token, 'getMe'), { headers: tgApi.headers() });
+    const r = await fetch(tgApi.botUrl(token, 'getMe'), { headers: tgApi.headers(), signal: tgApi.timeout('getMe') });
     const d = await r.json().catch(() => ({}));
     const u = (d.result && d.result.username) || '';
     if (u) process.env.TELEGRAM_BOT_USERNAME = u;
@@ -435,6 +435,7 @@ async function sendCodeToChat(chatId, code) {
     const r = await fetch(tgApi.botUrl(token, 'sendMessage'), {
       method: 'POST',
       headers: tgApi.headers({ 'Content-Type': 'application/json' }),
+      signal: tgApi.timeout('sendMessage'),
       body: JSON.stringify({
         chat_id: chatId,
         text,

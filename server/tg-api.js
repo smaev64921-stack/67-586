@@ -9,8 +9,24 @@
  */
 const DIRECT = 'https://api.telegram.org';
 
+/* Адрес без https:// (легко вставить из панели хостинга без схемы) fetch не
+   разбирает и выдаёт ошибку с полным адресом — вместе с токеном бота. Такой
+   адрес не берём, пишем об этом один раз и без токена. http — только для
+   проверок на своём компьютере. */
+let warnedBase = false;
 function base() {
-  return String(process.env.TELEGRAM_API_BASE || '').trim().replace(/\/+$/, '') || DIRECT;
+  const raw = String(process.env.TELEGRAM_API_BASE || '').trim().replace(/\/+$/, '');
+  if (!raw) return DIRECT;
+  try {
+    const u = new URL(raw);
+    const local = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(u.hostname);
+    if (u.protocol === 'https:' || (u.protocol === 'http:' && local)) return raw;
+  } catch (_) {}
+  if (!warnedBase) {
+    warnedBase = true;
+    console.warn('TELEGRAM_API_BASE не похож на https://<адрес ретранслятора>/tg — хожу в Telegram напрямую');
+  }
+  return DIRECT;
 }
 
 function viaRelay() {
@@ -31,11 +47,26 @@ function fileUrl(token, filePath) {
   return `${base()}/file/bot${token}/${filePath}`;
 }
 
-/* «fetch failed» без причины ничего не говорит — добавляем код (таймаут,
-   сброс соединения), чтобы в логе было видно, что именно не так */
-function netError(e) {
-  const code = e && e.cause && (e.cause.code || e.cause.name);
-  return code ? Object.assign(new Error(`${e.message} (${code})`), { cause: e.cause }) : e;
+/* Сколько ждать ответа: getUpdates держит соединение до 25 с, файлы — дольше.
+   Без предела зависшее соединение Москва → ретранслятор держало бы бота
+   глухим минутами. */
+function timeout(method) {
+  if (method === 'getUpdates') return AbortSignal.timeout(45 * 1000);
+  if (method === 'sendDocument' || method === 'file') return AbortSignal.timeout(120 * 1000);
+  return AbortSignal.timeout(20 * 1000);
 }
 
-module.exports = { base, viaRelay, headers, botUrl, fileUrl, netError };
+/* «fetch failed» без причины ничего не говорит — добавляем код (таймаут,
+   сброс соединения). Токен бота из текста ошибки вырезаем: она уходит в
+   журнал и в отчёты об ошибках. */
+function redact(s) {
+  return String(s).replace(/bot\d+:[A-Za-z0-9_-]+/g, 'bot***');
+}
+function netError(e) {
+  const code = e && (e.name === 'TimeoutError' ? 'таймаут' : e.cause && (e.cause.code || e.cause.name));
+  const out = new Error(redact((e && e.message) || e) + (code ? ` (${code})` : ''));
+  if (e && e.cause) out.cause = e.cause;
+  return out;
+}
+
+module.exports = { base, viaRelay, headers, botUrl, fileUrl, timeout, netError, redact };

@@ -1531,19 +1531,18 @@ app.listen(PORT, '0.0.0.0', () => {
   } else if (require('./migrate').holdTelegram() && !botForced) {
     console.log('Telegram: бот не запущен — идёт переезд, обновления забирает старый сервер (снять MIGRATE_TOKEN)');
   } else {
-    telegramBot.boot(PUBLIC_URL)
-      .then(() => {
-        /* Бот поднялся — можно сообщить админам, что магазин перезапустился
-           уже на новой версии. Внутри сверка отпечатка: если в public ничего
-           не менялось, обычный перезапуск пройдёт молча. */
-        return deployNotice.run({ url: PUBLIC_URL });
-      })
+    /* Бот поднялся (сразу или после повторов) — можно сообщить админам, что
+       магазин перезапустился уже на новой версии. Внутри сверка отпечатка:
+       если в public ничего не менялось, обычный перезапуск пройдёт молча.
+       Пока бота нет, не сообщаем: сообщение не дойдёт, а отпечаток сгорит. */
+    const announce = () => deployNotice.run({ url: PUBLIC_URL })
       .then((r) => {
         if (!r) return;
         if (r.sent) console.log(`Выкат: сообщил админам (${r.sent} из ${r.of}), версия ${r.stamp}`);
         else console.log(`Выкат: не сообщал — ${r.reason}`);
       })
       .catch((e) => console.error(e));
+    telegramBot.boot(PUBLIC_URL, announce).catch((e) => console.error(e));
   }
   let lastCdekSync = 0;
   /* Неоплаченные — с вопросом к ЮKassa (см. expireUnpaidOrdersChecked).

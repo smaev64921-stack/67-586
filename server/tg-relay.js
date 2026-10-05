@@ -17,6 +17,7 @@
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const { pipeline } = require('stream');
 
 const PORT = +process.env.PORT || 3000;
 /* для проверок — подставной Telegram; в работе всегда api.telegram.org */
@@ -37,10 +38,14 @@ function sameKey(given) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-/* перебор ключа: после 30 неверных попыток за 10 минут — пауза для адреса */
+/* перебор ключа: после 30 неверных попыток за 10 минут адрес получает паузу.
+   Только для запросов с неверным ключом — магазин с верным ключом так не
+   заблокировать. Адрес — последний в X-Forwarded-For: его дописал прокси
+   Bothost, первый подставляет кто угодно (как в rate-limit.clientIp). */
 const fails = new Map();
 function clientIp(req) {
-  return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+  const chain = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+  return chain[chain.length - 1] || req.socket.remoteAddress || '';
 }
 function tooManyFails(ip) {
   const f = fails.get(ip);
@@ -56,21 +61,24 @@ function noteFail(ip) {
 }
 
 function reply(res, status, description) {
-  if (res.headersSent) return res.destroy();
+  if (res.headersSent || res.destroyed || res.writableEnded) return res.destroy();
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify({ ok: false, error_code: status, description }));
 }
 
 function handle(req, res) {
   if (req.url === '/' || req.url === '/health') {
-    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-    return res.end(key() ? 'ok' : 'relay: TG_RELAY_KEY не задан');
+    res.writeHead(key() ? 200 : 503, { 'content-type': 'text/plain; charset=utf-8' });
+    return res.end(key() ? 'ok' : 'relay: TG_RELAY_KEY не задан (нужно от 32 символов)');
   }
   const m = PATH_RE.exec(req.url || '');
-  if (!m || m[1].includes('..') || !['GET', 'POST'].includes(req.method)) return reply(res, 404, 'Not Found');
-  const ip = clientIp(req);
-  if (tooManyFails(ip)) return reply(res, 429, 'relay: слишком много неверных ключей');
+  if (!m || m[1].includes('..') || !['GET', 'POST'].includes(req.method)) {
+    return reply(res, 404, 'relay: путь должен быть /tg/bot<токен>/<метод>');
+  }
+  if (!key()) return reply(res, 503, 'relay: на ретрансляторе не задан TG_RELAY_KEY (от 32 символов)');
   if (!sameKey(req.headers['x-relay-key'])) {
+    const ip = clientIp(req);
+    if (tooManyFails(ip)) return reply(res, 429, 'relay: слишком много неверных ключей');
     noteFail(ip);
     return reply(res, 403, 'relay: неверный ключ');
   }
@@ -90,14 +98,16 @@ function handle(req, res) {
     const out = {};
     for (const h of ['content-type', 'content-length', 'content-disposition']) if (ur.headers[h]) out[h] = ur.headers[h];
     res.writeHead(ur.statusCode || 502, out);
-    ur.pipe(res);
+    /* оборвался ответ Telegram — обрываем и ответ магазину, а не держим его */
+    pipeline(ur, res, () => {});
   });
   up.on('timeout', () => up.destroy(Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' })));
   up.on('error', (e) => {
-    console.warn('relay: Telegram недоступен —', e.code || e.message);
+    console.warn('relay: Telegram недоступен —', e.code || 'error');
     reply(res, 502, 'relay: Telegram недоступен (' + (e.code || 'error') + ')');
   });
-  req.on('aborted', () => up.destroy());
+  /* магазин отключился раньше времени — запрос к Telegram больше не нужен */
+  res.on('close', () => { if (!res.writableFinished) up.destroy(); });
   req.pipe(up);
 }
 
