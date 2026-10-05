@@ -985,6 +985,54 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .mnu__i .ic{color:var(--ink)}
 .mnu__i .ic--sm:last-child{color:var(--muted2)}
 
+/* Каталог в шторке: пол → его категории. Список раскрывается по высоте через
+   grid-template-rows 0fr → 1fr — высоту знать не нужно, браузер тянет её
+   плавно. Строки проявляются лесенкой сверху вниз (--i — номер строки) и
+   успевают за высотой, без пустой серой коробки. Сворачивается быстрее, чем
+   раскрывается: при смене пола старый список уходит раньше, чем новый
+   доехал. Стрелка у пола смотрит вниз — «раскроется здесь», у открытого —
+   вверх. Тонкая линия слева держит строки под названием пола, точка на ней
+   отмечает раздел, который сейчас открыт в каталоге. */
+.mng{border-radius:var(--r-sm);transition:background .28s var(--ease)}
+.mng.is-open{background:var(--chip)}
+.mng__h .ic{transform:rotate(90deg);transition:transform .4s cubic-bezier(.22,1,.36,1), color .2s var(--ease)}
+.mng.is-open .mng__h .ic{transform:rotate(-90deg);color:var(--ink)}
+.mng.is-open .mng__h:hover{background:transparent}
+/* на телефоне :hover залипает после касания — свёрнутый пол оставался серым */
+@media (hover:none){ .mng__h:hover{background:transparent} }
+.mng__p{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s cubic-bezier(.4,0,.2,1)}
+.mng.is-open .mng__p{grid-template-rows:1fr;transition:grid-template-rows .4s cubic-bezier(.22,1,.36,1)}
+/* visibility — для старых iPhone без inert: свёрнутые строки не ловят фокус */
+.mng__w{min-height:0;overflow:hidden;visibility:hidden;transition:visibility 0s linear .28s}
+.mng.is-open .mng__w{visibility:visible;transition-delay:0s}
+.mng__l{list-style:none;margin:0 0 10px 8px;padding:4px 0 0 10px;
+  border-left:1px solid transparent;transition:border-color .2s var(--ease)}
+.mng.is-open .mng__l{border-left-color:#d9d9d9;transition-delay:.06s}
+.mng__l li{opacity:0;transform:translateY(-6px);
+  transition:opacity .12s var(--ease), transform .2s var(--ease)}
+.mng.is-open .mng__l li{opacity:1;transform:none;
+  transition:opacity .18s var(--ease), transform .28s cubic-bezier(.22,1,.36,1);
+  transition-delay:calc(30ms + var(--i) * 30ms)}
+.mng__c{
+  position:relative;display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 8px 11px 10px;font-size:14px;color:var(--ink-soft);
+  border-radius:var(--r-sm);text-align:left;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease)
+}
+.mng__c > span:first-child{flex:1}
+@media (hover:hover){ .mng__c:hover{background:rgba(0,0,0,.045);color:var(--ink)} }
+.mng__c[aria-current]{color:var(--ink);font-weight:600}
+/* точка висит на линии слева, текст строки не сдвигается */
+.mng__c[aria-current]::before{
+  content:'';position:absolute;left:-13px;top:50%;width:5px;height:5px;margin-top:-2.5px;
+  border-radius:50%;background:var(--ink)
+}
+.mng__n{flex:none;font-size:12px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums}
+.mng__c[aria-current] .mng__n{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){
+  .mng,.mng__p,.mng.is-open .mng__p,.mng__w,.mng__l,.mng__l li,.mng.is-open .mng__l li,.mng__h .ic{transition:none}
+}
+
 /* Соцсети внизу шторки. Ряд кружков, а не список строк: пять коротких
    названий списком заняли бы пол-экрана и спорили бы с разделами выше.
 
@@ -6847,7 +6895,7 @@ const catsOf = g => [...new Set(PRODUCTS.filter(p => p.on && p.gender === g).map
 const GENDER_LAB = {u:'Унисекс', w:'Женское', m:'Мужское'};
 /* Товар в разделе каталога: пол + категория ('' — все категории). */
 const inSection = (p, g, c) => !!p && p.on && p.gender === g && (!c || p.cat === c);
-/* Куда вести из меню и с главной: в текущий пол, если там такие товары есть,
+/* Куда вести с главной («В каталог»): в текущий пол, если там такие товары есть,
    иначе в первый пол, где они есть. Из строки разделов пол не трогаем. */
 const genderFor = c => [S.gender, ...Object.keys(GENDER_LAB)]
   .find(g => PRODUCTS.some(p => inSection(p, g, c))) || S.gender;
@@ -13500,6 +13548,34 @@ function sheetMenu(){
   const item = (a, ic, t, n, soon) => `<button class="mnu__i${soon ? ' mnu__i--soon' : ''}" data-a="${a}">
     <span>${t}</span>${soon ? '<span class="mnu__soon">скоро</span>' : ''}${
       n ? `<span class="mnu__n">${n}</span>` : ''}${svg('chev','ic ic--sm')}</button>`;
+  /* Каталог — три раздела по полу. Нажатие раскрывает под разделом его
+     категории: только те, где сейчас есть товары, с числом вещей. Пустой пол
+     честно говорит «скоро» и ведёт на свою витрину целиком. Открыли меню из
+     каталога — его пол уже раскрыт. Товары ещё не пришли (первый заход на
+     медленной сети) — полы простыми ссылками, без «скоро»: пусто не значит,
+     что вещей нет. */
+  const openG = S.screen === 'catalog' ? S.gender : '';
+  const genBlock = g => {
+    if(!PRODUCTS.length) return item(`cat::${g}`, 'grid', GENDER_LAB[g]);
+    const total = PRODUCTS.filter(p => inSection(p, g, '')).length;
+    if(!total) return item(`cat::${g}`, 'grid', GENDER_LAB[g], 0, true);
+    const cats = [...CAT_NAMES, ...catsOf(g).filter(c => c && !CAT_NAMES.includes(c))]
+      .map(c => [c, PRODUCTS.filter(p => inSection(p, g, c)).length])
+      .filter(([, n]) => n);
+    /* одна категория — строка «Все товары» вела бы туда же: её не дублируем */
+    const rows = (cats.length > 1 ? [['', 'Все товары', total]] : [])
+      .concat(cats.map(([c, n]) => [c, esc(c), n]));
+    const on = g === openG;
+    const cur = c => on && S.cat === c ? ' aria-current="page"' : '';
+    return `<div class="mng${on ? ' is-open' : ''}">
+      <button class="mnu__i mng__h" data-a="mng:${g}" aria-expanded="${on}" aria-controls="mng-${g}">
+        <span>${GENDER_LAB[g]}</span>${svg('chev','ic ic--sm')}</button>
+      <div class="mng__p" id="mng-${g}"${on ? '' : ' inert'}><div class="mng__w"><ul class="mng__l">
+        ${rows.map(([c, t, n], i) => `<li style="--i:${i}"><button class="mng__c" data-a="cat:${esc(c)}:${g}"${cur(c)}>
+          <span>${t}</span><span class="mng__n">${n}</span></button></li>`).join('')}
+      </ul></div></div>
+    </div>`;
+  };
   openOv(`<div class="scrim"></div>
   <aside class="mnu" role="dialog" aria-modal="true" aria-label="Меню">
     <div class="mnu__h">
@@ -13509,9 +13585,7 @@ function sheetMenu(){
     <div class="mnu__b">
       <div class="mnu__sec">
         <div class="mnu__cap">Каталог</div>
-        ${item('cat::auto','grid','Все товары')}
-        ${[...CAT_NAMES, ...new Set(PRODUCTS.filter(p => p.on && !CAT_NAMES.includes(p.cat)).map(p => p.cat))]
-          .map(c => item(`cat:${esc(c)}:auto`, 'grid', esc(c), 0, !PRODUCTS.some(p => p.on && p.cat === c))).join('')}
+        ${Object.keys(GENDER_LAB).map(genBlock).join('')}
       </div>
       <div class="mnu__sec">
         ${item('go:favs','heart','Избранное', favN)}
@@ -13538,6 +13612,16 @@ function sheetMenu(){
       ${socialRow()}
     </div>
   </aside>`);
+}
+
+/* Раскрыть или свернуть пол в шторке. Свёрнутый список inert: его строки
+   не ловят Tab и не читаются экранной читалкой, пока их не видно. */
+function mngSet(box, open){
+  box.classList.toggle('is-open', open);
+  const h = box.querySelector('.mng__h');
+  const p = box.querySelector('.mng__p');
+  if(h) h.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if(p) p.inert = !open;
 }
 
 /* Соцсети внизу шторки, под всеми разделами. Значок показываем и без ссылки:
@@ -14471,6 +14555,25 @@ document.addEventListener('click', e => {
     case 'sort': sheetSort(); break;
     case 'search': modalSearch(); break;
     case 'menu': sheetMenu(); break;
+    /* Шторка: пол раскрывается на месте, без перерисовки меню — иначе не
+       было бы видно анимации. Открыт один пол: соседний сворачивается. */
+    case 'mng': {
+      const box = el.closest('.mng');
+      if(!box) break;
+      const open = !box.classList.contains('is-open');
+      box.parentNode.querySelectorAll('.mng.is-open').forEach(x => { if(x !== box) mngSet(x, false); });
+      mngSet(box, open);
+      /* длинный список у нижнего края — докручиваем, когда он раскроется.
+         Только саму шторку: scrollIntoView сдвинул бы и страницу под ней. */
+      if(open) setTimeout(() => {
+        const sc = box.closest('.mnu__b');
+        if(!sc || !box.isConnected || !box.classList.contains('is-open')) return;
+        const r = box.getBoundingClientRect(), v = sc.getBoundingClientRect();
+        const d = Math.min(r.bottom - v.bottom, r.top - v.top);
+        if(d > 0) sc.scrollBy({top: d, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+      }, 420);
+      break;
+    }
     /* кружок справа снизу раскрывает соцсети; остальные «Написать нам» —
        окно поддержки, как раньше */
     case 'chat': el.classList.contains('fab') ? fabDial() : modalChat(); break;
@@ -14657,12 +14760,12 @@ document.addEventListener('click', e => {
     }
     /* Раздел каталога: «Футболки», «Кофты»… ('' — все). Тихая перерисовка,
        как у пола, — без моргания. Из строки разделов пол не трогаем: пустой
-       раздел честно скажет «Скоро». Из меню и с главной (b === 'auto') ведём
-       в пол, где такие товары есть. */
+       раздел честно скажет «Скоро». Меню и плитки главной передают пол прямо,
+       «В каталог» с главной (b === 'auto') ведёт в пол, где такие товары есть. */
     case 'cat': {
       const c = a || '';
       closeOv();
-      /* b: пол плитки с главной (u/w/m) или 'auto' из меню */
+      /* b: пол (u/w/m) из меню или с плитки главной, 'auto' — «В каталог» с главной */
       if(GENDER_LAB[b]) S.gender = b;
       else if(b === 'auto') S.gender = genderFor(c);
       if(S.screen !== 'catalog'){ S.cat = c; go('catalog'); break; }
