@@ -1524,6 +1524,8 @@ app.listen(PORT, '0.0.0.0', () => {
   const botForced = String(process.env.TELEGRAM_POLLING || '') === '1';
   if (isLocal(PUBLIC_URL) && !botForced) {
     console.log(`Telegram: бот не запущен — локальный адрес ${PUBLIC_URL}`);
+  } else if (require('./migrate').holdTelegram() && !botForced) {
+    console.log('Telegram: бот не запущен — идёт переезд, обновления забирает старый сервер (снять MIGRATE_TOKEN)');
   } else {
     telegramBot.boot(PUBLIC_URL)
       .then(() => {

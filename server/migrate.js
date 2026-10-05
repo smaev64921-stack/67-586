@@ -303,4 +303,12 @@ if (require.main === module && process.argv.includes('--pull')) {
   });
 }
 
-module.exports = { exportHandler, pullBeforeBoot, pullSource, listDataFiles };
+/* Новый сервер, пока на нём MIGRATE_TOKEN, не забирает обновления бота:
+   старый ещё работает с тем же токеном, а два сервера, опрашивающих
+   Telegram, отвечают покупателям через раз. Отправка уведомлений при этом
+   идёт. Ключ удалили после переключения домена — бот поднимается здесь. */
+function holdTelegram() {
+  return !!token() && (fs.existsSync(MARKER) || fs.existsSync(PENDING));
+}
+
+module.exports = { exportHandler, pullBeforeBoot, pullSource, listDataFiles, holdTelegram };
