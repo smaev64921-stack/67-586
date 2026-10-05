@@ -9,6 +9,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { DATA_DIR } = require('./db');
 const { normalizePhone } = require('./sms');
+const tgApi = require('./tg-api');
 
 const FILE = path.join(DATA_DIR, 'otp-codes.json');
 const TTL_MS = 10 * 60 * 1000;
@@ -49,7 +50,7 @@ async function resolveBotUsername() {
   const token = botToken();
   if (!token) return '';
   try {
-    const r = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const r = await fetch(tgApi.botUrl(token, 'getMe'), { headers: tgApi.headers() });
     const d = await r.json().catch(() => ({}));
     const u = (d.result && d.result.username) || '';
     if (u) process.env.TELEGRAM_BOT_USERNAME = u;
@@ -431,9 +432,9 @@ async function sendCodeToChat(chatId, code) {
     'Код действует 2 мин. Никому его не сообщайте.'
   ].join('\n');
   try {
-    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const r = await fetch(tgApi.botUrl(token, 'sendMessage'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: tgApi.headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         chat_id: chatId,
         text,

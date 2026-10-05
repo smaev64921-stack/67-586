@@ -11,6 +11,7 @@ const { resolvePublicUrl, isValidPublicHttps } = require('./public-url');
 const { claimOwner, getOwnerChatId, getOwnerChatIds, isOwnerChat, addOwner, removeOwner } = require('./tg-owner');
 const { tryLink, relinkUser, findChatForOrder } = require('./tg-users');
 const { DATA_DIR } = require('./db');
+const tgApi = require('./tg-api');
 
 const TOKEN = () => String(
   process.env.TELEGRAM_BOT_TOKEN ||
@@ -70,9 +71,9 @@ let BOT_USERNAME = '';
 function api(method, body) {
   const token = TOKEN();
   if (!token) return Promise.reject(new Error('TELEGRAM_BOT_TOKEN missing'));
-  return fetch(`https://api.telegram.org/bot${token}/${method}`, {
+  return fetch(tgApi.botUrl(token, method), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: tgApi.headers({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body || {})
   }).then(async (r) => {
     const data = await r.json().catch(() => ({}));
@@ -80,7 +81,7 @@ function api(method, body) {
       throw Object.assign(new Error(data.description || `Telegram ${method} failed`), { tg: data });
     }
     return data.result;
-  });
+  }, (e) => { throw tgApi.netError(e); });
 }
 
 function shopHttps() {
@@ -2327,8 +2328,9 @@ async function sendDocumentFile(chatId, filePath, filename, caption) {
     filename || path.basename(filePath)
   );
   if (caption) form.append('caption', String(caption).slice(0, 1024));
-  const r = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+  const r = await fetch(tgApi.botUrl(token, 'sendDocument'), {
     method: 'POST',
+    headers: tgApi.headers(),
     body: form
   });
   const data = await r.json().catch(() => ({}));
@@ -2344,8 +2346,7 @@ async function downloadTgFile(fileId, destPath) {
   if (f.file_size && f.file_size > require('./backup').MAX_IMPORT_BYTES) {
     throw new Error(`Файл слишком большой (${Math.round(f.file_size / 1024 / 1024)} МБ)`);
   }
-  const url = `https://api.telegram.org/file/bot${TOKEN()}/${f.file_path}`;
-  const r = await fetch(url);
+  const r = await fetch(tgApi.fileUrl(TOKEN(), f.file_path), { headers: tgApi.headers() });
   if (!r.ok) throw new Error(`Скачивание из Telegram: HTTP ${r.status}`);
   const buf = Buffer.from(await r.arrayBuffer());
   fs.mkdirSync(path.dirname(destPath), { recursive: true });
@@ -3233,11 +3234,29 @@ async function boot(publicUrl) {
       warnAdminsPublicUrl().catch((e) => console.warn(e.message));
     }, 2500);
 
+    bootRetryMs = 0;
     return mode;
   } catch (e) {
     console.error('Telegram bot start failed:', e.message);
+    retryBoot(publicUrl);
     return { mode: 'error', error: e.message };
   }
+}
+
+/* Связь с Telegram (или ретранслятором) пропала на запуске — пробуем снова:
+   1, 2, 4… минуты, не реже раза в 10 минут. Иначе бот молчал бы до
+   следующего перезапуска сервера. */
+let bootRetryMs = 0;
+let bootRetryTimer = null;
+function retryBoot(publicUrl) {
+  if (bootRetryTimer) return;
+  bootRetryMs = Math.min(bootRetryMs ? bootRetryMs * 2 : 60 * 1000, 10 * 60 * 1000);
+  console.warn(`Telegram: повтор запуска бота через ${Math.round(bootRetryMs / 60000)} мин`);
+  bootRetryTimer = setTimeout(() => {
+    bootRetryTimer = null;
+    boot(publicUrl).catch(() => {});
+  }, bootRetryMs);
+  if (bootRetryTimer.unref) bootRetryTimer.unref();
 }
 
 function configured() {

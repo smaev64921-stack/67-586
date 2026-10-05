@@ -1,4 +1,7 @@
 require('dotenv').config();
+/* Ретранслятор Telegram за границей (server/tg-relay.js): магазина и базы на
+   таком сервере нет. */
+if (process.env.TG_RELAY_ONLY === '1') return void require('./tg-relay').start();
 /* Переезд на новый сервер (MIGRATE_TOKEN): сначала забираем данные со
    старого — до того, как кто-либо откроет базу. На старом сервере и после
    переезда ничего не делает. */
