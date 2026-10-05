@@ -446,6 +446,43 @@ html.lc-leaving .lcc{opacity:0}
 .pwa__lnk{font-size:12px;color:var(--muted2);text-decoration:underline;text-underline-offset:2px}
 .pwa__lnk:hover{color:var(--ink)}
 
+/* Баннер про cookie. Сайт ставит только необходимые cookie — аналитики,
+   рекламы и сторонних счётчиков нет, — поэтому согласие не нужно, и баннер
+   просто сообщает об этом: текст, ссылка на политику и «Понятно». Снизу, в
+   карточке как у полосы установки, но ниже панелей и окон (z 99 <
+   затемнение 100): меню, вход и корзина его накрывают, а сайтом можно
+   пользоваться, не закрывая его. На компьютере стоит слева: справа полоса
+   установки и кнопка чата. Пока баннер на экране, кнопка чата, полоса
+   оформления, тосты и конец страницы поднимаются над ним на --ckb-h. */
+.ckb{
+  position:fixed;left:12px;right:12px;z-index:99;
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:14px;padding:14px 14px 14px 16px;
+  background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-lg);box-shadow:0 10px 34px rgba(0,0,0,.16);
+  transform:translateY(140%);transition:transform .32s cubic-bezier(.4,0,1,1)
+}
+.ckb.is-on{transform:none;transition:transform .5s cubic-bezier(.16,1,.3,1)}
+.ckb:not(.is-on){pointer-events:none}
+@media(min-width:720px){.ckb{right:auto;left:20px;width:440px}}
+.ckb__d{flex:1;min-width:0;font-size:13px;line-height:1.45;color:var(--ink-soft);margin:0}
+.ckb__d b{color:var(--ink)}
+.ckb__a{display:inline;padding:0;font:inherit;color:inherit;text-decoration:underline;text-underline-offset:2px}
+.ckb__ok{
+  flex:none;min-height:44px;padding:0 18px;border-radius:var(--r-sm);
+  background:var(--ink);color:#fff;font-size:13px;font-weight:700;
+  transition:background var(--dur) var(--ease)
+}
+@media(hover:hover){ .ckb__ok:hover{background:var(--ink-soft)} }
+html.has-ckb .fab,html.has-ckb .fdl{bottom:calc(var(--tab-h) + 30px + var(--ckb-h,0px))}
+html.has-ckb .mini{bottom:calc(var(--tab-h) + 24px + env(safe-area-inset-bottom) + var(--ckb-h,0px))}
+html.has-ckb .toast{bottom:calc(var(--tab-h) + 34px + var(--ckb-h,0px))}
+html.has-ckb .scr{padding-bottom:calc(var(--tab-h) + 40px + var(--ckb-h,0px))}
+/* на компьютере баннер слева — кнопку чата справа поднимать незачем */
+@media(min-width:720px){ html.has-ckb .fab,html.has-ckb .fdl{bottom:calc(var(--tab-h) + 30px)} }
+@media (prefers-reduced-motion:reduce){ .ckb,.ckb.is-on{transition:none} }
+/* кнопка чата едет вместе с сообщением, а не прыгает (правило — ниже .fab) */
+
 /* Окно «Приложение» из настроек */
 .appm{position:fixed;inset:0;z-index:950;display:flex;align-items:center;justify-content:center;padding:20px;
   background:rgba(11,11,11,.5);opacity:0;transition:opacity .3s var(--ease)}
@@ -1628,6 +1665,8 @@ body.no-tabs .tabs{
 }
 body.no-tabs .scr{padding-bottom:24px}
 body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
+html.has-ckb body.no-tabs .scr{padding-bottom:calc(24px + var(--ckb-h,0px))}
+html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--ckb-h,0px))}
 
 /* ===================== КНОПКИ ===================== */
 .btn{
@@ -1829,6 +1868,13 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 .sztable th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
 .sztable td:first-child,.sztable th:first-child{text-align:left;font-weight:600;color:var(--ink)}
 .sztable .dash{color:var(--muted2)}
+/* таблица cookie в политике: текст слева, на телефоне листается вбок */
+.info__scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:8px -4px 0;padding:0 4px}
+.sztable.sztable--doc{min-width:460px;font-size:12.5px;line-height:1.45;margin-top:0}
+.sztable.sztable--doc th,.sztable.sztable--doc td{text-align:left;vertical-align:top;padding:10px 8px}
+.sztable.sztable--doc th:first-child{color:var(--muted);font-weight:600}
+.sztable.sztable--doc td:first-child{font-weight:600;overflow-wrap:anywhere;min-width:96px;max-width:140px}
+.info__hint{font-size:12px;color:var(--muted);margin-top:6px}
 .faq-i{border-bottom:1px solid var(--line)}
 .faq-i:last-child{border-bottom:0}
 .faq-i summary{
@@ -2115,15 +2161,9 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
 }
 .auth__tg-main:active{transform:scale(.985)}
 .auth__tg-main .ic{stroke:#fff}
-.auth__tg-sm{
-  width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
-  margin-top:10px;padding:10px 14px;border-radius:6px;
-  border:1.5px solid #c5e8f7;background:#f3faff;color:#1a8bbf;
-  font-size:13.5px;font-weight:650;cursor:pointer;
-  transition:transform .15s var(--ease), background .15s var(--ease)
-}
-.auth__tg-sm:active{transform:scale(.985);background:#e8f6fd}
-.auth__tg-sm .ic{width:16px;height:16px;stroke:#229ED9}
+
+
+
 .auth__links{
   margin-top:22px;display:flex;flex-direction:column;align-items:center;gap:12px
 }
@@ -2593,41 +2633,23 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
   font-size:12.5px;line-height:1.55;color:var(--ink-soft)
 }
 /* «или» — разделитель перед входом через бота */
-.amod__or{
-  display:flex;align-items:center;gap:10px;margin:14px 0 9px;
-  font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2)
-}
-.amod__or::before,.amod__or::after{content:"";flex:1;height:1px;background:var(--line)}
+
+
 /* Telegram — второстепенный способ входа: одна компактная строка,
    а не баннер выше самой формы. */
-.amod__tg{
-  display:flex;align-items:center;justify-content:center;gap:7px;width:100%;
-  padding:8px 12px;border:1.5px solid #cfe9f7;background:#f2fafe;border-radius:var(--r-sm);
-  font-size:13px;font-weight:650;color:#1a8bbf;
-  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease)
-}
-.amod__tg:hover{background:#e8f6fd;border-color:#a9d8f0}
-.amod__tg .ic{flex:none;width:15px;height:15px;stroke:#229ED9;fill:none}
+
+
+
 /* Кнопку рисует скрипт Google — ему нужно только место по центру. */
-.amod__gwrap{display:flex;justify-content:center;min-height:0;margin-bottom:6px}
-.amod__gwrap:empty{margin-bottom:0}
+
+
 /* Google требует свой знак в фирменных цветах на белом или светло-сером
    фоне — перекрашивать его нельзя, поэтому запасная кнопка нейтральная. */
-.amod__google{
-  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;
-  margin-bottom:6px;padding:9px 12px;border:1.5px solid var(--line2);
-  background:#fff;border-radius:var(--r-sm);
-  font-size:13px;font-weight:650;color:var(--ink);
-  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease)
-}
-.amod__google:hover{background:var(--chip);border-color:#cfcfcf}
-.amod__google svg{flex:none;width:16px;height:16px;display:block}
-.amod__code{
-  display:block;width:100%;margin-top:6px;padding:5px 8px;
-  font-size:11.5px;line-height:1.3;color:var(--muted2);text-align:center;
-  transition:color var(--dur) var(--ease)
-}
-.amod__code:hover{color:var(--ink)}
+
+
+
+
+
 
 .fab{
   position:fixed;right:16px;bottom:calc(var(--tab-h) + 30px);z-index:35;
@@ -2636,6 +2658,8 @@ body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px)}
   transition:transform var(--dur) var(--ease)
 }
 .fab:hover{transform:translateY(-3px)}
+.fab{transition:transform var(--dur) var(--ease),bottom .45s cubic-bezier(.16,1,.3,1)}
+@media (prefers-reduced-motion:reduce){ .fab{transition:none} }
 
 /* ===================== «НАПИСАТЬ НАМ»: СОЦСЕТИ ИЗ КНОПКИ =====================
    Нажали на кружок справа снизу — из него вверх веером выезжают те же
@@ -6995,220 +7019,12 @@ function eyeBtn(inputId, cls){
 }
 const TG_ICON = '/telegram.avif';
 
-/* Настройка входа через Google приходит с сервера в /api/health, а это
-   отдельный запрос. Пока он летит, кнопки в окне входа не было — она
-   появлялась через секунду. Запоминаем значение с прошлого захода и
-   рисуем кнопку сразу; ответ сервера потом уточнит. */
-const GOOGLE_ID_KEY = 'lc_google_id';
-try{
-  const cached = localStorage.getItem(GOOGLE_ID_KEY) || '';
-  if(cached){ window.__LC_GOOGLE_ID = cached; window.__LC_GOOGLE = true; }
-}catch(e){}
+/* Вход через Google убран (05.10.2026): российским сайтам авторизация
+   через иностранные сервисы запрещена (406-ФЗ, штрафы с 07.07.2026).
+   Остались эл. почта и пароль. Хотите быстрый вход — только российские
+   сервисы (Яндекс ID, VK ID, Сбер ID). Старую отметку lc_google_id стираем. */
+try{ localStorage.removeItem('lc_google_id'); }catch(e){}
 
-/* Официальный знак Google. Рисуем отдельно от общего набора иконок:
-   те красятся в currentColor, а этому логотипу цвета менять нельзя. */
-const GOOGLE_MARK = `<svg viewBox="0 0 48 48" aria-hidden="true">
-  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-</svg>`;
-
-/**
- * Кнопка Google. Своя показывается СРАЗУ, а настоящая от Google встаёт
- * на её место, когда их скрипт доедет.
- *
- * Раньше было наоборот: пустое место, а запасная кнопка — только после
- * неудачи. У части провайдеров запрос к accounts.google.com висит по
- * семь секунд, и всё это время войти через Google было нечем — отсюда
- * и «кнопка появляется не всегда».
- */
-function googleBtnHTML(){
-  /* Решает наличие ключа, а не флаг из /api/health: флаг приходит тем же
-     запросом и на медленной сети опаздывает, а ключ мы помним с прошлого
-     захода — блок должен появиться сразу. */
-  if(!window.__LC_GOOGLE && !window.__LC_GOOGLE_ID) return '';
-  return `<div class="amod__gwrap" id="gsiBtn"></div>
-  <button type="button" class="amod__google" id="gsiFallback" data-a="auth_google">
-    ${GOOGLE_MARK}<span>Войти через Google</span>
-  </button>`;
-}
-
-/* ==========================================================
-   ВХОД ЧЕРЕЗ GOOGLE
-   Работает по ID-токену (Google Identity Services): Google отдаёт
-   браузеру подписанный токен, сервер проверяет подпись публичными
-   ключами Google. Секретный ключ приложения при этом не нужен —
-   поэтому его нигде и нет.
-
-   Если Client ID не пришёл, откатываемся на старый переход
-   /api/auth/google — он работает, когда на сервере задан секрет.
-   ========================================================== */
-let gsiLoading = null;
-function loadGoogleScript(){
-  if(window.google && google.accounts && google.accounts.id) return Promise.resolve(true);
-  if(gsiLoading) return gsiLoading;
-  gsiLoading = new Promise(resolve => {
-    let done = false;
-    const finish = ok => { if(done) return; done = true; resolve(ok); };
-    const sc = document.createElement('script');
-    sc.src = 'https://accounts.google.com/gsi/client';
-    sc.async = true;
-    sc.onload = () => finish(!!(window.google && google.accounts && google.accounts.id));
-    sc.onerror = () => finish(false);   // без интернета до Google — не падаем
-    /* Ни onload, ни onerror могут не сработать вовсе: у части провайдеров
-       запрос к accounts.google.com просто висит. Без срока ожидания место
-       под кнопку оставалось пустым навсегда — отсюда и «кнопка Google
-       появляется не всегда». */
-    setTimeout(() => finish(false), 7000);
-    document.head.appendChild(sc);
-  });
-  gsiLoading.then(ok => { if(!ok) gsiLoading = null; });   // сеть оживёт — попробуем снова
-  return gsiLoading;
-}
-
-/** Общий обработчик ответа Google: токен -> сервер -> вход. */
-async function onGoogleCredential(resp){
-  if(!resp || !resp.credential){ toast('Google не вернул данные'); return; }
-  stopGoogleOneTap();
-  try{
-    const d = await LC.api('/api/auth/google/token', {
-      method:'POST', body:{ credential: resp.credential }
-    });
-    if(d && d.token) LC.setToken(d.token);
-    toast('Вы вошли через Google');
-    authDone(d && d.user, false);
-  }catch(err){
-    toast(errText(err, 'Google вход не удался'));
-  }
-}
-
-/**
- * Рисует кнопку Google в открытом окне входа.
- *
- * Раньше здесь вызывался prompt() — всплывающее окошко One Tap. Google
- * глушит его после первого закрытия (и когда браузер режет сторонние
- * куки), а запасным путём стоял переход на старую схему с секретным
- * ключом — которого у нас нет. Отсюда и была ошибка про ключи Google
- * при второй попытке входа. Настоящая кнопка таких ограничений не имеет.
- */
-
-async function mountGoogleButton(){
-  const box = document.getElementById('gsiBtn');
-  if(!box) return;
-  /* Client ID приезжает вместе с /api/health и может опоздать или не
-     прийти вовсе. Раньше в этом случае молча не появлялось ничего —
-     ни кнопки Google, ни запасной. */
-  const cid = window.__LC_GOOGLE_ID;
-  if(!cid) return;                      // своя кнопка уже на месте
-
-  const ok = await loadGoogleScript();
-  const api = window.google && google.accounts && google.accounts.id;
-  if(!ok || !api) return;               // остаётся своя кнопка
-  if(!document.getElementById('gsiBtn')) return;   // окно успели закрыть
-  googleInit(cid);
-  google.accounts.id.renderButton(box, {
-    type: 'standard', theme: 'outline', size: 'large',
-    text: 'signin_with', shape: 'rectangular', logo_alignment: 'center',
-    locale: 'ru', width: Math.round(Math.min(400, box.clientWidth || 320))
-  });
-  /* Свою кнопку убираем ровно тогда, когда появилась настоящая, а не
-     по таймеру: Google рисует её когда угодно — через 200 мс или через
-     пять секунд, и по таймеру на экране оказывались две кнопки сразу.
-     Не нарисует вовсе (домен не прописан в ключе) — своя и останется. */
-  const hideOwn = () => {
-    const fb = document.getElementById('gsiFallback');
-    if(fb) fb.classList.add('hide');
-  };
-  if(box.childElementCount) return hideOwn();
-  const watch = new MutationObserver(() => {
-    if(!box.childElementCount) return;
-    watch.disconnect();
-    hideOwn();
-  });
-  watch.observe(box, {childList:true});
-  /* Панель могли закрыть — наблюдатель не должен жить вечно. */
-  setTimeout(() => watch.disconnect(), 15000);
-}
-
-/* initialize() зовём один раз на ключ: повторные вызовы сбрасывают
-   состояние карточки выбора аккаунта. */
-let gsiReadyFor = '';
-function googleInit(cid){
-  if(gsiReadyFor === cid) return;
-  google.accounts.id.initialize({
-    client_id: cid,
-    callback: onGoogleCredential,
-    auto_select: false,
-    cancel_on_tap_outside: true,
-    /* Chrome с 2024 года показывает карточку только через FedCM;
-       без этого prompt() молча ничего не делает. */
-    use_fedcm_for_prompt: true,
-    itp_support: true
-  });
-  gsiReadyFor = cid;
-}
-
-/* ==========================================================
-   БЫСТРЫЙ ВХОД: КАРТОЧКА АККАУНТА GOOGLE
-
-   Пока человек смотрит каталог, Google показывает снизу карточку
-   с его аккаунтами — вход одним касанием, без формы и пароля.
-
-   Просим один раз за сеанс и только на спокойном экране: всплывающая
-   карточка поверх корзины или оплаты сбивает с шага. Google к тому же
-   сам замолкает, если её закрыли, — второй раз лезть бессмысленно.
-   ========================================================== */
-let oneTapTried = false;
-/* Те же спокойные экраны, что и у предложения уведомлений: каталог,
-   товар, избранное — там человек смотрит, а не заполняет. */
-function offerGoogleOneTap(){
-  if(oneTapTried) return;
-  setTimeout(function tick(){
-    if(oneTapTried || hasLiveSession()) return;
-    const cid = window.__LC_GOOGLE_ID;
-    /* Client ID приходит вместе с /api/health — он мог ещё не доехать. */
-    if(!cid) return setTimeout(tick, 4000);
-    /* Момент неудачный — не бросаем затею, а ждём следующего. */
-    if(document.hidden || !NOTIF_CALM.test(S.screen)
-       || (ov && ov.innerHTML.trim()) || document.querySelector('.pwa')){
-      return setTimeout(tick, 8000);
-    }
-    oneTapTried = true;
-    loadGoogleScript().then(ok => {
-      const api = window.google && google.accounts && google.accounts.id;
-      if(!ok || !api) return;
-      try{
-        googleInit(cid);
-        /* Показывать или молчать — решает Google: он сам помнит, что
-           карточку уже закрывали, и не навязывается. */
-        google.accounts.id.prompt();
-      }catch(e){}
-    });
-  }, 3500);
-}
-
-/* Вошли — карточку больше не предлагаем и гасим, если висит. */
-function stopGoogleOneTap(){
-  oneTapTried = true;
-  try{
-    if(window.google && google.accounts && google.accounts.id){
-      google.accounts.id.cancel();
-    }
-  }catch(e){}
-}
-
-/** Запасной путь: сработает, только если скрипт Google не загрузился. */
-async function startGoogleLogin(){
-  const ok = await loadGoogleScript();
-  const api = window.google && google.accounts && google.accounts.id;
-  if(!ok || !api || !window.__LC_GOOGLE_ID){
-    toast('Google сейчас недоступен — войдите почтой или через Telegram');
-    return;
-  }
-  googleInit(window.__LC_GOOGLE_ID);
-  google.accounts.id.prompt();
-}
 function tgIcon(cls){
   return `<img class="${cls || 'pitem__tg'}" src="${TG_ICON}" alt="" width="18" height="18" decoding="async">`;
 }
@@ -9512,15 +9328,8 @@ function scrAuth(){
         ${eyeBtn('aPass2')}
       </div></div>` : ''}
     <button class="btn" type="submit" style="margin-top:14px">${reg ? 'Создать аккаунт' : 'Войти'}</button>
-    <button type="button" class="auth__tg-sm" data-a="auth_tg">
-      ${svg('telegram','ic')} ${reg ? 'Через Telegram' : 'Войти через Telegram'}
-    </button>
-    ${telegramReady() ? vpnNote('vpn--slim') : ''}
   </form>
   <div class="form" style="margin-top:16px">
-    <div class="auth__links" style="margin-top:0">
-      <button type="button" class="auth__link" data-a="auth_panel:other_device">Вход по коду через Telegram</button>
-    </div>
     <p class="alt" style="margin-top:18px">${reg ? 'Уже есть аккаунт?' : 'Нет аккаунта?'}
       <button type="button" data-a="authmode">${reg ? 'Войти' : 'Зарегистрироваться'}</button></p>
   </div>`;
@@ -9979,7 +9788,7 @@ function authModalHTML(){
   const title = {log:'Авторизация', reg:'Регистрация', forgot:'Восстановление пароля',
     reset:'Новый пароль', newpass:'Новый пароль'}[v];
   const lead = {
-    forgot: 'Пришлём письмо на почту или код в Telegram, если он привязан к аккаунту.',
+    forgot: 'Пришлём письмо со ссылкой, по которой можно задать новый пароль.',
     reset: resetLeadText(),
     newpass: `Ссылка из письма подтвердила, что аккаунт ваш${authMod.mask ? ' — ' + esc(authMod.mask) : ''}. Осталось придумать новый пароль.`
   }[v] || '';
@@ -10000,7 +9809,7 @@ function authModalHTML(){
   if(v === 'reg')    fields = email + pass('amPass', 'Пароль', 'Минимум 6 символов', 'new-password')
                              + pass('amPass2', 'Повторите пароль', 'Ещё раз', 'new-password');
   if(v === 'forgot') fields = email;
-  if(v === 'reset')  fields = `<label class="amod__l" for="amCode">Код со страницы из письма или из бота</label>
+  if(v === 'reset')  fields = `<label class="amod__l" for="amCode">Код со страницы из письма</label>
     <input class="amod__i" id="amCode" inputmode="numeric" autocomplete="one-time-code" placeholder="6 цифр">`
     + pass('amPass', 'Новый пароль', 'Минимум 6 символов', 'new-password');
   /* пришли по ссылке из письма: личность уже проверена, код не нужен */
@@ -10030,13 +9839,6 @@ function authModalHTML(){
       ${fields}
       <button class="amod__b" type="submit">${btn}</button>
     </form>
-    ${(v === 'log' || v === 'reg') ? `
-    <div class="amod__or"><span>или</span></div>
-    ${googleBtnHTML()}
-    <button type="button" class="amod__tg" data-a="auth_tg">
-      ${svg('telegram','ic ic--sm')}<span>Через Telegram</span>
-    </button>
-    <button type="button" class="amod__code" data-av="code">Вход по коду из бота</button>` : ''}
     <div class="amod__links">${links}</div>
   </div>`;
 }
@@ -10051,7 +9853,6 @@ function authModal(view){
   if(!w) return;
   w.querySelectorAll('[data-av]').forEach(b => b.onclick = () => authModal(b.dataset.av));
   w.querySelector('#amF').onsubmit = e => { e.preventDefault(); authSubmit(); };
-  mountGoogleButton();
 }
 
 /* Полноэкранный вход по коду из бота (старый экран auth) */
@@ -11202,6 +11003,7 @@ const INFO_PAGES = {
       </div>`
   },
   privacy:{title:'Политика конфиденциальности', body:() => legalDocPrivacy()},
+  cookies:{title:'Политика использования файлов cookie', body:() => legalDocCookies()},
   terms:{title:'Пользовательское соглашение', body:() => legalDocTerms()},
   offer:{title:'Публичная оферта', body:() => legalDocOffer()},
   /* Текст даёт владелец и правит его сам. Ничего не подставляем сюда из
@@ -11344,20 +11146,28 @@ function legalDocPrivacy(){
   <div class="info__doc info__block">
     <h3>1. Общие положения</h3>
     <p>Настоящая Политика определяет порядок обработки персональных данных пользователей сайта бренда ${BRAND}
-      (далее — «Сайт»). Используя Сайт, вы соглашаетесь с условиями Политики.</p>
+      (далее — «Сайт»). Там, где для обработки нужно согласие, оно даётся отдельно.</p>
     <h3>2. Какие данные мы обрабатываем</h3>
     <ul>
       <li>Имя, фамилия, email, телефон — при регистрации и оформлении заказа;</li>
       <li>Адрес доставки — для исполнения договора купли-продажи;</li>
       <li>Данные о заказах и обращениях в поддержку;</li>
-      <li>Технические данные (cookie, тип устройства) — для работы Сайта.</li>
+      <li>Технические данные (IP-адрес, сведения о браузере и устройстве, файлы cookie) — для работы
+        и защиты Сайта. Какие cookie мы используем — в <button class="ckb__a" data-a="info:cookies">Политике
+        использования файлов cookie</button>.</li>
     </ul>
     <h3>3. Цели обработки</h3>
     <p>Исполнение заказов, связь по заказу, улучшение сервиса, исполнение требований закона.
       Маркетинговые рассылки — только с вашего согласия (когда такая функция появится).</p>
     <h3>4. Передача третьим лицам</h3>
-    <p>Данные могут передаваться службам доставки и платёжным сервисам (в т.ч. ЮKassa) в объёме,
-      необходимом для оплаты и доставки. Мы не продаём персональные данные.</p>
+    <p>Данные передаются только в объёме, нужном для цели: службе доставки СДЭК и платёжному сервису
+      ЮKassa — для доставки и оплаты; Telegram (Telegram Messenger Inc., серверы за пределами РФ) —
+      продавцу приходят уведомления о новых заказах (имя, телефон, эл. почта, адрес, состав заказа)
+      и технические отчёты об ошибках, а вам — уведомления о заказе и ответы поддержки, если вы
+      подключили бота; сервису отправки писем — для восстановления пароля; сервисам подбора адреса
+      (OpenStreetMap Nominatim, Photon) — для поиска адреса доставки; службе push-уведомлений вашего
+      браузера — если вы включили уведомления; сервису примерки — фото, если вы пользуетесь примеркой.
+      Мы не продаём персональные данные.</p>
     <h3>5. Хранение и защита</h3>
     <p>Данные хранятся столько, сколько нужно для целей обработки и требований закона.
       Мы принимаем разумные организационные и технические меры защиты.</p>
@@ -11369,6 +11179,59 @@ function legalDocPrivacy(){
     <p style="margin-top:16px;color:var(--muted);font-size:12.5px">Редакция шаблона · ${BRAND} · 2026</p>
   </div>`;
 }
+/* Политика cookie. Перечень — по коду магазина: аналитики, рекламы и
+   сторонних счётчиков нет, сам сайт ставит один cookie (вход), остальное —
+   записи в браузере для работы магазина. Всё это необходимые cookie, их
+   ставят без согласия (исполнение договора, п. 5 ч. 1 ст. 6 152-ФЗ).
+   Появится что-то необязательное (Метрика, виджет) — нужны будут согласие
+   отдельным документом, выбор в баннере и новая редакция этой страницы. */
+function legalDocCookies(){
+  const row = (n, why, term) => `<tr><td>${n}</td><td>${why}</td><td>${term}</td></tr>`;
+  return `${legalIntro()}
+  <div class="info__doc info__block">
+    <h3>1. Что такое cookie</h3>
+    <p>Файлы cookie («куки») — небольшие записи, которые сайт сохраняет в вашем браузере. Так же работают
+      хранилище браузера (localStorage и sessionStorage) и кэш приложения; в этой Политике всё это называется
+      «cookie». Политика дополняет <button class="ckb__a" data-a="info:privacy">Политику конфиденциальности</button>.</p>
+
+    <h3>2. Какие cookie мы используем</h3>
+    <p>Только необходимые: без них не работают вход, корзина, оформление и оплата заказа. Аналитики, рекламы,
+      счётчиков посещений и пикселей соцсетей на сайте нет. Основание — заключение и исполнение договора
+      по вашей инициативе (п. 5 ч. 1 ст. 6 Федерального закона «О персональных данных»), поэтому отдельное
+      согласие для этих cookie не требуется.</p>
+    <p class="info__hint">На телефоне таблицу можно листать вбок.</p>
+    <div class="info__scroll"><table class="sztable sztable--doc"><thead><tr><th>Название</th><th>Зачем</th><th>Срок</th></tr></thead><tbody>
+      ${row('lc_token', 'Вход в аккаунт (cookie сайта)', '30 дней или до выхода')}
+      ${row('lc_jwt', 'Вход в аккаунт для запросов приложения', '30 дней или до выхода')}
+      ${row('shop_user_v1…, shop_user_last', 'Корзина, избранное, адрес и данные для оформления, ваши заказы', 'До очистки браузера')}
+      ${row('lc_ord_t_…', 'Доступ к оформленному заказу и его оплате', 'До выхода из аккаунта, у гостя — до очистки браузера')}
+      ${row('shop_place_v1 и др.', 'Где вы остановились, переходы между страницами', 'До закрытия вкладки')}
+      ${row('shop_v3, shop_cms_v1, shop_reviews_…', 'Копия каталога, текстов и отзывов для быстрой загрузки', 'До очистки браузера')}
+      ${row('lc_install_next, lc_notif_wait, lc_tg_…, lc_visits', 'Напоминания об установке приложения, уведомлениях и Telegram', 'До очистки браузера')}
+      ${row('lc_cookie_v1', 'Вы уже видели сообщение о cookie', 'До очистки браузера')}
+      ${row('canvas-v…', 'Кэш приложения: быстрая загрузка и работа без сети', 'До обновления сайта')}
+    </tbody></table></div>
+
+    <h3>3. Сторонние сервисы</h3>
+    <p>Сами по себе, без вашего действия, сторонние сервисы на сайте не загружаются. Включаются, только когда
+      вы ими пользуетесь:</p>
+    <ul>
+      <li>карта пунктов выдачи при оформлении заказа — 2ГИС или OpenStreetMap и библиотека Leaflet (unpkg.com):
+        они получают IP-адрес и сведения о браузере, чтобы показать карту;</li>
+      <li>оплата — переход на страницу ЮKassa;</li>
+      <li>Telegram — по нажатию на ссылки.</li>
+    </ul>
+
+    <h3>4. Как удалить cookie</h3>
+    <p>Удалить cookie и данные сайта можно в настройках браузера. Тогда придётся заново войти в аккаунт,
+      а корзина и сохранённые адреса на этом устройстве очистятся.</p>
+
+    <h3>5. Контакты</h3>
+    <p>По вопросам cookie и персональных данных: ${legalOr('email','email')}.</p>
+    <p style="margin-top:16px;color:var(--muted);font-size:12.5px">Редакция от 05.10.2026 · ${BRAND}</p>
+  </div>`;
+}
+
 function legalDocTerms(){
   return `${legalIntro()}
   <div class="info__doc info__block">
@@ -11477,6 +11340,7 @@ function siteFooter(){
           ftLink('Частые вопросы','faq'))}
         ${ftCol('Документы',
           ftLink('Политика конфиденциальности','privacy') +
+          ftLink('Политика cookie','cookies') +
           ftLink('Пользовательское соглашение','terms') +
           ftLink('Публичная оферта','offer') +
           ftLink('Юридическая информация','legal'))}
@@ -11496,7 +11360,9 @@ function siteFooter(){
       <div class="ft__bot">
         <div>
           <p class="ft__copy"><b>${BRAND}</b><br>© 2026 ${BRAND}. Все права защищены.</p>
-          <p class="ft__legal">${legalLineAuto()}</p>
+          <!-- Строку «ИП … · ИНН …» владелец попросил убрать из подвала.
+               Реквизиты продавца закон требует показывать, и они остаются
+               в «Юридической информации», оферте и политиках (Документы). -->
         </div>
         <div class="ft__soc">${soc}</div>
       </div>
@@ -12745,7 +12611,7 @@ function offerNotif(){
        приложение. Перебивать её своей значило бы отнять у человека ответ,
        который он ещё не дал. */
     if(document.hidden || !NOTIF_CALM.test(S.screen) || (ov && ov.innerHTML)
-       || document.querySelector('.pwa')){
+       || document.querySelector('.pwa') || document.querySelector('.ckb')){
       return setTimeout(tick, 20000);
     }
     /* Модуль приложения поднимается позже магазина — подождём его. */
@@ -15211,11 +15077,10 @@ document.addEventListener('click', e => {
       copyText('@' + bot).then(ok => toast(ok ? 'Скопировано: @' + bot : '@' + bot));
       break;
     }
+    /* Вход через Google и Telegram убран — старые ссылки ведут в окно входа по почте */
     case 'auth_google':
-      startGoogleLogin();
-      break;
     case 'auth_tg':
-      openTelegram(S.authMode === 'reg' ? 'reg' : 'login', { sameTab: true });
+      authModal('log');
       break;
     case 'logout':
       (async () => {
@@ -19156,18 +19021,6 @@ async function bootFromServer(){
       const health = await LC.health();
       window.__LC_YK = !!health.yookassa;
       window.__LC_TG_BOT = String(health.telegramBot || '').replace(/^@/, '');
-      window.__LC_GOOGLE = !!health.google;
-      window.__LC_GOOGLE_ID = String(health.googleClientId || '');
-      try{
-        if(window.__LC_GOOGLE_ID) localStorage.setItem(GOOGLE_ID_KEY, window.__LC_GOOGLE_ID);
-        else localStorage.removeItem(GOOGLE_ID_KEY);
-      }catch(e){}
-      /* окно входа уже открыто, а кнопки в нём нет — дорисовываем */
-      if(window.__LC_GOOGLE_ID && ov.querySelector('.amod') && !ov.querySelector('#gsiBtn')){
-        authModal(authMod.view);
-      } else if(ov.querySelector('#gsiBtn')){
-        mountGoogleButton();
-      }
       window.__LC_SMTP = !!health.smtp;
       window.__LC_CDEK = !!health.cdek;
       const [products, cms] = await Promise.all([LC.loadCatalog(), LC.loadCms()]);
@@ -19406,7 +19259,6 @@ async function bootFromServer(){
   persistPlace();
   armBack();          /* с первого экрана «Назад» уже под нашим присмотром */
   offerNotif();       /* через минуту предложим уведомления, если уместно */
-  offerGoogleOneTap(); /* и карточку входа Google — на спокойном экране */
   /* Разрешение уже дали раньше — убеждаемся, что устройство подписано:
      адрес мог смениться, а мог и не доехать до сервера в прошлый раз. */
   pushSubscribe();
@@ -19854,6 +19706,9 @@ bootFromServer().catch((err) => {
      на iPhone остаётся. */
   function offerInstall(){
     if(standalone || visits < 2 || !dueNow() || !deferred) return;
+    /* Баннер про cookie ещё на экране — две полосы друг на друге не нужны;
+       ждём до snooze, иначе предложение на сегодня сгорело бы впустую. */
+    if(document.querySelector(".ckb")) return void setTimeout(offerInstall, 20000);
     /* Показали — значит на сегодня хватит, чем бы человек ни ответил. */
     snooze(1);
     showBar("Установить Luxe Canvas", "Свой значок на экране, запускается быстрее", "Установить",
@@ -19919,6 +19774,81 @@ bootFromServer().catch((err) => {
      уведомления — заводить вторую такую полосу незачем. */
   window.lcApp = { canInstall: canInstall, open: openAppModal, bar: showBar,
     installed: function(){ return standalone; } };
+
+  /* --- cookie: сообщение внизу ---
+     Сайт ставит только необходимые cookie (вход, корзина, оформление, кэш
+     приложения): аналитики, рекламы и стороннего на старте нет, а вход через
+     Google убран. Согласие для такого не нужно, поэтому не выбор, а
+     сообщение: что ставим, ссылка на политику, «Понятно». Отметка «видел»
+     — lc_cookie_v1; CK_VER поднять, если список изменится, — покажем снова.
+     Здесь, а не в коде магазина: этот блок работает, даже если магазин упал
+     при загрузке. */
+  var CK_KEY = "lc_cookie_v1";
+  var CK_VER = 2;
+  var ckBox = null;
+  function ckSeen(){
+    try{ var o = JSON.parse(localStorage.getItem(CK_KEY) || "null"); if(o && o.v === CK_VER) return true; }catch(e){}
+    /* хранилище заблокировано — хотя бы не показывать на каждой странице сеанса */
+    try{ return sessionStorage.getItem(CK_KEY) === String(CK_VER); }catch(e){ return false; }
+  }
+  function ckLayout(){
+    var root = document.documentElement;
+    if(ckBox){
+      root.classList.add("has-ckb");
+      root.style.setProperty("--ckb-h", "calc(" + (ckBox.offsetHeight + 12) + "px + env(safe-area-inset-bottom))");
+    } else {
+      root.classList.remove("has-ckb");
+      root.style.removeProperty("--ckb-h");
+    }
+  }
+  function ckHide(){
+    if(!ckBox) return;
+    var b = ckBox; ckBox = null;
+    b.classList.remove("is-on");
+    ckLayout();
+    setTimeout(function(){ b.remove(); }, 400);
+  }
+  function ckOk(){
+    try{ localStorage.setItem(CK_KEY, JSON.stringify({ v: CK_VER, t: new Date().toISOString() })); }
+    catch(e){ try{ sessionStorage.setItem(CK_KEY, String(CK_VER)); }catch(e2){} }
+    ckHide();
+  }
+  function ckShow(){
+    if(ckBox || !document.body) return;
+    ckBox = document.createElement("div");
+    ckBox.className = "ckb";
+    ckBox.setAttribute("role", "region");
+    ckBox.setAttribute("aria-label", "Файлы cookie");
+    ckBox.innerHTML =
+      '<p class="ckb__d"><b>Мы используем файлы\u00a0cookie\u00a0(«куки»)</b> — только те, без которых не\u00a0работают вход, ' +
+      'корзина и\u00a0оформление заказа. Аналитики и\u00a0рекламы на\u00a0сайте нет. ' +
+      '<button type="button" class="ckb__a" data-a="info:cookies">Подробнее</button></p>' +
+      '<button type="button" class="ckb__ok">Понятно</button>';
+    ckBox.querySelector(".ckb__ok").addEventListener("click", ckOk);
+    document.body.appendChild(ckBox);
+    /* принудительная перерисовка вместо requestAnimationFrame — как у полосы
+       установки: в фоновой вкладке кадры не идут */
+    void ckBox.offsetWidth;
+    ckBox.classList.add("is-on");
+    ckLayout();
+    /* шрифт догрузился или текст увеличен — высота меняется не только при resize */
+    try{ new ResizeObserver(function(){ if(ckBox) ckLayout(); }).observe(ckBox); }catch(e){}
+  }
+  window.addEventListener("resize", function(){ if(ckBox) ckLayout(); });
+  /* закрыли в соседней вкладке — убираем и здесь */
+  window.addEventListener("storage", function(e){ if(e.key === CK_KEY && ckSeen()) ckHide(); });
+
+  /* Показываем, когда магазин уже открылся: после занавеса заставки и на
+     видимой вкладке. На странице знакомства сообщения нет — там снизу свои
+     кнопки, а cookie она не ставит. */
+  if(!ckSeen()){
+    (function ckWait(){
+      var root = document.documentElement;
+      /* полоса установки на месте — ждём, две карточки внизу друг на друга не кладём */
+      if(!document.body || document.hidden || root.classList.contains("lc-enter") || document.querySelector(".pwa")) return void setTimeout(ckWait, 300);
+      setTimeout(function(){ if(!ckSeen()) ckShow(); }, 600);
+    })();
+  }
 
   /* --- service worker и обновления --- */
   if(!("serviceWorker" in navigator)) return;

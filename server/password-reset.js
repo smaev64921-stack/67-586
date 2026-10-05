@@ -176,14 +176,16 @@ async function requestPasswordReset(rawEmail) {
     throw Object.assign(new Error('Аккаунт с таким email не найден'), { status: 404 });
   }
 
-  const link = findLinkByUser(user.id, user.email);
-  const chatId = link && link.chatId ? String(link.chatId) : '';
+  /* Только письмо. Код в Telegram раньше был вторым каналом, но сброс пароля
+     с выдачей сессии — тот же вход, а вход через Telegram убран (406-ФЗ). */
+  const chatId = '';
   const canSmtp = smtpConfigured();
 
-  if (!chatId && !canSmtp) {
+  if (!canSmtp) {
+    console.error('Сброс пароля: почта на сервере не настроена (SMTP_* или RESEND_API_KEY)');
     throw Object.assign(
-      new Error('Сброс пароля: подключите Telegram в «Уведомления» или настройте SMTP на сервере'),
-      { status: 503, needTelegram: true }
+      new Error('Восстановление пароля временно недоступно — напишите нам, поможем вручную'),
+      { status: 503 }
     );
   }
 
@@ -246,9 +248,7 @@ async function requestPasswordReset(rawEmail) {
     if (mailErr) console.error('ПОЧТА НЕ РАБОТАЕТ · сброс пароля не отправлен:', mailErr);
     throw Object.assign(
       new Error(
-        chatId
-          ? 'Не удалось отправить код. Попробуйте ещё раз через минуту.'
-          : 'Письмо не отправилось. Войдите через Telegram или напишите нам — поможем вручную.'
+        'Письмо не отправилось. Попробуйте через минуту или напишите нам — поможем вручную.'
       ),
       { status: 502 }
     );

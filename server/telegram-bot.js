@@ -832,8 +832,9 @@ function welcomeMarkup(chatId) {
   const rows = [];
   const linked = chatHasLinkedAccount(chatId);
   const admin = isOwnerChat(chatId);
-  /* Одна подпись на все экраны: раньше их было три разных на одно действие. */
-  rows.push([cbBtn('🔑 Код для входа на сайт', 'login_code')]);
+  /* «Код для входа на сайт» убран: вход через Telegram отключён целиком.
+     Покупатели входят по эл. почте и паролю, админ — так же или по кнопке
+     «🛠 Админка» ниже. */
 
   if (admin) {
     rows.push([cbBtn('📋 Заказы', 'owner_orders')]);
@@ -1948,6 +1949,21 @@ async function handleContactReg(msg) {
     return true;
   }
 
+  /* Вход и регистрация через Telegram убраны (406-ФЗ, решение владельца):
+     контакт больше не создаёт аккаунт и не выдаёт ссылку или код входа.
+     Остальной разбор контакта ниже не выполняется — оставлен до решения,
+     возвращать ли вход по номеру через российский SMS-сервис. */
+  {
+    const st = getAwait(chatId);
+    setAwait(chatId, null);
+    try { await clearShareContactUi(chatId, st && st.contactAskMsgId); } catch (_) {}
+    await sendWithMarkupFallback(chatId, {
+      text: 'Вход и регистрация — на сайте Luxe Canvas по эл. почте и паролю. Здесь можно получать уведомления о заказах и писать в поддержку.',
+      reply_markup: { remove_keyboard: true }
+    });
+    return true;
+  }
+
   /* Ждали подтверждения номера для входа на сайте. Контакт уже проверен
      выше как собственный — остаётся сверить номер с введённым. */
   const otpWait = getAwait(chatId);
@@ -2627,6 +2643,26 @@ async function handleMessage(msg) {
       return;
     }
 
+    if (start && (start.kind === 'reg' || start.kind === 'login' || start.kind === 'otp')) {
+      claimOwner(chatId, from);
+      {
+        const st = getAwait(chatId);
+        setAwait(chatId, null);
+        try { await clearShareContactUi(chatId, st && st.contactAskMsgId); } catch (_) {}
+        await upsertMain(chatId, {
+          text: [
+            '<b>Вход и регистрация — на сайте</b>',
+            '',
+            'Войдите на сайте Luxe Canvas по эл. почте и паролю.',
+            'Здесь можно получать уведомления о заказах и писать в поддержку.'
+          ].join('\n'),
+          reply_markup: welcomeMarkup(chatId)
+        });
+        scheduleDeleteStart(chatId, msg.message_id);
+        return;
+      }
+    }
+
     if (start && start.kind === 'reg') {
       claimOwner(chatId, from);
       await showRegAskPhone(chatId, from, 'reg');
@@ -2790,6 +2826,12 @@ async function handleCallback(cq) {
         inline_keyboard: [[cbBtn('⬅️ К списку', 'admins')]]
       }
     });
+    return;
+  }
+
+  /* кнопка кода в старых сообщениях: вход через Telegram убран */
+  if (data === 'login_code' || data === 'login_code_resend' || data === 'login_code_retry') {
+    await answer('Вход на сайте — по эл. почте и паролю', true);
     return;
   }
 

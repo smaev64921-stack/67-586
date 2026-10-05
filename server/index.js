@@ -1,4 +1,8 @@
 require('dotenv').config();
+/* Переезд на новый сервер (MIGRATE_TOKEN): сначала забираем данные со
+   старого — до того, как кто-либо откроет базу. На старом сервере и после
+   переезда ничего не делает. */
+require('./migrate').pullBeforeBoot();
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -336,9 +340,9 @@ function healthPayload() {
     telegram: telegramBot.configured(),
     telegramBot: telegramBot.botUsername() || '',
     telegramGateway,
-    google: googleAuth.configured() || googleIdToken.configured(),
+    google: false,
     /* публичный идентификатор — по нему браузер рисует кнопку Google */
-    googleClientId: googleIdToken.clientId(),
+    googleClientId: '',
     smtp: smtpConfigured(),
     tryon: tryonServerConfigured(),
     cdek: cdek.configured(),
@@ -461,8 +465,13 @@ app.delete('/api/admin/products/:id', adminRequired, (req, res) => {
 });
 
 /* -------- cms (без секретов на клиент) -------- */
-app.get('/api/cms', (_req, res) => {
-  res.json({ cms: media.cmsToPublic(sanitizeCms(getCms() || defaultCms())) });
+app.get('/api/cms', (req, res) => {
+  const cms = Object.assign({}, media.cmsToPublic(sanitizeCms(getCms() || defaultCms())));
+  /* Заметки о клиентах (имя, телефон, пометка «Осторожный клиент») — только
+     админу. Раньше они уходили каждому посетителю и оседали у него в
+     localStorage вместе с остальной CMS. */
+  if (!(req.user && req.user.role === 'admin')) delete cms.customers;
+  res.json({ cms });
 });
 
 app.put('/api/cms', adminRequired, (req, res) => {
@@ -495,6 +504,17 @@ app.put('/api/cms', adminRequired, (req, res) => {
   if (body.texts) next.texts = Object.assign({}, cur.texts, body.texts);
   if (body.shipping) next.shipping = Object.assign({}, cur.shipping, body.shipping);
   if (body.tryon) next.tryon = Object.assign({}, cur.tryon || {}, body.tryon);
+  /* Заметки о клиентах витрина получает только у админа. Вкладка, где админ
+     вошёл посреди сеанса, держит CMS без них (или с пустыми записями) — и её
+     сохранение стёрло бы заметки на сервере. Поэтому сливаем по каждой
+     записи и по полям: пришедшее поле заменяет старое, отсутствующее не
+     трогает. null вместо записи — удалить её целиком (запрос на удаление ПДн). */
+  const inCust = body.customers && typeof body.customers === 'object' ? body.customers : {};
+  next.customers = Object.assign({}, cur.customers || {});
+  for (const [email, row] of Object.entries(inCust)) {
+    if (row === null) delete next.customers[email];
+    else if (row && typeof row === 'object') next.customers[email] = Object.assign({}, next.customers[email] || {}, row);
+  }
   /* старая вкладка админки кладёт новое видео в слайды главной — переносим в каталог */
   moveVideoSlides(next);
   /* на всякий случай ещё раз вычистить секреты */
@@ -723,6 +743,11 @@ function authRateLimit(scope, limit) {
 /* -------- ошибки из браузера --------
    Страница сама присылает сюда свои сбои: без этого поломка в JS видна
    только покупателю, который просто уйдёт и ничего не скажет. */
+/* -------- переезд на другой сервер --------
+   Старый сервер отдаёт папку данных новому. Работает, только пока задан
+   MIGRATE_TOKEN (на время переезда), и только с этим ключом. */
+app.get('/api/migrate/export', require('./migrate').exportHandler(db, { hit, clientIp }));
+
 app.post('/api/client-error', authRateLimit('client-error', 30), (req, res) => {
   const b = req.body || {};
   const msg = String(b.message || '').trim();
@@ -812,6 +837,15 @@ app.post('/api/auth/reset', authRateLimit('auth-reset', 12), (req, res) => {
 });
 
 const OAUTH_STATE_COOKIE = 'lc_oauth_state';
+
+/* Вход через Google убран: российским сайтам авторизация через иностранные
+   сервисы запрещена (406-ФЗ). Маршруты отвечают 410 — старые вкладки получат
+   понятный ответ вместо входа. */
+app.use('/api/auth/google', (req, res) => {
+  const msg = 'Вход через Google отключён — войдите по эл. почте и паролю';
+  if (req.method === 'GET') return res.redirect('/?auth_err=' + encodeURIComponent(msg));
+  res.status(410).json({ error: msg });
+});
 
 app.get('/api/auth/google', (req, res) => {
   try {
@@ -909,6 +943,17 @@ app.post('/api/auth/logout', (_req, res) => {
 });
 
 /* ---- телефон + OTP через бота ---- */
+/* Вход через Telegram убран целиком (406-ФЗ, решение владельца 05.10.2026):
+   коды по телефону шли только через бота, а бот — иностранный сервис.
+   Маршруты входа по телефону, по коду из бота и по контакту отвечают 410 —
+   одинаково для любого номера, так что по ответу не узнать, чей он. Админ
+   входит по эл. почте и паролю или по одноразовой ссылке «Админка» из бота
+   (/api/auth/telegram-admin — она остаётся). */
+const TG_LOGIN_OFF = 'Вход через Telegram отключён — войдите по эл. почте и паролю';
+for (const p of ['/api/auth/phone', '/api/auth/device-code', '/api/auth/telegram-phone']) {
+  app.use(p, (_req, res) => res.status(410).json({ error: TG_LOGIN_OFF, tgLoginOff: true }));
+}
+
 app.post('/api/auth/phone/start', async (req, res) => {
   try {
     const { startPhoneAuth } = require('./otp');
