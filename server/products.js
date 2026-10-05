@@ -87,7 +87,10 @@ function upsertProduct(p) {
   const gal = Array.isArray(p.gal) ? p.gal : (p.img ? [p.img] : []);
   const payload = {
     name: String(p.name || '').trim() || 'Товар',
-    cat: p.cat || 'Футболки',
+    /* раздел — свободная строка (список разделов живёт на витрине, CATS);
+       тут только чистим пробелы и длину, а двоеточие убираем: на витрине
+       оно разделитель в data-a="cat:<раздел>:<пол>" */
+    cat: String(p.cat || '').replace(/:/g, ' ').trim().slice(0, 40) || 'Футболки',
     /* известный пол сохраняем как есть, любой другой или пустой — 'm', как и раньше */
     gender: ['w', 'u', 'm'].includes(p.gender) ? p.gender : 'm',
     price: Math.max(0, Math.round(+p.price || 0)),

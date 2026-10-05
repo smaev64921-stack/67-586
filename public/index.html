@@ -353,6 +353,29 @@ html.lc-leaving .lcc{opacity:0}
        сам браузер: шторки и буквы двигаются только transform/opacity. */
     if(play) requestAnimationFrame(function(){ box.classList.add('is-play'); started = Date.now(); });
 
+    /* Магазин готов: на экране уже не серые заготовки, а главное фото (если
+       оно есть) скачано и распаковано. Раньше занавес уходил через 0,2 с после
+       load — на первом заходе товары ещё ехали с сервера, под ним оказывались
+       заготовки, а фото «впрыгивало» уже на глазах. Ждём не дольше READY_MAX. */
+    var READY_MAX = 4500;
+    function shopReady(){
+      var scr = document.getElementById('scr');
+      if(!scr || scr.querySelector('.skel')) return false;
+      var im = scr.querySelector('.hs__img');
+      return !im || (im.complete && im.naturalWidth > 0);
+    }
+    function whenReady(cb){
+      var done = false;
+      function fin(){ if(!done){ done = true; cb(); } }
+      setTimeout(fin, READY_MAX);
+      (function chk(){
+        if(done) return;
+        if(!shopReady()) return void setTimeout(chk, 60);
+        var im = document.querySelector('#scr .hs__img');
+        if(im && im.decode) im.decode().then(fin, fin); else fin();
+      })();
+    }
+
     function open(){
       if(opened) return;
       opened = true;
@@ -366,12 +389,12 @@ html.lc-leaving .lcc{opacity:0}
     window.addEventListener('load', function(){
       loaded = true;
       barDone();   /* добегает, пока занавес тает, — его открытие не задерживаем */
-      setTimeout(open, play ? Math.max(200, SPLASH_MS - (Date.now() - started)) : 200);
+      setTimeout(function(){ whenReady(open); }, play ? Math.max(200, SPLASH_MS - (Date.now() - started)) : 200);
     });
     if(play) cur.addEventListener('click', open);
     /* Занавес, который не убрался, — это чёрный экран вместо сайта: снимаем
        по таймауту в любом случае. */
-    setTimeout(open, play ? SPLASH_MS + 6000 : 3000);
+    setTimeout(open, play ? SPLASH_MS + 6000 : 7000);
   }catch(e){}   /* приватный режим без sessionStorage — просто без занавеса */
 })();
 </script>
@@ -847,7 +870,60 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
   display:flex;align-items:center;justify-content:center;width:42px;height:42px;
   border:1.4px solid var(--ink);border-radius:var(--r-pill)
 }
-.usp__ic .ic{width:20px;height:20px}
+.usp__ic .ic{width:20px;height:20px;overflow:visible}
+/* Значки оживают раз в 10 секунд, по очереди слева направо (--i — номер).
+   Движение — как у значков на последнем экране знакомства (их делали в
+   Figma): короткое, около 1,5 с, дальше покой. Замок защёлкивает дужку, щит
+   заново прорисовывает галочку, машина въезжает и «клюёт» носом, стрелка
+   возврата делает оборот; у остальных значков — мягкий кивок. Только
+   transform/opacity и обводка — по кадру ничего не пересчитывается. */
+.usp__ic svg,.usp__ic svg *{transform-box:fill-box;transform-origin:50% 50%}
+.usp__ic{--ud:calc(1.2s + var(--i, 0) * .35s)}
+.usp__ic--lock .ic > :nth-child(2){transform-origin:50% 100%;animation:uspLock 10s var(--ud) infinite}
+.usp__ic--lock .ic > :nth-child(1){animation:uspLockB 10s var(--ud) infinite}
+.usp__ic--shield .ic > :nth-child(2){stroke-dasharray:9;animation:uspCheck 10s var(--ud) infinite}
+.usp__ic--shield .ic{animation:uspPop 10s var(--ud) infinite}
+.usp__ic--truck{overflow:hidden}   /* машина въезжает в кружок, как в окошко */
+.usp__ic--truck .ic{animation:uspTruck 10s var(--ud) infinite}
+.usp__ic--refresh .ic{animation:uspTurn 10s var(--ud) infinite}
+.usp__ic:not(.usp__ic--lock):not(.usp__ic--shield):not(.usp__ic--truck):not(.usp__ic--refresh) .ic{animation:uspPop 10s var(--ud) infinite}
+@keyframes uspLock{
+  0%{translate:0 0;animation-timing-function:ease-out}
+  4%{translate:0 -2.2px;animation-timing-function:ease-in}
+  8%{translate:0 .5px;animation-timing-function:ease-out}
+  10%,100%{translate:0 0}
+}
+@keyframes uspLockB{
+  0%,7.6%{rotate:0deg;animation-timing-function:ease-out}
+  9%{rotate:-6deg;animation-timing-function:ease-in-out}
+  11%{rotate:4deg;animation-timing-function:ease-out}
+  13%,100%{rotate:0deg}
+}
+@keyframes uspCheck{
+  0%{stroke-dashoffset:0;animation-timing-function:ease-in}
+  3%{stroke-dashoffset:9;animation-timing-function:ease-out}
+  12%,100%{stroke-dashoffset:0}
+}
+@keyframes uspPop{
+  0%{scale:1;animation-timing-function:ease-out}
+  4%{scale:1.12;animation-timing-function:ease-in-out}
+  9%,100%{scale:1}
+}
+@keyframes uspTruck{
+  0%{translate:0 0;opacity:1;animation-timing-function:ease-in}
+  4%{translate:9px 0;opacity:0}
+  4.01%{translate:-11px 0;opacity:0;animation-timing-function:ease-out}
+  11%{translate:0 0;opacity:1;rotate:0deg;animation-timing-function:ease-out}
+  12.5%{rotate:4deg;animation-timing-function:ease-in-out}
+  15%,100%{translate:0 0;opacity:1;rotate:0deg}
+}
+@keyframes uspTurn{
+  0%{rotate:0deg;animation-timing-function:cubic-bezier(.65,0,.35,1)}
+  14%,100%{rotate:360deg}
+}
+@media (prefers-reduced-motion:reduce){
+  .usp__ic .ic,.usp__ic .ic > *{animation:none}
+}
 .usp__t{
   font-size:9px;font-weight:700;line-height:1.45;letter-spacing:.05em;
   text-transform:uppercase;color:var(--ink)
@@ -902,6 +978,10 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
   border-radius:var(--r-pill);font-size:10px;font-weight:700;
   display:flex;align-items:center;justify-content:center
 }
+.mnu__i--soon > span:first-child{color:var(--muted)}
+/* .mnu__i > span{flex:1} сильнее .mnu__n — без этой строки счётчик тянулся на всю ширину */
+.mnu__i > .mnu__n{flex:none}
+.mnu__i > .mnu__soon{flex:none;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2)}
 .mnu__i .ic{color:var(--ink)}
 .mnu__i .ic--sm:last-child{color:var(--muted2)}
 
@@ -950,6 +1030,30 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .gen__b:hover{background:var(--chip)}
 .gen__b[aria-current="page"]{background:var(--ink);color:#fff}
 .gen__b[aria-current="page"]:hover{background:var(--ink-soft)}
+
+/* Разделы каталога под Унисекс/Женское/Мужское: «Все · Футболки · Кофты ·
+   Куртки · Аксессуары». Одна строка, лишнее уезжает вбок: пять названий в
+   ширину телефона не помещаются, а вторая строка съела бы экран. Пустой
+   раздел стоит приглушённым и подписан «скоро». */
+.cats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;position:relative;
+  padding:14px var(--pad) 0;scroll-margin-top:calc(var(--hd-off) + 8px)}
+.cats::-webkit-scrollbar{display:none}
+.cats::after{content:'';flex:0 0 calc(var(--pad) - 8px)}
+.cats__b{
+  flex:none;display:flex;align-items:baseline;gap:6px;padding:9px 16px;
+  border:1.5px solid var(--line2);border-radius:var(--r-pill);background:var(--card);
+  font-size:13px;white-space:nowrap;transition:all var(--dur) var(--ease)
+}
+.cats__b:hover{border-color:var(--muted)}
+.cats__b[aria-current="page"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.cats__b--soon{color:var(--muted)}
+.cats__b i{font-style:normal;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+/* Раздел ещё пуст: знак, «Скоро» и выход туда, где товары уже есть */
+.soon{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:44px 20px 56px}
+.soon__m{width:52px;height:52px;opacity:.85;margin-bottom:6px}
+.soon__t{font-size:17px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.soon__d{font-size:14px;color:var(--muted);line-height:1.6;max-width:290px}
+.soon .btn{width:auto;padding:13px 24px;margin-top:10px}
 
 .ctrl{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px var(--pad) 14px}
 .ctrl__b{display:flex;align-items:center;gap:8px;font-size:14px;transition:opacity var(--dur) var(--ease)}
@@ -3816,7 +3920,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   .app{max-width:100%}
   .hd{max-width:760px;margin-left:auto;margin-right:auto}
   .grid{grid-template-columns:repeat(4,1fr);gap:30px 18px;max-width:1200px;margin:0 auto;padding-left:32px;padding-right:32px}
-  .crumbs,.ph,.gen,.ctrl,.sec__h{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
+  .crumbs,.ph,.gen,.cats,.ctrl,.sec__h{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
   .cv{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
   .cvb{max-width:640px;margin:0}
   .cvp{max-width:640px;margin:10px 0 0}
@@ -6711,16 +6815,23 @@ function legalLineAuto(){
   return parts.join(' · ');
 }
 
-/* Магазин продаёт только футболки. Добавите другие категории через
-   админку — фильтр по категориям появится в шторке сам. */
-const CATS_M = ['Футболки'];
-const CATS_W = ['Футболки'];
-/* «Аксессуары» стоят только в унисексе: косметичка не мужская и не женская.
-   Этот же список — источник кнопок категории в форме товара, своей строки
-   там не напечатать, так что без правки категорию было бы не выбрать. */
-const CATS_U = ['Футболки', 'Аксессуары'];
+/* ===== РАЗДЕЛЫ КАТАЛОГА =====
+   Один список на весь магазин. Порядок здесь — порядок кнопок в каталоге,
+   разделов на главной и пунктов меню. t — как категория записана у товара
+   (product.cat), slug — для адреса (#catalog/u/kofty), syn — чем ещё её ищут
+   в поиске, sizeless — размеров не бывает, форма товара их не требует.
+   Этот же список — кнопки «Категория» в форме товара: своей строки там не
+   напечатать. Новый раздел — одна строка здесь, больше нигде. */
+const CATS = [
+  {t:'Футболки',   slug:'futbolki',   syn:'футболка футболки tshirt t-shirt tee'},
+  {t:'Кофты',      slug:'kofty',      syn:'кофта кофты худи толстовка свитшот свитер джемпер зип hoodie sweatshirt'},
+  {t:'Куртки',     slug:'kurtki',     syn:'куртка куртки бомбер ветровка jacket bomber'},
+  {t:'Аксессуары', slug:'aksessuary', syn:'аксессуар аксессуары косметичка чехол сумка', sizeless:true}
+];
+const CAT_NAMES = CATS.map(c => c.t);
+const catMeta = t => CATS.find(c => c.t === t) || null;
 /* Категории, у которых размеров не бывает: форма товара не требует их отметить. */
-const SIZELESS_CATS = ['Аксессуары'];
+const SIZELESS_CATS = CATS.filter(c => c.sizeless).map(c => c.t);
 
 /* Какие категории реально есть в разделе — считаем по самим товарам, а не
    держим отдельным флагом. Тогда всё чинится само: сняли последний аксессуар
@@ -6729,6 +6840,12 @@ const SIZELESS_CATS = ['Аксессуары'];
 const catsOf = g => [...new Set(PRODUCTS.filter(p => p.on && p.gender === g).map(p => p.cat))];
 /* Подписи пола. Порядок ключей — порядок вкладок на витрине: унисекс первым. */
 const GENDER_LAB = {u:'Унисекс', w:'Женское', m:'Мужское'};
+/* Товар в разделе каталога: пол + категория ('' — все категории). */
+const inSection = (p, g, c) => !!p && p.on && p.gender === g && (!c || p.cat === c);
+/* Куда вести из меню и с главной: в текущий пол, если там такие товары есть,
+   иначе в первый пол, где они есть. Из строки разделов пол не трогаем. */
+const genderFor = c => [S.gender, ...Object.keys(GENDER_LAB)]
+  .find(g => PRODUCTS.some(p => inSection(p, g, c))) || S.gender;
 
 /* ===== ЦВЕТА КОЛЛЕКЦИИ =====
    Пять цветов знакомства и их имена — одно место на весь магазин. В каталоге
@@ -7155,7 +7272,7 @@ const persist = () => store.save(PRODUCTS.filter(p => !(p && p._local)));
 
 /* состояние приложения */
 const S = {
-  screen:'catalog', gender:'u', productId:null, size:null, color:'', galIdx:0, qty:1,
+  screen:'catalog', gender:'u', cat:'', productId:null, size:null, color:'', galIdx:0, qty:1,
   cart:[], favs:[], user:null, authMode:'reg', authPanel:'main', authStep:1, orderTab:'Все заказы',
   authPhone:'', authOtpShown:false, authOtpState:'', authOtpSending:false, authOtpLink:'', authOtpOfficial:false,
   authCodeRequested:false, authBot:'',
@@ -8288,9 +8405,8 @@ function renderTabs(){
    ЭКРАН: КАТАЛОГ
    ========================================================== */
 function listProducts(){
-  let list = PRODUCTS.filter(p => p.on && p.gender === S.gender);
+  let list = PRODUCTS.filter(p => inSection(p, S.gender, S.cat));
   const f = S.filter;
-  if(f.cats.length)  list = list.filter(p => f.cats.includes(p.cat));
   if(f.sizes.length) list = list.filter(p => f.sizes.some(s => (p.sizes||[]).includes(s)));
   if(f.min !== '')   list = list.filter(p => p.price >= +f.min);
   if(f.max !== '')   list = list.filter(p => p.price <= +f.max);
@@ -8375,23 +8491,57 @@ function cardHTML(p, i){
   </article>`;
 }
 
+/* Заголовок каталога. Выбран раздел — называем его вместе с полом:
+   «Женские кофты», «Куртки унисекс». Раздел не выбран — красивую фразу про
+   футболки говорим, только когда в поле и правда одни футболки: «Футболки
+   унисекс» над косметичкой было бы враньём на первом же экране. */
+function catalogTitle(){
+  const g = S.gender;
+  if(S.cat) return g === 'u' ? `${esc(S.cat)} унисекс` : `${g === 'm' ? 'Мужские' : 'Женские'} ${esc(S.cat.toLowerCase())}`;
+  const cs = catsOf(g);
+  return cs.length === 1 && cs[0] === 'Футболки'
+    ? (g === 'm' ? 'Мужские футболки' : g === 'u' ? 'Футболки унисекс' : 'Женские футболки')
+    : (GENDER_LAB[g] || 'Каталог');
+}
+/* Строка разделов. Кнопки всех разделов из CATS стоят всегда, даже пустых:
+   покупатель видит, что кофты и куртки у бренда будут, а владелец — что
+   раздел заведён. Пустой подписан «скоро». Категория товара не из CATS
+   (заведена когда-то раньше) встаёт в конец — её товары не теряются. */
+function catRowHTML(){
+  /* выбранный раздел виден всегда, даже если в этом поле его нет */
+  const extra = [...new Set([...catsOf(S.gender), S.cat])].filter(c => c && !CAT_NAMES.includes(c));
+  return `<div class="cats" aria-label="Разделы">${['', ...CAT_NAMES, ...extra].map(c => {
+    const soon = !!c && !PRODUCTS.some(p => inSection(p, S.gender, c));
+    return `<button class="cats__b${soon ? ' cats__b--soon' : ''}" data-a="cat:${esc(c)}"${
+      (S.cat || '') === c ? ' aria-current="page"' : ''}>${c ? esc(c) : 'Все'}${soon ? '<i>скоро</i>' : ''}</button>`;
+  }).join('')}</div>`;
+}
+/* Пусто. Мешают фильтры — так и говорим. Раздел ещё не завезли — «Скоро»
+   и выход: в пол, где такие вещи уже есть, или ко всем товарам. */
+function catalogEmptyHTML(){
+  if(PRODUCTS.some(p => inSection(p, S.gender, S.cat)))
+    return '<p class="none">Ничего не нашлось.<br>Попробуйте сбросить фильтры.</p>';
+  const other = Object.keys(GENDER_LAB).find(g => g !== S.gender && PRODUCTS.some(p => inSection(p, g, S.cat)));
+  const what = S.cat ? `${esc(S.cat)} в разделе «${GENDER_LAB[S.gender]}» появятся` : 'Здесь появятся новые вещи —';
+  return `<div class="soon">
+    ${MARK('soon__m')}
+    <p class="soon__t">Скоро</p>
+    <p class="soon__d">${what} совсем скоро.${other ? ` Уже есть в разделе «${GENDER_LAB[other]}».` : ''}</p>
+    ${other ? `<button class="btn btn--gh" data-a="gen:${other}">Смотреть ${GENDER_LAB[other].toLowerCase()}</button>`
+      : S.cat ? '<button class="btn btn--gh" data-a="cat:">Все товары</button>' : ''}
+  </div>`;
+}
+
 function scrCatalog(){
   const list = listProducts();
-  const fn = S.filter.cats.length + S.filter.sizes.length + (S.filter.min !== '' || S.filter.max !== '' ? 1 : 0);
+  const fn = S.filter.sizes.length + (S.filter.min !== '' || S.filter.max !== '' ? 1 : 0);
   const sortT = SORTS.find(s => s.k === S.sort).t;
+  const gl = GENDER_LAB[S.gender] || GENDER_LAB.u;
   return `
-  <nav class="crumbs"><a href="#" data-a="go:home">Главная</a><i>/</i><a href="#" data-a="go:catalog">Каталог</a><i>/</i>
-    <b>${GENDER_LAB[S.gender] || GENDER_LAB.u}</b></nav>
+  <nav class="crumbs"><a href="#" data-a="go:home">Главная</a><i>/</i><a href="#" data-a="cat:">Каталог</a><i>/</i>
+    ${S.cat ? `<a href="#" data-a="cat:">${gl}</a><i>/</i><b>${esc(S.cat)}</b>` : `<b>${gl}</b>`}</nav>
   <div class="ph">
-    <h1 class="ph__t">${(() => {
-      /* Красивую фразу про футболки говорим, только когда в разделе и правда
-         одни футболки. Иначе — просто имя раздела: «Футболки унисекс» над
-         косметичкой было бы враньём на первом же экране. */
-      const cs = catsOf(S.gender);
-      return cs.length === 1 && cs[0] === 'Футболки'
-        ? (S.gender === 'm' ? 'Мужские футболки' : S.gender === 'u' ? 'Футболки унисекс' : 'Женские футболки')
-        : (GENDER_LAB[S.gender] || 'Каталог');
-    })()}</h1>
+    <h1 class="ph__t">${catalogTitle()}</h1>
     ${MARK('ph__m')}
   </div>
   <div class="cv" id="cvSlot"><div class="cv__in"></div></div>
@@ -8400,13 +8550,13 @@ function scrCatalog(){
     <button class="gen__b" data-a="gen:w" ${S.gender === 'w' ? 'aria-current="page"' : ''}>Женское</button>
     <button class="gen__b" data-a="gen:m" ${S.gender === 'm' ? 'aria-current="page"' : ''}>Мужское</button>
   </div>
+  ${catRowHTML()}
   <div class="ctrl">
     <button class="ctrl__b" data-a="filters">${svg('sliders','ic ic--sm')} Фильтры
       ${fn ? `<span class="ctrl__n">${fn}</span>` : ''}</button>
     <button class="ctrl__b" data-a="sort">${sortT === 'По популярности' ? 'Сортировка' : sortT} ${svg('chevD','ic ic--sm')}</button>
   </div>
-  <div class="grid">${list.length ? list.map(cardHTML).join('')
-    : '<p class="none">Ничего не нашлось.<br>Попробуйте сбросить фильтры.</p>'}</div>
+  <div class="grid">${list.length ? list.map(cardHTML).join('') : catalogEmptyHTML()}</div>
   ${siteFooter()}
   <button class="fab" data-a="chat" aria-label="Написать нам">${svg('chat')}</button>`;
 }
@@ -10078,7 +10228,7 @@ function heroHTML(list, id, banner){
   /* Кнопка одна на весь слайдер и лежит поверх него, а не внутри слайда:
      раньше её копия висела на каждом фото и уезжала вместе с ним. */
   const cta = `<div class="hs__cta-wrap">
-    <button class="hs__cta" data-a="go:catalog">${esc(heroBtnText())}</button>
+    <button class="hs__cta" data-a="cat:">${esc(heroBtnText())}</button>
   </div>`;
   /* Видео: src не ставим сразу — его выдаст bindSlider, когда слайд станет
      активным и заставка уйдёт. Иначе браузер начал бы качать все ролики
@@ -10120,7 +10270,7 @@ function heroHTML(list, id, banner){
   </div>`;
 }
 
-/* ---- 4 блока над «Новинками» (правятся в админке → Главная) ---- */
+/* ---- 4 блока над товарами главной (правятся в админке → Главная) ---- */
 const USP_ICONS = ['star','shield','truck','refresh','gift','clock','check','box','tag','flame','sup','pin','camera','card','lock'];
 function uspItems(){
   const base = defaultCms().usp.items;
@@ -10131,11 +10281,14 @@ function uspHTML(){
   if(typeof CMS !== 'undefined' && CMS.usp && CMS.usp.on === false) return '';
   const list = uspItems().filter(x => String(x.l1 || '').trim() || String(x.l2 || '').trim());
   if(!list.length) return '';
-  return `<div class="usp">${list.map(x => `
-    <div class="usp__i">
-      <span class="usp__ic">${svg(USP_ICONS.includes(x.ic) ? x.ic : 'star')}</span>
+  return `<div class="usp">${list.map((x, i) => {
+    const ic = USP_ICONS.includes(x.ic) ? x.ic : 'star';
+    return `
+    <div class="usp__i" style="--i:${i}">
+      <span class="usp__ic usp__ic--${ic}">${svg(ic)}</span>
       <span class="usp__t">${esc(x.l1 || '')}${x.l2 ? `<br>${esc(x.l2)}` : ''}</span>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
 }
 
 
@@ -10461,21 +10614,41 @@ function bindGalleries(){
   }
 }
 
+/* Полки главной — все товары в продаже, по разделу на полку, в порядке CATS.
+   Владелец, 2026-10-04: «в гл меню должны быть все товары которые есть».
+   Раньше тут были «Новинки» — slice(-4), и старые товары на главную не
+   попадали. Пол не фильтруем: на главной всё сразу. Внутри полки новые
+   первыми, распроданные — в самом конце. */
+function homeShelves(){
+  const on = PRODUCTS.filter(p => p && p.on);
+  const catOf = p => p.cat || CAT_NAMES[0];
+  const order = [...CAT_NAMES, ...new Set(on.map(catOf).filter(c => !CAT_NAMES.includes(c)))];
+  return order.map(c => ({c, list: on.filter(p => catOf(p) === c)
+      .sort((a, b) => (soldOut(a) - soldOut(b)) || (b.id - a.id))}))
+    .filter(s => s.list.length);
+}
+
 function scrHome(){
-  const nw = PRODUCTS.filter(p => p.on).slice(-4).reverse();
   const banner = homeBannerText();
   const slides = homeSlides();
+  /* Плиток «Разделы» на главной нет: ниже и так все товары по разделам, а
+     плитка вела в один пол и показывала другое число товаров, чем полка. */
+  /* сквозной номер карточки: обложки первых четырёх на странице cardHTML
+     грузит сразу и первыми. Под большим фото главной карточки ниже экрана —
+     начинаем с 4, чтобы они не отнимали сеть у самого фото (на медленной
+     связи занавес иначе открывался на недокрашенный снимок). */
+  let n = slides.length ? 4 : 0;
   return `
   ${slides.length
     ? heroHTML(slides, 'homeSlider', banner)
     : `<div class="home__logo">${MARK('home__mark')}</div>
        ${banner ? `<div class="home__banner">${banner}</div>` : ''}`}
   ${uspHTML()}
-  <div class="sec__h">
-    <h2 class="sec__t">Новинки</h2>
-    <button class="sec__all" data-a="go:catalog">Смотреть все ${svg('arrowR','ic ic--sm')}</button>
+  ${homeShelves().map(s => `<div class="sec__h">
+    <h2 class="sec__t">${esc(s.c)}</h2>
+    <button class="sec__all" data-a="cat:${esc(s.c)}:auto">В каталог ${svg('arrowR','ic ic--sm')}</button>
   </div>
-  <div class="grid">${nw.map(cardHTML).join('')}</div>
+  <div class="grid">${s.list.map(p => cardHTML(p, n++)).join('')}</div>`).join('')}
   ${siteFooter()}
   <button class="fab" data-a="chat" aria-label="Написать нам">${svg('chat')}</button>`;
 }
@@ -11890,6 +12063,8 @@ function render(keepScroll){
   const cardLeft = keepScroll ? [...document.querySelectorAll('.card__track')].map(t => t.scrollLeft) : [];
   const rvSwipe = keepScroll && document.querySelector('.rv__list--swipe');
   const rvLeft = rvSwipe ? rvSwipe.scrollLeft : 0;
+  const catsRow = keepScroll && document.querySelector('.cats');
+  const catsLeft = catsRow ? catsRow.scrollLeft : 0;
 
   document.getElementById('hdSlot').innerHTML = nextHd;
   _hdKey = nextHd;
@@ -11903,7 +12078,7 @@ function render(keepScroll){
     scr.classList.remove('anim'); void scr.offsetWidth; scr.classList.add('anim');
   }
   /* Главное фото/видео переживает перерисовку, если в нём ничего не
-     поменялось: ♥ на карточке «Новинок» или живое обновление каталога
+     поменялось: ♥ на карточке главной или живое обновление каталога
      иначе пересобирали героя, и ролик начинался заново, а лента прыгала
      на первый слайд. Узел возвращается в том же такте — браузер не успевает
      поставить видео на паузу. */
@@ -12057,6 +12232,8 @@ function render(keepScroll){
     });
     const rv = document.querySelector('.rv__list--swipe');
     if(rv && rvLeft) rv.scrollLeft = rvLeft;
+    const cr = document.querySelector('.cats');
+    if(cr && catsLeft) cr.scrollLeft = catsLeft;
   }
   if(S.screen === 'cart'){
     const pin = document.getElementById('promoIn');
@@ -12136,7 +12313,8 @@ let _restoreGal = 0;
 
 function shopHash(){
   if(S.screen === 'product' && S.productId) return '#p=' + S.productId;
-  if(S.screen === 'catalog') return '#catalog/' + (GENDER_LAB[S.gender] ? S.gender : 'u');
+  if(S.screen === 'catalog') return '#catalog/' + (GENDER_LAB[S.gender] ? S.gender : 'u') +
+    (S.cat ? '/' + (catMeta(S.cat) ? catMeta(S.cat).slug : encodeURIComponent(S.cat)) : '');
   if(S.screen === 'info') return '#info/' + (S.infoKey || 'about');
   if(S.screen === 'home') return '#home';
   return '#' + S.screen;
@@ -12145,6 +12323,7 @@ function persistPlace(){
   const payload = {
     screen: S.screen,
     gender: S.gender,
+    cat: S.cat,
     productId: S.productId,
     size: S.size,
     galIdx: S.galIdx,
@@ -12176,9 +12355,13 @@ function applyRouteHash(raw){
     S.screen = 'product';
     return true;
   }
-  const cat = /^catalog(?:\/([mwu]))?$/.exec(h);
+  const cat = /^catalog(?:\/([mwu]))?(?:\/([^/]+))?$/.exec(h);
   if(cat){
     if(cat[1]) S.gender = cat[1];
+    /* свой раздел, которого нет в CATS, лежит в адресе как есть (%-кодом) */
+    let own = '';
+    try{ own = cat[2] ? decodeURIComponent(cat[2]) : ''; }catch(_){}
+    S.cat = cat[2] ? ((CATS.find(c => c.slug === cat[2]) || {}).t || own) : '';
     S.screen = 'catalog';
     return true;
   }
@@ -12200,6 +12383,10 @@ function readSavedPlace(){
 function applySavedPlace(d){
   if(!d || typeof d !== 'object') return;
   if(GENDER_LAB[d.gender]) S.gender = d.gender;
+  /* раздел; старое место (до разделов) помнило его фильтром из одной категории */
+  const oldCat = d.filter && Array.isArray(d.filter.cats) && d.filter.cats.length === 1 ? d.filter.cats[0] : '';
+  const dc = typeof d.cat === 'string' ? d.cat : oldCat;
+  if(dc === '' || CAT_NAMES.includes(dc) || PRODUCTS.some(p => p.cat === dc)) S.cat = dc;
   if(d.productId && byId(d.productId)){
     S.productId = +d.productId;
     S.size = d.size || firstSize(byId(d.productId));
@@ -12351,7 +12538,10 @@ document.addEventListener('click', syncBackSoon, true);
 document.addEventListener('keydown', syncBackSoon, true);
 
 window.addEventListener('popstate', () => {
-  if(_backEating){ _backEating = false; return; }
+  /* Свою защитную запись съели — адрес вернулся к прежнему. Переписываем его
+     на нынешнее место: иначе выбор раздела в меню на каталоге оставлял в
+     адресе прежний раздел, и обновление страницы открывало его. */
+  if(_backEating){ _backEating = false; persistPlace(); return; }
   _backArmed = false;
   /* Разбираем сверху вниз, как лежат слои: подтверждение выше всего, под ним
      фото во весь экран, дальше окно «Приложение», шторки, админка. */
@@ -13196,7 +13386,7 @@ function toast(m){
 function filtersActive(){
   const min = document.getElementById('fmin')?.value ?? S.filter.min;
   const max = document.getElementById('fmax')?.value ?? S.filter.max;
-  return S.filter.cats.length > 0 || S.filter.sizes.length > 0 || min !== '' || max !== '';
+  return S.filter.sizes.length > 0 || min !== '' || max !== '';
 }
 /* --- цифровая клавиатура фильтров --- */
 let npTarget = null;
@@ -13261,16 +13451,12 @@ function syncFilterFooter(){
 }
 
 function sheetFilters(){
-  // берём категории из самих товаров: пока продаём одни футболки,
-  // блок не нужен и не показывается
-  const cats = catsOf(S.gender);
+  /* категории здесь больше нет: раздел выбирают строкой на самом экране */
   openOv(`<div class="scrim"></div><div class="sheet" role="dialog" aria-label="Фильтры">
     <div class="sheet__g"></div>
     <div class="sheet__h"><span class="sheet__t">Фильтры</span>
       <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button></div>
     <div class="sheet__b">
-      ${cats.length > 1 ? `<div class="fg"><p class="fg__h">Категория</p><div class="chips">
-        ${cats.map(c => `<button class="chip" data-a="fc:${c}" aria-pressed="${S.filter.cats.includes(c)}">${c}</button>`).join('')}</div></div>` : ''}
       <div class="fg"><p class="fg__h">Размер</p><div class="chips">
         ${SIZES.map(s => `<button class="chip" data-a="fs:${s}" aria-pressed="${S.filter.sizes.includes(s)}">${s}</button>`).join('')}</div></div>
       <div class="fg" id="fgPrice"><p class="fg__h">Цена, ₽</p><div class="rng">
@@ -13306,8 +13492,9 @@ function sheetMenu(){
   const favN = (S.favs || []).length;
   const cartN = cartCount();
   /* без иконок: список читается как оглавление, а не как панель кнопок */
-  const item = (a, ic, t, n) => `<button class="mnu__i" data-a="${a}">
-    <span>${t}</span>${n ? `<span class="mnu__n">${n}</span>` : ''}${svg('chev','ic ic--sm')}</button>`;
+  const item = (a, ic, t, n, soon) => `<button class="mnu__i${soon ? ' mnu__i--soon' : ''}" data-a="${a}">
+    <span>${t}</span>${soon ? '<span class="mnu__soon">скоро</span>' : ''}${
+      n ? `<span class="mnu__n">${n}</span>` : ''}${svg('chev','ic ic--sm')}</button>`;
   openOv(`<div class="scrim"></div>
   <aside class="mnu" role="dialog" aria-modal="true" aria-label="Меню">
     <div class="mnu__h">
@@ -13316,7 +13503,12 @@ function sheetMenu(){
     </div>
     <div class="mnu__b">
       <div class="mnu__sec">
-        ${item('go:catalog','grid','Каталог')}
+        <div class="mnu__cap">Каталог</div>
+        ${item('cat::auto','grid','Все товары')}
+        ${[...CAT_NAMES, ...new Set(PRODUCTS.filter(p => p.on && !CAT_NAMES.includes(p.cat)).map(p => p.cat))]
+          .map(c => item(`cat:${esc(c)}:auto`, 'grid', esc(c), 0, !PRODUCTS.some(p => p.on && p.cat === c))).join('')}
+      </div>
+      <div class="mnu__sec">
         ${item('go:favs','heart','Избранное', favN)}
         ${item('go:cart','bag','Корзина', cartN)}
         ${item('go:profile','user','Профиль')}
@@ -13605,9 +13797,10 @@ function modalSearch(){
       const blob = [
         p.name, p.cat, p.sku || '', p.desc || '',
         p.gender === 'w' ? 'женское женщинам девушкам' : p.gender === 'u' ? 'унисекс unisex всем' : 'мужское мужчинам',
-        /* Синонимы подмешиваем только футболкам: иначе косметичка находилась
-           бы по запросу «футболка», и человек решил бы, что поиск сломан. */
-        (p.cat === 'Футболки' ? 'футболка футболки tshirt tee' : '')
+        /* Синонимы — только своей категории (CATS.syn): иначе косметичка
+           находилась бы по запросу «футболка», и человек решил бы, что поиск
+           сломан. Худи найдётся и по «кофта», бомбер — по «куртка». */
+        (catMeta(p.cat) || {}).syn || ''
       ].join(' ').toLowerCase();
       if(!tokens.every(t => blob.includes(t))) return 0;
       let s = 0;
@@ -14449,12 +14642,42 @@ document.addEventListener('click', e => {
        перерисовываем тихо (render(true)) и просто уводим скролл наверх. */
     case 'gen': {
       if(S.gender === a && S.screen === 'catalog'){ closeOv(); break; }
-      S.gender = a; S.filter.cats = []; closeOv();
+      S.gender = a; closeOv();     /* раздел (S.cat) остаётся: «Кофты» → женские кофты */
       if(S.screen === 'catalog'){
         window.scrollTo(0, 0);
         render(true);
         persistPlace();
       } else go('catalog');
+      break;
+    }
+    /* Раздел каталога: «Футболки», «Кофты»… ('' — все). Тихая перерисовка,
+       как у пола, — без моргания. Из строки разделов пол не трогаем: пустой
+       раздел честно скажет «Скоро». Из меню и с главной (b === 'auto') ведём
+       в пол, где такие товары есть. */
+    case 'cat': {
+      const c = a || '';
+      closeOv();
+      /* b: пол плитки с главной (u/w/m) или 'auto' из меню */
+      if(GENDER_LAB[b]) S.gender = b;
+      else if(b === 'auto') S.gender = genderFor(c);
+      if(S.screen !== 'catalog'){ S.cat = c; go('catalog'); break; }
+      if(S.cat === c && !b) break;
+      S.cat = c;
+      render(true);
+      persistPlace();
+      const row = document.querySelector('.cats');
+      if(row){
+        /* строка ушла под шапку — возвращаем её на вид, страницу наверх не бросаем.
+           Шапка закреплена: сравниваем с её высотой (scroll-margin-top строки), а не с 0 */
+        const under = parseFloat(getComputedStyle(row).scrollMarginTop) || 0;
+        if(row.getBoundingClientRect().top < under) row.scrollIntoView({block:'start'});
+        const on = row.querySelector('[aria-current]');
+        if(on){
+          const l = on.offsetLeft - 16, r = on.offsetLeft + on.offsetWidth + 16 - row.clientWidth;
+          if(row.scrollLeft > l) row.scrollTo({left:l, behavior:'smooth'});
+          else if(row.scrollLeft < r) row.scrollTo({left:r, behavior:'smooth'});
+        }
+      }
       break;
     }
     case 'open':
@@ -15080,11 +15303,6 @@ document.addEventListener('click', e => {
       break;
     }
 
-    case 'fc': {
-      const c = el.dataset.a.slice(3);
-      S.filter.cats.includes(c) ? S.filter.cats = S.filter.cats.filter(x => x !== c) : S.filter.cats.push(c);
-      el.setAttribute('aria-pressed', S.filter.cats.includes(c)); syncFilterFooter(); break;
-    }
     case 'fs': {
       S.filter.sizes.includes(a) ? S.filter.sizes = S.filter.sizes.filter(x => x !== a) : S.filter.sizes.push(a);
       el.setAttribute('aria-pressed', S.filter.sizes.includes(a)); syncFilterFooter(); break;
@@ -15108,7 +15326,7 @@ document.addEventListener('click', e => {
     case 'freset':
       // шторку не закрываем — сбрасываем прямо в ней
       S.filter = {cats:[],sizes:[],min:'',max:''};
-      ov.querySelectorAll('[data-a^="fc:"],[data-a^="fs:"]').forEach(c => c.setAttribute('aria-pressed','false'));
+      ov.querySelectorAll('[data-a^="fs:"]').forEach(c => c.setAttribute('aria-pressed','false'));
       ['fmin','fmax'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
       syncFilterFooter();
       npClose();
@@ -15204,7 +15422,7 @@ function defaultCms(){
        Правится в админке → Контент → «О бренде». Пустой список — страница
        показывает текст из texts.aboutLead / texts.aboutBody, как раньше. */
     about: {blocks: []},
-    /* Четыре плашки над «Новинками». Правятся в админке → Главная. */
+    /* Четыре плашки над товарами главной. Правятся в админке → Главная. */
     usp:{on:true, items:[
       {ic:'lock',    l1:'Безопасная', l2:'оплата'},
       {ic:'shield',  l1:'Премиум',  l2:'качество'},
@@ -18254,8 +18472,9 @@ function pForm(p){
   const isCopy = !!(p && p._local);
   editId = p && !isCopy ? p.id : null;
   if(p) ensureProductMeta(p);
-  const d = p || {name:'',cat:CATS_M[0],gender:'m',price:'',old:'',img:'',sku:'',sizes:[],on:true,desc:'',badge:'',stock:{},gal:[],tryon:false};
-  const cats = [...new Set([...CATS_W, ...CATS_U, ...CATS_M, d.cat].filter(Boolean))];
+  const d = p || {name:'',cat:CAT_NAMES[0],gender:'m',price:'',old:'',img:'',sku:'',sizes:[],on:true,desc:'',badge:'',stock:{},gal:[],tryon:false};
+  /* кнопки — разделы из CATS; старая категория товара не из списка тоже видна */
+  const cats = [...new Set([...CAT_NAMES, d.cat].filter(Boolean))];
   let gender = d.gender || 'm';
   let cat = d.cat || cats[0];
   let badge = d.badge || '';
@@ -18278,7 +18497,7 @@ function pForm(p){
     </div>
     <label class="ad__l">Категория</label>
     <div class="ad__pick" id="xCat">
-      ${cats.map(c => `<button type="button" class="ad__pick-b" data-v="${c}" aria-pressed="${c===cat}">${c}</button>`).join('')}
+      ${cats.map(c => `<button type="button" class="ad__pick-b" data-v="${esc(c)}" aria-pressed="${c===cat}">${esc(c)}</button>`).join('')}
     </div>
     <label class="ad__l">Бейдж</label>
     <div class="ad__pick" id="xBadge">
@@ -18360,7 +18579,22 @@ function pForm(p){
     };
   };
   bindPick(w.querySelector('#xGender'), () => gender, v => { gender = v; });
-  bindPick(w.querySelector('#xCat'), () => cat, v => { cat = v; });
+  /* Новый товар: раздел угадываем по названию, пока его не выбрали руками.
+     Иначе худи, заведённое второпях с телефона, молча уехало бы в «Футболки». */
+  let catTouched = !!p;
+  const guessCat = n =>
+    /худи|кофт|свитшот|свитер|джемпер|толстовк|hood|sweat/i.test(n) ? 'Кофты' :
+    /куртк|бомбер|ветровк|жилет|jacket|bomber/i.test(n) ? 'Куртки' :
+    /косметич|сумк|чехол|шоппер|шопер|кепк|панам|носк/i.test(n) ? 'Аксессуары' :
+    /футболк|t-?shirt|\btee\b/i.test(n) ? 'Футболки' : '';
+  bindPick(w.querySelector('#xCat'), () => cat, v => { cat = v; catTouched = true; });
+  w.querySelector('#xn').addEventListener('input', e => {
+    const g = catTouched ? '' : guessCat(e.target.value);
+    if(!g || g === cat || !cats.includes(g)) return;
+    cat = g;
+    w.querySelectorAll('#xCat .ad__pick-b').forEach(x =>
+      x.setAttribute('aria-pressed', x.dataset.v === cat ? 'true' : 'false'));
+  });
   bindPick(w.querySelector('#xBadge'), () => badge, v => { badge = v; });
 
   const normalizeQty = inp => {
