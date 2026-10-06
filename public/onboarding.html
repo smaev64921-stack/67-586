@@ -331,7 +331,7 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   --hw:calc(var(--hh) * .935407);
   --by:calc(var(--above) + (var(--room) - var(--hh)) * .5);
   /* бомбер: кадр спереди и сзади 1200×743 (оба вида одной высоты, низ по
-     низу), раскрытый — 1200×664 (низ — по низу бомбера). Ширину экрана или
+     низу), раскрытый — 1200×679 (низ — по низу бомбера). Ширину экрана или
      ниши задаёт раскрытый вид (--ow); --bw0 — основа размеров. Спереди и сзади
      вещь на 8 % крупнее, чем внутри: кадр ×1,1268 к основе (1,0433 — он шире
      прежнего 1200×776, ×1,08) */
@@ -341,7 +341,7 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
   --bh:calc(var(--bw) * .619413);
   --bk:.62;                          /* где висит: 0 — вровень с верхом худи, 1 — на дне ниши */
   --bby:calc(var(--by) + (var(--hh) - var(--bh)) * var(--bk));
-  --oh:calc(var(--ow) * .553333);
+  --oh:calc(var(--ow) * .565499);
   --oby:calc(var(--bby) + var(--bh) - var(--oh));
   /* жилет: кадр спереди и сзади 840×1151, раскрытый — 1100×955 (низ — по низу
      жилета). Высота вещи во всех трёх видах одна: кадр «внутри» в 1,0057 раза
@@ -534,7 +534,7 @@ html.lc-splash .hero .hero__mark,html.lc-after .hero .hero__mark{opacity:1;trans
    медленный проход; ткань и молнии не трогает */
 .g__sw{position:absolute;inset:0;pointer-events:none;opacity:0;mix-blend-mode:overlay}
 .g.is-loadb .g__sw{opacity:1;
-  -webkit-mask:url(/onboarding/bm-lining.webp) center/100% 100% no-repeat;mask:url(/onboarding/bm-lining.webp) center/100% 100% no-repeat}
+  -webkit-mask:url(/onboarding/bm-lining3.webp) center/100% 100% no-repeat;mask:url(/onboarding/bm-lining3.webp) center/100% 100% no-repeat}
 .g__sw b{position:absolute;top:0;bottom:0;left:40%;width:42%}
 .g__sw i{position:absolute;top:-6%;bottom:-6%;left:-30%;width:160%;transform:translateX(-100%);
   background:linear-gradient(104deg,rgba(255,255,255,0) 34%,rgba(255,255,255,.28) 43%,rgba(255,255,255,.82) 49%,rgba(255,255,255,.9) 50%,rgba(255,255,255,.82) 51%,rgba(255,255,255,.28) 57%,rgba(255,255,255,0) 66%)}
@@ -2261,13 +2261,13 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
 
       <!-- ===== вещь 1: бомбер (спереди, сзади, внутри) =====
            Снимки качаются после худи (data-srcb). Кадр 1200×743, спина в том же
-           кадре (одна высота вещи); раскрытый — 1200×664, низом по низу бомбера. Точки — доли кадра. -->
+           кадре (одна высота вещи); раскрытый — 1200×679 (снимок владельца 06.10), низом по низу бомбера. Точки — доли кадра. -->
       <div class="g__pc g__pc--bm" data-p="1" data-views="f b i" aria-hidden="true">
         <div class="g__box g__box--bm" id="gBoxB" role="img" aria-label="Чёрный бомбер">
           <div class="g__rev"><div class="g__rin"><div class="g__turn">
             <div class="g__face is-on" data-v="f"><img data-srcb="/onboarding/bm-front2.webp" alt="" width="1200" height="743" decoding="async" crossorigin="anonymous"></div>
             <div class="g__face" data-v="b"><img data-srcb="/onboarding/bm-back3.webp" alt="" width="1200" height="743" decoding="async"></div>
-            <div class="g__face g__face--i" data-v="i"><div class="g__ob"><img data-srcb="/onboarding/bm-open.webp" alt="" width="1200" height="664" decoding="async"><div class="g__sw" aria-hidden="true"><b><i></i></b></div></div></div>
+            <div class="g__face g__face--i" data-v="i"><div class="g__ob"><img data-srcb="/onboarding/bm-open3.webp" alt="" width="1200" height="679" decoding="async"><div class="g__sw" aria-hidden="true"><b><i></i></b></div></div></div>
             <div class="g__sheen" aria-hidden="true"><i></i></div>
           </div></div></div>
         </div>
@@ -2298,11 +2298,11 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
         </ul>
         <!-- внутри: карман на молнии, потом подкладка; крупный план висит на линии -->
         <ul class="g__co g__co--z g__co--sv" data-v="i" aria-label="Бомбер внутри">
-          <li class="co co--t co--r" style="--ax:.6583;--ay:.4925;--e:.1340;--e3:.3434;--lf:var(--offT)">
+          <li class="co co--t co--r" style="--ax:.6582;--ay:.4839;--e:.1330;--e3:.3394;--lf:var(--offT)">
             <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
             <button class="co__lb" type="button" tabindex="-1"><span><b>06</b>Карман на&nbsp;молнии</span></button>
           </li>
-          <li class="co co--t co--l co--k" data-sw style="--ax:.4650;--ay:.4970;--e:.0181;--e3:.1747">
+          <li class="co co--t co--l co--k" data-sw style="--ax:.5454;--ay:.4312;--e:.0310;--e3:.1686">
             <i class="co__stem"></i><i class="co__arm"></i><i class="co__dot"></i><i class="co__hit" aria-hidden="true"></i>
             <button class="co__lb" type="button" tabindex="-1"><span><b>07</b>Серебристая подкладка</span></button>
           </li>
@@ -2314,8 +2314,8 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
           <span class="co co--b co--r" style="--ax:.5870;--ay:.9441;--lf:var(--offB)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-cuff2.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
         </div>
         <div class="g__zs g__zs--p" data-v="i" aria-hidden="true">
-          <span class="co co--t co--r" style="--ax:.6583;--ay:.4925;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-pocket-in.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
-          <span class="co co--t co--l" style="--ax:.4650;--ay:.4970"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-lining.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--r" style="--ax:.6582;--ay:.4839;--lf:var(--offT)"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-pocket-in3.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
+          <span class="co co--t co--l" style="--ax:.5454;--ay:.4312"><span class="co__z"><span class="co__zc"><img data-srcb="/onboarding/bz-lining3.webp" alt="" width="360" height="360" decoding="async"></span></span></span>
         </div>
       </div>
       <!-- ===== вещь 2: жилет (спереди, сзади, внутри) =====

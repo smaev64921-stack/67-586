@@ -1464,6 +1464,61 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .thumb[aria-current="true"]{border-color:var(--ink)}
 .thumb img{width:100%;height:100%;object-fit:cover;object-position:50% 15%}
 
+/* ---------- выноски на фото товара ----------
+   Как на втором слайде знакомства: точка на детали, линия к ряду над или
+   под вещью, плечо к краю и подпись с номером. Места считает pdnLayout()
+   по видимой части кадра; линия меняет цвет там, где переходит с фона на
+   ткань (--g). Всё только для глаз: касание проходит к фото (увеличение). */
+.pd__slide{position:relative}
+.pdn{position:absolute;inset:0;margin:0;padding:0;list-style:none;pointer-events:none;z-index:1;
+  --lnA:rgba(46,38,30,.55);--lnF:rgba(255,255,255,.8)}
+.pdn__i{position:absolute;inset:0}
+.pdn__i > *{position:absolute;display:block}
+.pdn__st{width:1px;margin-left:-.5px;background:var(--g,var(--lnA))}
+.pdn__ar{height:1px;margin-top:-.5px}
+.pdn__i--l .pdn__ar{background:linear-gradient(to right,rgba(46,38,30,0),var(--lnA) 22px);transform-origin:100% 50%}
+.pdn__i--r .pdn__ar{background:linear-gradient(to left,rgba(46,38,30,0),var(--lnA) 22px);transform-origin:0 50%}
+.pdn__d{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 0 0 3px rgba(255,255,255,.07),0 1px 3px rgba(0,0,0,.3)}
+.pdn__d::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%;background:#fff}
+/* точка на светлом (серебро подкладки) — тёмная */
+.pdn__d.is-k{border-color:rgba(22,17,12,.86);box-shadow:0 0 0 3px rgba(255,255,255,.3),0 1px 3px rgba(0,0,0,.2)}
+.pdn__d.is-k::after{background:#16110c}
+.pdn__d::before{content:'';position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.85);opacity:0;transform:scale(.3)}
+.pdn__d.is-k::before{border-color:rgba(22,17,12,.6)}
+.pdn__lb{white-space:nowrap;font-size:12px;line-height:15px;color:#3a342e;letter-spacing:.005em}
+.pdn__lb b{font-weight:500;font-size:10.5px;color:#8a6d43;margin-right:6px;letter-spacing:.04em}
+.pdn__i--r .pdn__lb{text-align:right}
+/* появление: точка — линия — плечо — подпись; выноски друг за другом (--d) */
+.pdn__d,.pdn__st,.pdn__ar,.pdn__lb{opacity:0}
+.pdn__d{transform:scale(.3)}
+.pdn__st{transform:scaleY(0)}
+.pdn__i--t .pdn__st{transform-origin:50% 100%}
+.pdn__i--b .pdn__st{transform-origin:50% 0}
+.pdn__ar{transform:scaleX(0)}
+.pdn__lb{transform:translateY(5px)}
+.pdn.is-on .pdn__d{opacity:1;transform:none;transition:opacity .4s var(--ease) var(--d),transform .7s cubic-bezier(.16,1,.3,1) var(--d)}
+.pdn.is-on .pdn__d.is-h{opacity:.5}
+.pdn.is-on .pdn__st{opacity:1;transform:none;transition:opacity .15s linear calc(var(--d) + .12s),transform .75s cubic-bezier(.16,1,.3,1) calc(var(--d) + .12s)}
+.pdn.is-on .pdn__ar{opacity:1;transform:none;transition:opacity .15s linear calc(var(--d) + .55s),transform .7s cubic-bezier(.16,1,.3,1) calc(var(--d) + .55s)}
+.pdn.is-on .pdn__lb{opacity:1;transform:none;transition:opacity .7s var(--ease) calc(var(--d) + .72s),transform .9s cubic-bezier(.16,1,.3,1) calc(var(--d) + .72s)}
+/* потом «шаги»: по точкам по очереди один раз расходится кольцо */
+.pdn.is-on .pdn__d:not(.is-h)::before{animation:pdnRing 1.4s cubic-bezier(.22,.6,.3,1) var(--r) 1 both}
+@keyframes pdnRing{0%{transform:scale(.3);opacity:0}8%{opacity:.9}70%,100%{transform:scale(1);opacity:0}}
+/* уже показанный снимок — сразу целиком */
+.pdn.is-still *,.pdn.is-still *::before{transition:none !important;animation:none !important}
+
+/* админ: «Редактировать» прямо на карточке и на странице товара */
+.pd__rb--ed{background:var(--ink);color:#fff}
+.card__ed{
+  position:absolute;top:47px;right:9px;width:32px;height:32px;border-radius:var(--r-pill);z-index:3;
+  display:flex;align-items:center;justify-content:center;background:var(--ink);color:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.18);transition:transform var(--dur) var(--ease)
+}
+.card__ed:hover{transform:scale(1.1)}
+.card__ed .ic{width:16px;height:16px}
+
 .pd__body{flex:none;padding:4px var(--pad) 16px}
 .pd__t{font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:.01em;line-height:1.25}
 .pd__sku{
@@ -3670,7 +3725,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   position:absolute;
   top:calc(56px + env(safe-area-inset-top));
   bottom:calc(40px + env(safe-area-inset-bottom));
-  left:12px;right:12px;
+  left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
   /* Центрировать здесь НЕЛЬЗЯ. У картинки transform-origin:0 0, и код увеличения
      сам считает её положение от левого верхнего угла сцены — центрирование он
      закладывает в сдвиг. Флексбокс центрировал ещё раз, и фото уезжало: на
@@ -3681,7 +3736,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .lbox img{
   max-width:100%;max-height:100%;width:auto;height:auto;
   object-fit:contain;border-radius:0;user-select:none;-webkit-user-drag:none;
-  transform-origin:0 0;will-change:transform;cursor:zoom-in
+  transform-origin:0 0;cursor:zoom-in;-webkit-touch-callout:none
 }
 /* плавность только для двойного тапа и кнопок: под пальцем она мешает */
 .lbox img.is-eased{transition:transform .26s cubic-bezier(.16,1,.3,1)}
@@ -3706,7 +3761,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 @keyframes lbHint{0%{opacity:0}15%{opacity:1}70%{opacity:1}100%{opacity:0}}
 .lbox.is-zoomed .lbox__hint{display:none}
 .lbox__x{
-  position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;
+  position:absolute;top:calc(12px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));
   width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.12);
   color:#fff;display:flex;align-items:center;justify-content:center;z-index:2
 }
@@ -3716,8 +3771,8 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   color:#fff;font-size:28px;line-height:1;z-index:2;
   display:flex;align-items:center;justify-content:center
 }
-.lbox__nav--p{left:10px}
-.lbox__nav--n{right:10px}
+.lbox__nav--p{left:calc(10px + env(safe-area-inset-left))}
+.lbox__nav--n{right:calc(10px + env(safe-area-inset-right))}
 .lbox__n{
   position:absolute;left:0;right:0;bottom:calc(12px + env(safe-area-inset-bottom));
   text-align:center;color:rgba(255,255,255,.72);font-size:13px;font-weight:600;z-index:2
@@ -4962,14 +5017,26 @@ function rvRepaint(){
   if(b) b.innerHTML = rvSheetBody();
 }
 
-/* Фото во весь экран (товар / отзывы) */
-let _lboxKey = null;
+/* Фото во весь экран (товар / отзывы)
+   Жесты — свои, без библиотек, и все через Pointer Events (раньше рядом жил
+   ещё старый свайп на Touch Events: щипок или перетаскивание увеличенного
+   фото листали его на соседнее и сбрасывали увеличение):
+   - касание фона — закрыть; по фото и кнопкам — нет. Закрываем с задержкой,
+     чтобы успело второе касание двойного;
+   - двойное касание / двойной щелчок — приблизить в этой точке или вернуть;
+   - щипок — масштаб вокруг середины между пальцами, фото идёт за пальцами;
+   - один палец: увеличено — двигать фото (не дальше его краёв), нет —
+     листать свайпом, фото идёт за пальцем;
+   - колесо и тачпад — масштаб; ← → и Esc с клавиатуры.
+   k — увеличение, tx/ty — где левый верхний угол картинки в сцене
+   (transform-origin 0 0). opts.onClose(i) — какое фото смотрели последним. */
+let _lboxClose = null;
 let _lboxHintShown = false;
-function openLightbox(srcs, startIdx){
+function openLightbox(srcs, startIdx, opts = {}){
   const list = (Array.isArray(srcs) ? srcs : [srcs]).map(String).filter(Boolean);
   if(!list.length) return;
+  if(_lboxClose) _lboxClose(true);
   document.querySelectorAll('.lbox').forEach(el => el.remove());
-  if(_lboxKey){ document.removeEventListener('keydown', _lboxKey); _lboxKey = null; }
 
   let i = Math.max(0, Math.min(list.length - 1, +startIdx || 0));
   const w = document.createElement('div');
@@ -4978,19 +5045,15 @@ function openLightbox(srcs, startIdx){
   w.setAttribute('aria-modal', 'true');
   w.setAttribute('aria-label', 'Просмотр фото');
 
-  const close = () => {
-    w.remove();
-    if(_lboxKey){ document.removeEventListener('keydown', _lboxKey); _lboxKey = null; }
-    document.body.style.overflow = '';
-  };
-  /* ---------- увеличение фото ----------
-     k — во сколько раз увеличено, tx/ty — сдвиг картинки внутри сцены.
-     Всё считается вручную, без библиотек: щипок двумя пальцами, двойной
-     тап, колесо мыши и перетаскивание увеличенного фото. */
-  const MAX_K = 5;
-  let k = 1, tx = 0, ty = 0, img = null;
+  const openedAt = Date.now();
+  const focusBack = document.activeElement;
+  const overflowWas = document.body.style.overflow;
+  let k = 1, tx = 0, ty = 0, img = null, tapTimer = 0, closed = false;
 
   const stage = () => w.querySelector('.lbox__stage');
+  /* дальше исходника увеличивать незачем — будет только мыло */
+  const maxK = () => (img && img.naturalWidth && img.clientWidth)
+    ? Math.max(2, Math.min(5, img.naturalWidth / img.clientWidth * 2)) : 4;
 
   const apply = (eased) => {
     if(!img) return;
@@ -5001,56 +5064,84 @@ function openLightbox(srcs, startIdx){
     if(kb) kb.textContent = (Math.round(k * 10) / 10).toString().replace(/\.0$/, '') + '×';
   };
 
-  /* Держим фото в кадре: пустых полей по краям быть не должно. */
+  /* Фото в кадре: меньше сцены — по центру, больше — край к краю, без
+     чёрных полей. Раньше пределы считались от положения без увеличения, и
+     увеличенное фото уезжало вправо и вниз: дальний край было не достать. */
   const clamp = () => {
     const st = stage();
     if(!st || !img) return;
-    const baseX = (st.clientWidth - img.clientWidth) / 2;
-    const baseY = (st.clientHeight - img.clientHeight) / 2;
-    const overX = Math.max(0, (img.clientWidth * k - st.clientWidth) / 2);
-    const overY = Math.max(0, (img.clientHeight * k - st.clientHeight) / 2);
-    tx = Math.min(baseX + overX, Math.max(baseX - overX, tx));
-    ty = Math.min(baseY + overY, Math.max(baseY - overY, ty));
+    const W = st.clientWidth, H = st.clientHeight;
+    const sw = img.clientWidth * k, sh = img.clientHeight * k;
+    tx = sw <= W ? (W - sw) / 2 : Math.min(0, Math.max(W - sw, tx));
+    ty = sh <= H ? (H - sh) / 2 : Math.min(0, Math.max(H - sh, ty));
   };
 
-  const reset = (eased) => {
-    const st = stage();
-    if(!st || !img) return;
-    k = 1;
-    tx = (st.clientWidth - img.clientWidth) / 2;
-    ty = (st.clientHeight - img.clientHeight) / 2;
-    apply(eased);
-  };
+  const reset = (eased) => { k = 1; clamp(); apply(eased); };
 
   /** Увеличиваем вокруг точки, на которую смотрят, а не вокруг угла. */
   const zoomAt = (nk, px, py, eased) => {
     const st = stage();
     if(!st || !img) return;
-    nk = Math.min(MAX_K, Math.max(1, nk));
+    nk = Math.min(maxK(), Math.max(1, nk));
     const r = st.getBoundingClientRect();
     const cx = px - r.left, cy = py - r.top;
-    const ratio = nk / k;
-    tx = cx - (cx - tx) * ratio;
-    ty = cy - (cy - ty) * ratio;
+    tx = cx - (cx - tx) * (nk / k);
+    ty = cy - (cy - ty) * (nk / k);
     k = nk;
-    if(k <= 1.01){ reset(true); return; }
     clamp();
     apply(eased);
   };
 
-  const go = (step) => { i = (i + step + list.length) % list.length; paint(); };
+  const onKey = e => {
+    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); return; }
+    if(list.length > 1 && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')){
+      e.preventDefault();        /* иначе стрелка ещё и листает ленту фото под окном */
+      go(e.key === 'ArrowLeft' ? -1 : 1);
+    }
+  };
+  const onResize = () => { if(k <= 1.01) reset(false); else { clamp(); apply(false); } };
+
+  /* quiet — окно снимает следующее (открыли другое фото): без возврата фокуса и «Назад» */
+  const close = (quiet) => {
+    if(closed) return;
+    closed = true;
+    clearTimeout(tapTimer);
+    w.remove();
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('resize', onResize);
+    if(_lboxClose === close) _lboxClose = null;
+    document.body.style.overflow = overflowWas;
+    if(quiet === true) return;
+    if(opts.onClose) try{ opts.onClose(i); }catch(_){}
+    try{ if(focusBack && focusBack.isConnected) focusBack.focus({ preventScroll: true }); }catch(_){}
+    syncBackSoon();
+  };
+  _lboxClose = close;
+
+  const go = (step) => {
+    /* листали стрелкой с клавиатуры или читалки — фокус остаётся на ней же,
+       иначе следующее нажатие пришлось бы на «Закрыть» */
+    const a = document.activeElement;
+    const nav = a && a.closest && w.contains(a) && a.closest('.lbox__nav');
+    const sel = nav ? (nav.classList.contains('lbox__nav--p') ? '.lbox__nav--p' : '.lbox__nav--n') : '';
+    i = (i + step + list.length) % list.length;
+    paint();
+    if(sel) try{ w.querySelector(sel).focus({ preventScroll: true }); }catch(_){}
+  };
 
   const paint = () => {
+    const touch = matchMedia('(pointer:coarse)').matches;
     w.innerHTML = `
       <button class="lbox__x" type="button" aria-label="Закрыть">${svg('x')}</button>
       ${list.length > 1 ? `<button class="lbox__nav lbox__nav--p" type="button" aria-label="Назад">‹</button>
       <button class="lbox__nav lbox__nav--n" type="button" aria-label="Вперёд">›</button>` : ''}
       <span class="lbox__k">1×</span>
-      <div class="lbox__stage"><img src="${esc(list[i])}" alt="Фото ${i + 1} из ${list.length}"></div>
+      <div class="lbox__stage"><img src="${esc(list[i])}" alt="Фото ${i + 1} из ${list.length}" draggable="false" style="visibility:hidden"></div>
       ${list.length > 1 ? `<p class="lbox__n">${i + 1} / ${list.length}</p>` : ''}
-      ${_lboxHintShown ? '' : '<p class="lbox__hint">Двойное касание или колесо — приблизить</p>'}`;
+      ${_lboxHintShown ? '' : `<p class="lbox__hint">${touch ? 'Двойное касание или щипок — приблизить' : 'Двойной щелчок или колесо — приблизить'}</p>`}`;
     _lboxHintShown = true;
     w.classList.remove('is-zoomed', 'is-dragging');
+    clearTimeout(tapTimer); tapTimer = 0;
 
     w.querySelector('.lbox__x').onclick = e => { e.stopPropagation(); close(); };
     const prev = w.querySelector('.lbox__nav--p');
@@ -5058,125 +5149,114 @@ function openLightbox(srcs, startIdx){
     if(prev) prev.onclick = e => { e.stopPropagation(); go(-1); };
     if(next) next.onclick = e => { e.stopPropagation(); go(1); };
 
-    img = w.querySelector('img');
-    if(!img) return;
+    const im = img = w.querySelector('img');
     k = 1; tx = 0; ty = 0;
-    const place = () => reset(false);
-    if(img.complete && img.naturalWidth) place(); else img.onload = place;
-    img.onclick = e => e.stopPropagation();
-    img.ondblclick = e => {
-      e.stopPropagation();
-      if(k > 1.01) reset(true); else zoomAt(2.6, e.clientX, e.clientY, true);
-    };
+    /* пока снимок не загрузился, его размер неизвестен — не показываем в углу,
+       ставим по центру, когда он есть (и только если это всё ещё он) */
+    const place = () => { if(im !== img) return; reset(false); im.style.visibility = ''; };
+    if(im.complete && im.naturalWidth) place(); else { im.onload = place; im.onerror = () => { im.style.visibility = ''; }; }
   };
 
-  /* --- жесты. Обработчики вешаем один раз на окно, а не на картинку:
-         при листании она пересоздаётся. --- */
+  /* ---------- жесты: один набор обработчиков на окно ---------- */
   const pts = new Map();
-  let pinchStartDist = 0, pinchStartK = 1;
-  let swipeFromX = 0, movedPath = 0, lastTapAt = 0;
-
-  const twoDist = () => {
-    const a = [...pts.values()];
-    return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+  let g = null, pinch = null, lastUp = null;
+  const pinchFrom = () => {
+    const [a, b] = [...pts.values()];
+    pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, k0: k, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
   };
-  const twoMid = () => {
-    const a = [...pts.values()];
-    return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2 };
-  };
-
-  w.addEventListener('wheel', e => {
-    e.preventDefault();
-    zoomAt(k * (e.deltaY < 0 ? 1.18 : 1 / 1.18), e.clientX, e.clientY, false);
-  }, { passive: false });
 
   w.addEventListener('pointerdown', e => {
+    if(e.target.closest('button')) return;                     /* у кнопок свой click */
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try{ w.setPointerCapture(e.pointerId); }catch(_){}
     if(pts.size === 1){
-      swipeFromX = e.clientX;
-      movedPath = 0;
-      w.classList.add('is-dragging');
-      try{ w.setPointerCapture(e.pointerId); }catch(_){}
+      clearTimeout(tapTimer); tapTimer = 0;
+      g = { x0: e.clientX, y0: e.clientY, t0: Date.now(), multi: false, moved: false,
+            bg: e.target === w || e.target === stage() };
+      if(k > 1.01) w.classList.add('is-dragging');
+    }else{
+      if(g) g.multi = true;
+      if(pts.size === 2) pinchFrom();
     }
-    if(pts.size === 2){ pinchStartDist = twoDist(); pinchStartK = k; }
   });
 
   w.addEventListener('pointermove', e => {
     const was = pts.get(e.pointerId);
-    if(!was) return;
-    const dx = e.clientX - was.x, dy = e.clientY - was.y;
+    if(!was || !g) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    movedPath += Math.abs(dx) + Math.abs(dy);
-
-    if(pts.size >= 2 && pinchStartDist > 0){
-      const m = twoMid();
-      zoomAt(pinchStartK * (twoDist() / pinchStartDist), m.x, m.y, false);
+    if(Math.hypot(e.clientX - g.x0, e.clientY - g.y0) > 12) g.moved = true;
+    if(pinch && pts.size >= 2){
+      const [a, b] = [...pts.values()];
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      tx += mx - pinch.mx; ty += my - pinch.my;            /* фото идёт за пальцами */
+      pinch.mx = mx; pinch.my = my;
+      zoomAt(pinch.k0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0, mx, my, false);
       return;
     }
-    if(pts.size === 1 && k > 1.01){
-      tx += dx; ty += dy;
-      clamp();
-      apply(false);
+    if(pts.size !== 1 || !img) return;
+    if(k > 1.01){
+      tx += e.clientX - was.x; ty += e.clientY - was.y;
+      clamp(); apply(false);
+    }else if(list.length > 1 && !g.multi && g.moved){
+      /* листание: снимок едет за пальцем, отпустил — уходит или возвращается */
+      img.classList.remove('is-eased');
+      img.style.transform = `translate(${tx + (e.clientX - g.x0)}px, ${ty}px) scale(1)`;
     }
   });
 
-  const liftUp = e => {
-    const wasCount = pts.size;
+  const lift = e => {
+    if(!pts.has(e.pointerId)) return;
     pts.delete(e.pointerId);
-    if(pts.size < 2) pinchStartDist = 0;
-    if(pts.size === 0) w.classList.remove('is-dragging');
-    if(wasCount !== 1) return;
-
-    /* двойной тап пальцем: dblclick на мобильных срабатывает не везде */
-    if(movedPath < 10){
-      const now = Date.now();
-      if(now - lastTapAt < 300){
-        lastTapAt = 0;
-        if(k > 1.01) reset(true); else zoomAt(2.6, e.clientX, e.clientY, true);
-        return;
+    if(pts.size >= 2) pinchFrom(); else pinch = null;
+    if(pts.size) return;
+    w.classList.remove('is-dragging');
+    const s = g; g = null;
+    if(!s) return;
+    /* жест отменён (долгое касание, системный «назад») — не тап и не свайп */
+    if(e.type === 'pointercancel'){ if(k <= 1.01) reset(true); return; }
+    if(s.multi){ if(k < 1.15) reset(true); return; }        /* щипок чуть больше 1× — назад к 1× */
+    const dx = e.clientX - s.x0, dy = e.clientY - s.y0;
+    if(s.moved){
+      lastUp = null;
+      if(k <= 1.01){
+        if(list.length > 1 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.2) go(dx < 0 ? 1 : -1);
+        else apply(true);
       }
-      lastTapAt = now;
-      /* одиночный тап по фону закрывает — но только если не увеличено */
-      const target = e.target;
-      setTimeout(() => {
-        if(lastTapAt && k <= 1.01 && (target === w || target === stage())) close();
-      }, 310);
       return;
     }
-    /* горизонтальный свайп листает, пока фото не увеличено */
-    if(k <= 1.01 && list.length > 1){
-      const dx = e.clientX - swipeFromX;
-      if(Math.abs(dx) > 60) go(dx < 0 ? 1 : -1);
+    if(s.t0 - openedAt < 350) return;                       /* хвост двойного тапа, которым фото открыли */
+    if(lastUp && s.t0 - lastUp.t < 320 && Math.hypot(e.clientX - lastUp.x, e.clientY - lastUp.y) < 40){
+      lastUp = null;
+      if(k > 1.01) reset(true); else zoomAt(Math.min(2.6, maxK()), e.clientX, e.clientY, true);
+      return;
     }
+    lastUp = { t: Date.now(), x: e.clientX, y: e.clientY };
+    if(s.bg && k <= 1.01) tapTimer = setTimeout(() => { tapTimer = 0; close(); }, 320);
   };
-  w.addEventListener('pointerup', liftUp);
-  w.addEventListener('pointercancel', liftUp);
-  window.addEventListener('resize', () => { if(k <= 1.01) reset(false); else { clamp(); apply(false); } });
+  w.addEventListener('pointerup', lift);
+  w.addEventListener('pointercancel', lift);
+  w.addEventListener('dragstart', e => e.preventDefault());
 
-  /* закрытие по касанию фона обрабатывается в liftUp — так одиночный тап
-     не мешает двойному и перетаскиванию увеличенного фото */
+  w.addEventListener('wheel', e => {
+    e.preventDefault();
+    const u = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const dx = e.deltaX * u, dy = e.deltaY * u;
+    if(!dy || Math.abs(dx) > Math.abs(dy)){
+      /* прокрутка вбок (тачпад, Shift) — при увеличении двигает фото */
+      if(k > 1.01){ tx -= dx; ty -= dy; clamp(); apply(false); }
+      return;
+    }
+    /* плавно: тачпад шлёт десятки мелких событий, колесо — редкие большие */
+    zoomAt(k * Math.exp(-Math.max(-60, Math.min(60, dy)) * (e.ctrlKey ? .01 : .004)), e.clientX, e.clientY, false);
+  }, { passive: false });
+
   document.body.style.overflow = 'hidden';
   document.body.appendChild(w);
+  document.addEventListener('keydown', onKey, true);   /* раньше общего Esc: под окном могут лежать шторки */
+  window.addEventListener('resize', onResize);
   paint();
-
-  _lboxKey = e => {
-    if(e.key === 'Escape') close();
-    if(e.key === 'ArrowLeft' && list.length > 1){ i = (i - 1 + list.length) % list.length; paint(); }
-    if(e.key === 'ArrowRight' && list.length > 1){ i = (i + 1) % list.length; paint(); }
-  };
-  document.addEventListener('keydown', _lboxKey);
-
-  /* свайп */
-  let x0 = null;
-  w.addEventListener('touchstart', e => { x0 = e.changedTouches[0].clientX; }, { passive:true });
-  w.addEventListener('touchend', e => {
-    if(x0 == null || list.length < 2) return;
-    const dx = e.changedTouches[0].clientX - x0;
-    x0 = null;
-    if(Math.abs(dx) < 40) return;
-    i = dx > 0 ? (i - 1 + list.length) % list.length : (i + 1) % list.length;
-    paint();
-  }, { passive:true });
+  try{ w.querySelector('.lbox__x').focus({ preventScroll: true }); }catch(_){}
 }
 
 function rvPhoto(id, idx){
@@ -5198,7 +5278,13 @@ function productPhotoZoom(idx){
   if(!p) return;
   const gal = p.gal && p.gal.length ? p.gal : [p.img];
   const start = idx == null ? S.galIdx : +idx;
-  openLightbox(gal, start);
+  openLightbox(gal, start, {
+    /* закрыли на другом фото — лента в карточке встаёт на него же */
+    onClose: n => {
+      const t = document.getElementById('pdTrack');
+      if(t && n !== S.galIdx) t.scrollLeft = n * (t.clientWidth || 1);
+    }
+  });
 }
 
 /* ==========================================================
@@ -8345,6 +8431,7 @@ function cardHTML(p, i){
         `<span class="card__dot${i ? '' : ' on'}"></span>`).join('')}</div>` : ''}
     </div>
     <button class="card__fav" data-a="fav:${p.id}" aria-pressed="${S.favs.includes(p.id)}" aria-label="В избранное">${svg('heart')}</button>
+    ${isAdmin() ? `<button class="card__ed" data-a="pedit:${p.id}" aria-label="Редактировать товар" title="Редактировать">${svg('pencil')}</button>` : ''}
     <div class="card__meta">
     <button class="card__n" data-a="open:${p.id}" style="text-align:left">${p.name}</button>
     ${rvCardHTML(p)}
@@ -8945,10 +9032,11 @@ function scrProduct(){
           <button type="button" class="pd__zoom" data-a="zoom:${i}" aria-label="Открыть фото">
             <img class="pd__main" src="${g}" alt="${p.name}" draggable="false"
               decoding="async"${i ? ' loading="lazy" fetchpriority="low"' : ' fetchpriority="high"'}>
-          </button>
+          </button>${pdnHTML(g)}
         </div>`).join('')}
       </div>
       <div class="pd__side">
+        ${isAdmin() ? `<button class="pd__rb pd__rb--ed" data-a="pedit:${p.id}" aria-label="Редактировать товар" title="Редактировать">${svg('pencil')}</button>` : ''}
         <button class="pd__rb" data-a="fav:${p.id}" aria-pressed="${fav}" aria-label="В избранное">${svg('heart')}</button>
         <button class="pd__rb" data-a="share" aria-label="Поделиться">${svg('share')}</button>
       </div>
@@ -10466,6 +10554,212 @@ function bindGalleries(){
     const w = pd.clientWidth || 1;
     pd.scrollLeft = (S.galIdx || 0) * w;
   }
+}
+
+/* ==========================================================
+   ВЫНОСКИ НА ФОТО ТОВАРА
+   Как на втором слайде знакомства: зашёл в карточку — на снимке по очереди
+   встают выноски (точка на детали — линия — плечо — подпись), потом по
+   точкам проходит кольцо. Листнул на следующий снимок — то же на нём.
+   Вернулся к уже показанному — выноски стоят сразу, без анимации; заново
+   проигрываются, только если вышел из карточки и зашёл снова.
+
+   Данные — по снимку: ключ — хеш из адреса /media/p/<id>/<хеш>. Заменили
+   фото в админке — выноски с него пропадут, а не поедут мимо детали.
+   Точки сняты со слайда и переложены на фото товара (кадр 1000×1500, доли):
+   [x, y, точка на светлом, где линия меняет цвет по пути наружу —
+   [y, 1 — дальше тёмная ткань и линия светлая / 0 — фон или серебро]].
+   g — верх и низ вещи на снимке: над и под ней идут ряды подписей.
+   ========================================================== */
+const PDN = {
+  /* худи спереди */ '8b52417f585cf153':{"g":[0.1847,0.756],"n":[{"n":"01","t":"Металлическая молния","s":"tl","p":[[0.5093,0.3518,0,[[0.352,1],[0.184,0]]]]},{"n":"02","t":"Капюшон на шнурках","s":"tr","p":[[0.5938,0.2837,0,[[0.284,1],[0.1867,0]]]]},{"n":"03","t":"Карман-кенгуру","s":"bl","p":[[0.332,0.5951,0,[[0.5953,1],[0.7467,0]]]]},{"n":"04","t":"Манжеты и низ в рубчик","s":"br","p":[[0.6897,0.7258,0,[[0.726,1],[0.746,0]]],[0.8247,0.7326,0,[[0.7327,1],[0.756,0]]]],"h":1}]},
+  /* худи сзади */ '428fa87bec79c2aa':{"g":[0.1853,0.7547],"n":[{"n":"05","t":"Объёмный капюшон","s":"tl","p":[[0.4956,0.2753,0,[[0.2753,1],[0.1847,0]]]]},{"n":"06","t":"Спущенное плечо","s":"tr","p":[[0.787,0.3547,0,[[0.3547,1],[0.3147,0]]]]}]},
+  /* бомбер спереди */ 'cad355e6cc194ef6':{"g":[0.286,0.6547],"n":[{"n":"01","t":"Молния во всю длину","s":"tl","p":[[0.4981,0.3664,0,[[0.3667,1],[0.288,0]]]]},{"n":"02","t":"Воротник в рубчик","s":"tr","p":[[0.5555,0.3054,0,[[0.3053,1],[0.2907,0]]]]},{"n":"03","t":"Косые карманы","s":"bl","p":[[0.3809,0.5161,0,[[0.516,1],[0.65,0]]]]},{"n":"04","t":"Манжеты и низ в рубчик","s":"br","p":[[0.5791,0.6362,0,[[0.636,1],[0.6507,0]]],[0.9116,0.6205,0,[[0.6207,1],[0.6433,0]]]],"h":1}]},
+  /* бомбер сзади */ 'aca03dc52c5e68d3':{"g":[0.2713,0.6693],"n":[{"n":"05","t":"Рукава со сборкой","s":"tr","p":[[0.3083,0.3912,0,[[0.3913,1],[0.338,0]]],[0.6947,0.3912,0,[[0.3913,1],[0.3407,0]]]]}]},
+  /* бомбер внутри */ '75d9fcba8f34920d':{"g":[0.3013,0.638],"n":[{"n":"06","t":"Карман на молнии","s":"tr","p":[[0.6471,0.4671,0,[[0.4673,1],[0.4573,0],[0.416,1],[0.3433,0]]]]},{"n":"07","t":"Серебристая подкладка","s":"tl","p":[[0.4675,0.4686,1,[[0.4687,0],[0.434,1],[0.4233,0],[0.408,1],[0.372,0],[0.364,1],[0.3007,0]]]]}]},
+  /* бомбер внутри, снимок 06.10 (партия 2026-10-06-bomber-inside) */ '129009ec136d2012':{"g":[0.2973,0.642],"n":[{"n":"06","t":"Карман на молнии","s":"tr","p":[[0.6469,0.4639,0,[[0.464,1],[0.4547,0],[0.412,1],[0.34,0]]]]},{"n":"07","t":"Серебристая подкладка","s":"tl","p":[[0.5421,0.4454,1,[[0.4453,0],[0.406,1],[0.3947,0],[0.3813,1],[0.304,0]]]]}]},
+  /* жилет спереди */ 'e0669a38102bd9ca':{"g":[0.1507,0.79],"n":[{"n":"01","t":"Ветрозащитная планка","s":"tl","p":[[0.469,0.4384,0,[[0.4387,1],[0.1513,0]]]]},{"n":"02","t":"Утяжка по низу","s":"br","p":[[0.2373,0.761,0,[[0.7613,1],[0.7693,0]]],[0.7584,0.761,0,[[0.7613,1],[0.7693,0]]]]}]},
+  /* жилет внутри */ '985e0e739ea08af5':{"g":[0.2113,0.7293],"n":[{"n":"03","t":"Внутренний карман","s":"tr","p":[[0.6611,0.4516,0,[[0.4513,1],[0.3033,0]]]]},{"n":"04","t":"Утеплённый подклад","s":"tl","p":[[0.4829,0.4825,0,[[0.4827,1],[0.2113,0]]]]}]}
+};
+/* откат партии фото 2026-10-06-bomber-inside (was/) кладёт прежний снимок
+   перекодированным — хеш у него другой, выноски те же */
+PDN['54ff9e212ade8ef1'] = PDN['75d9fcba8f34920d'];
+const pdnSeen = new Set();      /* снимки, уже показанные за этот заход в карточку */
+let pdnPid = null, pdnIO = null, pdnRaf = 0;
+
+function pdnKey(src){
+  const m = /\/media\/p\/\d+\/([0-9a-f]{16})\./.exec(src || '');
+  if(!m) return '';
+  let h = m[1];
+  /* проверка на своём компьютере: снимки там другие, хеши — свои */
+  try{
+    const al = JSON.parse(localStorage.getItem('lc_pdn_alias') || 'null');
+    if(al && al[h]) h = al[h];
+  }catch(_){}
+  return PDN[h] ? h : '';
+}
+
+function pdnHTML(src){
+  const h = pdnKey(src);
+  if(!h) return '';
+  const n = PDN[h].n, rings = (n.length - 1) * .2 + 1.6;
+  return `<ul class="pdn" data-h="${h}" aria-hidden="true">${n.map((it, i) =>
+    `<li class="pdn__i pdn__i--${it.s[0]} pdn__i--${it.s[1]}" style="--d:${(i * .2).toFixed(2)}s;--r:${(rings + i * .45).toFixed(2)}s">${
+      it.p.map((pt, j) => `<i class="pdn__st"></i><i class="pdn__d${pt[2] ? ' is-k' : ''}${it.h && !j ? ' is-h' : ''}"></i>`).join('')
+    }<i class="pdn__ar"></i><span class="pdn__lb"><b>${it.n}</b>${it.t}</span></li>`).join('')}</ul>`;
+}
+
+/* Цвет линии по пути: светлая по чёрной ткани, тёмная по фону и серебру */
+function pdnGrad(c, a, b, Y){
+  if(!(b > a) || !c || !c.length) return 'var(--lnA)';
+  const up = c.length < 2 || c[1][0] < c[0][0];
+  const at = y => {
+    let k = 0;
+    c.forEach((e, i) => { const yy = Y(e[0]); if(up ? yy >= y : yy <= y) k = i; });
+    return c[k][1];
+  };
+  const col = v => v ? 'var(--lnF)' : 'var(--lnA)';
+  const cuts = c.slice(1).map(e => Y(e[0])).filter(y => y > a && y < b).sort((p, q) => p - q);
+  let cur = at(a + .5);
+  const stops = [`${col(cur)} 0`];
+  cuts.forEach(y => {
+    const nx = at(y + .5);
+    if(nx === cur) return;
+    const t = y - a;
+    stops.push(`${col(cur)} ${Math.max(0, t - 1).toFixed(1)}px`, `${col(nx)} ${(t + 1).toFixed(1)}px`);
+    cur = nx;
+  });
+  stops.push(`${col(cur)} 100%`);
+  return `linear-gradient(to bottom,${stops.join(',')})`;
+}
+
+function pdnLayout(ul){
+  const sl = ul.parentElement, d = PDN[ul.dataset.h];
+  const W = sl.clientWidth, H = sl.clientHeight;
+  if(!d || !W || !H) return;
+  /* где на самом деле лежит кадр: object-fit:cover, привязка 50% 15% (.pd__main) */
+  const s = Math.max(W / 1000, H / 1500), iw = 1000 * s, ih = 1500 * s;
+  const ix = (W - iw) * .5, iy = (H - ih) * .15;
+  const X = f => ix + f * iw, Y = f => iy + f * ih;
+  const LH = 15, eL = 14, eR = W - 14;
+  /* справа сверху — «избранное» и «поделиться»: верхний ряд кончается левее */
+  const hero = sl.closest('.pd__hero');
+  const side = hero && hero.querySelector('.pd__side');
+  const eRt = side && side.offsetWidth ? Math.min(eR, side.offsetLeft - 10) : eR;
+  const items = [...ul.children];
+  const lbW = i => items[i] ? items[i].querySelector('.pdn__lb').offsetWidth : 0;
+  const rowT = Math.max(LH + 12, Y(d.g[0]) - 16);
+  const rowB = Math.min(H - LH - 14, Y(d.g[1]) + 16);
+  /* На низком экране телефона кадр обрезан снизу: точка может уйти за край,
+     а ряд подписей — наехать на неё. Такую выноску не показываем вовсе. */
+  const vis = d.n.map(it => {
+    const ys = it.p.map(p => Y(p[1]));
+    const room = it.s[0] === 't' ? Math.min(...ys) - rowT : rowB - Math.max(...ys);
+    return ys.every(y => y > 6 && y < H - 6) && room >= 14;
+  });
+  items.forEach((li, i) => { li.style.display = vis[i] ? '' : 'none'; });
+  /* слева и справа в одном ряду — если подписи или линии мешают друг другу,
+     правую поднимаем (внизу — опускаем) на строку */
+  const rowFor = (t, er) => {
+    const L = d.n.findIndex((it, i) => vis[i] && it.s === t + 'l'), R = d.n.findIndex((it, i) => vis[i] && it.s === t + 'r');
+    const base = t === 't' ? rowT : rowB;
+    if(L < 0 || R < 0) return base;
+    const wl = lbW(L), wr = lbW(R);
+    const xl = Math.max(...d.n[L].p.map(p => X(p[0]))), xr = Math.min(...d.n[R].p.map(p => X(p[0])));
+    const clash = eL + wl + 10 > er - wr || xr < eL + wl + 8 || xl > er - wr - 8;
+    if(!clash) return base;
+    return t === 't' ? Math.max(LH + 12, base - LH - 10) : Math.min(H - LH - 14, base + LH + 10);
+  };
+  const rTR = rowFor('t', eRt), rBR = rowFor('b', eR);
+  d.n.forEach((it, i) => {
+    const li = items[i];
+    if(!li || !vis[i]) return;
+    const up = it.s[0] === 't', left = it.s[1] === 'l';
+    const row = up ? (left ? rowT : rTR) : (left ? rowB : rBR);
+    const er = up ? eRt : eR;
+    const sts = li.querySelectorAll('.pdn__st'), ds = li.querySelectorAll('.pdn__d');
+    const xs = [];
+    it.p.forEach((pt, j) => {
+      const x = X(pt[0]), y = Y(pt[1]);
+      xs.push(x);
+      ds[j].style.left = x + 'px';
+      ds[j].style.top = y + 'px';
+      const a = up ? row : y + 6, b = up ? y - 6 : row;
+      sts[j].style.left = x + 'px';
+      sts[j].style.top = a + 'px';
+      sts[j].style.height = Math.max(0, b - a) + 'px';
+      sts[j].style.setProperty('--g', pdnGrad(pt[3], a, b, Y));
+    });
+    const ar = li.querySelector('.pdn__ar'), lb = li.querySelector('.pdn__lb');
+    const xa = left ? Math.max(...xs) : Math.min(...xs);
+    ar.style.top = row + 'px';
+    ar.style.left = (left ? eL : xa) + 'px';
+    ar.style.width = Math.max(0, left ? xa - eL : er - xa) + 'px';
+    lb.style.left = left ? eL + 'px' : 'auto';
+    lb.style.right = left ? 'auto' : (W - er) + 'px';
+    lb.style.top = (up ? row - 7 - LH : row + 7) + 'px';
+  });
+}
+
+function pdnPlay(ul){
+  if(!ul.isConnected || pdnSeen.has(ul.dataset.h)) return;
+  pdnSeen.add(ul.dataset.h);
+  pdnLayout(ul);
+  ul.classList.add('is-on');
+}
+
+function pdnBind(){
+  if(pdnIO){ pdnIO.disconnect(); pdnIO = null; }
+  const track = document.getElementById('pdTrack');
+  const lists = track ? [...track.querySelectorAll('.pdn')] : [];
+  if(!lists.length) return;
+  lists.forEach(ul => {
+    pdnLayout(ul);
+    if(pdnSeen.has(ul.dataset.h)) ul.classList.add('is-on', 'is-still');
+  });
+  if(!('IntersectionObserver' in window)){
+    lists.forEach(ul => ul.classList.add('is-on', 'is-still'));
+    return;
+  }
+  /* Снимок встал на место (на экране больше 60 % и задержался) — рисуем. Пока
+     он грузится, ждём: выноски поверх пустого кадра смотрятся странно. При
+     быстром перелистывании через миниатюры промежуточные снимки не трогаем. */
+  const wait = new Map();
+  const shown = sl => Math.abs(sl.offsetLeft - track.scrollLeft) < track.clientWidth * .4;
+  pdnIO = new IntersectionObserver(es => es.forEach(e => {
+    const sl = e.target, ul = sl.querySelector('.pdn');
+    if(!ul || pdnSeen.has(ul.dataset.h)) return;
+    clearTimeout(wait.get(ul));
+    if(e.intersectionRatio < .6) return;
+    wait.set(ul, setTimeout(() => {
+      const img = sl.querySelector('img');
+      if(img && !(img.complete && img.naturalWidth)){
+        img.addEventListener('load', () => { if(shown(sl)) pdnPlay(ul); }, {once:true});
+      }else if(shown(sl)) pdnPlay(ul);
+    }, 220));
+  }), { threshold: [.6] });
+  lists.forEach(ul => pdnIO.observe(ul.parentElement));
+}
+
+window.addEventListener('resize', () => {
+  cancelAnimationFrame(pdnRaf);
+  pdnRaf = requestAnimationFrame(() => document.querySelectorAll('#pdTrack .pdn').forEach(pdnLayout));
+}, {passive:true});
+
+/* Форма товара поверх магазина (кнопка «Редактировать» на карточке): панели
+   админки под ней нет, поэтому сами держим страницу под формой и «Назад». */
+function pFormOverShop(){
+  if(adm.querySelector('.ad')) return;
+  const body = document.body;
+  body.style.overflow = 'hidden';
+  const mo = new MutationObserver(() => {
+    if(adm.querySelector('.ad__form')) return;
+    mo.disconnect();
+    if(!adm.querySelector('.ad')) body.style.overflow = '';
+    syncBack();
+  });
+  mo.observe(adm, {childList:true});
+  armBack();
 }
 
 /* Полки главной — все товары в продаже, по разделу на полку, в порядке CATS.
@@ -12143,6 +12437,15 @@ function render(keepScroll){
   }
   bindSliders();
   bindGalleries();
+  /* выноски на фото: вышел из карточки и зашёл снова — показываем заново */
+  if(S.screen === 'product'){
+    if(pdnPid !== S.productId){ pdnSeen.clear(); pdnPid = S.productId; }
+    pdnBind();
+  }else if(pdnPid !== null){
+    pdnPid = null;
+    pdnSeen.clear();
+    if(pdnIO){ pdnIO.disconnect(); pdnIO = null; }
+  }
   if(keepScroll){
     const t = document.getElementById('pdTrack');
     if(t && galLeft) t.scrollLeft = galLeft;
@@ -12203,7 +12506,7 @@ const HIST = [];
 let favObserver = null;
 function watchPhotoFav(){
   favObserver?.disconnect();
-  const onPhoto = document.querySelector('.pd__hero .pd__rb');
+  const onPhoto = document.querySelector('.pd__hero .pd__rb[data-a^="fav:"]');
   const cta = document.querySelector('.pd__cta');
   if(!onPhoto || !cta) return;
   if(!('IntersectionObserver' in window)){ cta.classList.add('on'); return; }
@@ -12411,7 +12714,7 @@ function needBack(){
     if(document.querySelector('.askw, .lbox, .appm')) return true;
     if(ov && ov.innerHTML) return true;
     const adm = document.getElementById('adm');
-    if(adm && adm.querySelector('.ad')) return true;
+    if(adm && adm.querySelector('.ad, .ad__form')) return true;
     return HIST.length > 0;
   }catch(_){ return false; }   /* сомневаешься — не мешай уйти */
 }
@@ -12471,6 +12774,9 @@ window.addEventListener('popstate', () => {
   if(appx){ appx.click(); syncBack(); return; }
   if(ov && ov.innerHTML){ closeOv(); syncBack(); return; }
   const adm = document.getElementById('adm');
+  /* форма товара, открытая прямо с карточки (без панели под ней) */
+  const pf = adm && !adm.querySelector('.ad') && adm.querySelector('.ad__form');
+  if(pf){ pf.remove(); syncBack(); return; }
   if(adm && adm.querySelector('.ad')){ closeAdmin(); syncBack(); return; }
   if(HIST.length){ back(); syncBack(); return; }
   /* Отступать больше некуда — не мешаем уйти с сайта. */
@@ -14652,6 +14958,15 @@ document.addEventListener('click', e => {
           else if(row.scrollLeft < r) row.scrollTo({left:r, behavior:'smooth'});
         }
       }
+      break;
+    }
+    case 'pedit': {
+      /* админ: та же форма товара, что в админке, — прямо с карточки */
+      const ep = isAdmin() ? byId(+a) : null;
+      if(!ep) break;
+      closeOv();
+      pForm(ep);
+      pFormOverShop();
       break;
     }
     case 'open':
