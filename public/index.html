@@ -1533,6 +1533,20 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .pd__price{font-size:21px;font-weight:700;margin-top:10px}
 .pd__price s{font-size:14px;font-weight:400;margin-left:6px}
 .pd__lab{font-size:12.5px;font-weight:600;color:var(--muted);margin:14px 0 8px}
+/* «Размер» и справа кнопка «Таблица размеров» (шторка снизу) */
+.pd__szh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 8px}
+.pd__szh .pd__lab{margin:0}
+.pd__szb{
+  display:inline-flex;align-items:center;gap:6px;min-height:32px;margin:-6px -8px -6px 0;padding:6px 8px;
+  border-radius:var(--r-sm);font-size:12.5px;font-weight:600;color:var(--ink);letter-spacing:.01em;
+  -webkit-tap-highlight-color:transparent;transition:background var(--dur) var(--ease)
+}
+.pd__szb span{text-decoration:underline;text-decoration-color:rgba(0,0,0,.28);text-underline-offset:3px;
+  transition:text-decoration-color var(--dur) var(--ease)}
+.pd__szb .ic{width:16px;height:16px;stroke-width:1.7;flex:none}
+.pd__szb:hover span{text-decoration-color:currentColor}
+.pd__szb:active{background:var(--chip)}
+.pd__szb--solo{margin:14px 0 0 -8px}
 
 .sizes{display:flex;flex-wrap:wrap;gap:8px}
 .size{
@@ -2551,6 +2565,88 @@ html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--
 }
 @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .sheet__g{width:38px;height:4px;background:var(--line2);border-radius:2px;margin:10px auto 2px;flex:none}
+
+/* ---- Шторка «Таблица размеров» ----
+   Выезжает снизу мягкой пружиной, фон чуть размывается; строки замеров
+   проявляются по очереди. Колонка выбранного размера подсвечена, размер
+   можно выбрать прямо из таблицы. Закрывается свайпом вниз за ручку или
+   шапку, крестиком, по фону, «Назад» и Escape — и уходит вниз плавно (её
+   копия доигрывает уход, см. closeOv). На компьютере — окно по центру. */
+.scrim--sz{background:rgba(12,12,12,.46);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);animation:fade .45s var(--ease) both}
+.sheet--sz{
+  max-height:min(88vh,760px);border-radius:22px 22px 0 0;overflow:hidden;
+  box-shadow:0 -18px 50px -18px rgba(0,0,0,.35);
+  /* без fill: после въезда шторку двигает палец (inline transform), а
+     заполнение анимации перекрывало бы его */
+  animation:szUp .62s cubic-bezier(.16,1,.3,1);transition:transform .42s cubic-bezier(.22,1,.36,1)
+}
+.sheet--sz.is-drag{transition:none}
+@keyframes szUp{from{transform:translateY(100%)}to{transform:none}}
+.sz__grab{flex:none;padding:10px 0 2px;touch-action:none;cursor:grab}
+.sz__grab i{display:block;width:40px;height:4px;margin:0 auto;border-radius:2px;background:var(--line2)}
+.sz__h{flex:none;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:10px 20px 14px;touch-action:none}
+.sz__k{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.sz__t{margin-top:5px;font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.sz__x{
+  width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;margin:-2px -6px 0 0;
+  background:var(--chip);color:var(--ink);transition:background var(--dur) var(--ease),transform .15s var(--ease)
+}
+.sz__x:hover{background:var(--line)}
+.sz__x:active{transform:scale(.94)}
+.sz__x .ic{width:17px;height:17px;stroke-width:1.9}
+.sz__b{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 20px 20px}
+/* таблица: первая колонка закреплена, размеры листаются вбок */
+.sz__wrap{overflow-x:auto;margin:0 -20px;padding:0 20px;scrollbar-width:none;outline:none}
+.sz__wrap::-webkit-scrollbar{display:none}
+.sz__tb{border-collapse:separate;border-spacing:0;min-width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.sz__tb th,.sz__tb td{padding:0 4px;height:50px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line);
+  transition:background-color .35s var(--ease),color .35s var(--ease)}
+.sz__tb thead th{height:auto;padding:4px 3px 10px;border-bottom:1px solid var(--ink)}
+.sz__tb tbody th{
+  position:sticky;left:0;z-index:1;background:var(--card);text-align:left;padding-right:14px;
+  font-size:12.5px;font-weight:600;color:var(--ink-soft);white-space:normal;min-width:100px;max-width:140px;line-height:1.3
+}
+.sz__tb thead .sz__c0{position:sticky;left:0;z-index:2;background:var(--card);text-align:left;vertical-align:bottom;
+  font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-left:0}
+.sz__tb tbody tr:last-child > *{border-bottom:0}
+.sz__tb td{min-width:50px;font-weight:600;color:var(--ink)}
+/* таблица шире шторки — правый край растворяется: видно, что она листается */
+.sz__wrap.is-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
+.sz__tb td.is-on,.sz__tb th.is-on{background:rgba(11,11,11,.045)}
+.sz__tb tbody tr:last-child td.is-on{border-radius:0 0 12px 12px}
+.sz__dash{color:var(--muted2);font-weight:500}
+.sz__s{
+  min-width:44px;height:40px;padding:0 9px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.03em;
+  border:1.5px solid var(--line2);background:var(--card);color:var(--ink);
+  transition:background-color .3s var(--ease),color .3s var(--ease),border-color .3s var(--ease),transform .15s var(--ease)
+}
+.sz__s:active{transform:scale(.94)}
+.sz__s[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.sz__s:disabled{color:var(--muted2);border-style:dashed;cursor:default}
+.sz__tb tbody tr{animation:szRow .55s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(.16s + var(--i,0) * 45ms)}
+@keyframes szRow{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.sz__note{margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--chip);
+  font-size:12.5px;line-height:1.5;color:var(--ink-soft);animation:szRow .55s cubic-bezier(.16,1,.3,1) .3s both}
+.sz__img{display:block;width:100%;height:auto;border-radius:12px;background:var(--photo)}
+.sz__f{flex:none;padding:12px 20px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.sz__go{
+  width:100%;min-height:50px;border-radius:var(--r-md);background:var(--ink);color:#fff;
+  font-size:12.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transition:opacity var(--dur) var(--ease),transform .14s var(--ease)
+}
+.sz__go:active{transform:scale(.985)}
+.sz__go:hover{opacity:.9}
+/* копия закрытой шторки доигрывает уход и исчезает; нажатия сквозь неё */
+.ov-ghost,.ov-ghost *{pointer-events:none!important}
+@media (min-width:760px){
+  .sheet--sz{border-radius:20px;max-height:min(84vh,720px);animation:szPop .5s cubic-bezier(.16,1,.3,1);box-shadow:0 30px 80px -20px rgba(0,0,0,.45)}
+  .sz__grab{display:none}
+  .sz__h{padding-top:22px;touch-action:auto}
+}
+@keyframes szPop{from{opacity:0;transform:translateY(calc(-50% + 18px)) scale(.98)}to{opacity:1;transform:translateY(-50%)}}
+@media (prefers-reduced-motion:reduce){
+  .scrim--sz,.sheet--sz,.sz__tb tbody tr,.sz__note{animation:none}
+  .sheet--sz,.sz__tb th,.sz__tb td,.sz__s{transition:none}
+}
 .sheet__h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex:none}
 .sheet__t{font-size:15px;font-weight:700}
 .sheet__b{flex:1;overflow-y:auto;padding:6px 16px 16px}
@@ -4284,6 +4380,72 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .ad__pp-it[aria-selected="true"] .ad__pp-ck{background:var(--ink);border-color:var(--ink);color:#fff}
 .ad__pp-none{padding:22px 10px;text-align:center;color:var(--muted);font-size:13px}
 .ad__pp-rm{margin-right:auto;color:var(--danger)}
+/* ---- админка → «Размеры» ---- */
+.ad__szr{align-items:flex-start}
+.ad__szic{width:44px;height:44px;border-radius:var(--r-md);background:var(--chip);display:grid;place-items:center;flex:none}
+.ad__szic .ic{width:20px;height:20px;stroke:var(--ink);stroke-width:1.6}
+.ad__szth{display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:wrap}
+.ad__szth img{width:26px;height:32px;object-fit:contain;border-radius:3px;background:var(--photo);border:1px solid var(--line)}
+.ad__szth i{font-style:normal;font-size:11px;font-weight:600;color:var(--muted);padding:0 2px}
+.ad__szth b{font-size:11.5px;font-weight:600;color:var(--muted);margin-left:4px}
+.ad__szw{display:block;color:var(--tone-ship-fg);font-size:11.5px;margin-top:4px}
+.ad__card--sz{width:min(720px,100%)}
+.ad__szsec{margin:4px 0 16px}
+.ad__szsec > .ad__l{margin-bottom:8px}
+.ad__szchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ad__szchip{
+  display:inline-flex;align-items:center;gap:2px;height:36px;padding:0 4px 0 13px;border-radius:999px;
+  background:var(--ink);color:#fff;font-size:13px;font-weight:700;letter-spacing:.03em;animation:fadeIn .2s var(--ease)
+}
+.ad__szchip button{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:rgba(255,255,255,.75)}
+.ad__szchip button:hover{background:rgba(255,255,255,.14);color:#fff}
+.ad__szchip .ic{width:13px;height:13px;stroke-width:2.2}
+.ad__szadd{
+  height:36px;width:104px;padding:0 13px;border-radius:999px;border:1.5px dashed var(--line2);background:var(--card);
+  font:inherit;font-size:13px;font-weight:600;color:var(--ink);outline:none;text-transform:uppercase
+}
+.ad__szadd::placeholder{text-transform:none;color:var(--muted)}
+.ad__szadd:focus{border-style:solid;border-color:var(--ink)}
+.ad__szpre{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--muted)}
+.ad__szq{
+  height:30px;padding:0 11px;border-radius:999px;border:1.5px solid var(--line2);background:var(--card);
+  font-size:12px;font-weight:600;color:var(--ink);transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)
+}
+.ad__szq:hover{border-color:var(--ink);background:var(--chip)}
+.ad__szq--own{border-style:dashed}
+/* сетка замеров: первая колонка закреплена, листается вбок */
+.ad__szgw{overflow-x:auto;border:1.5px solid var(--line);border-radius:var(--r-md);background:var(--card)}
+.ad__szt{border-collapse:separate;border-spacing:0;min-width:100%}
+.ad__szt th,.ad__szt td{padding:4px;border-bottom:1px solid var(--line)}
+.ad__szt tbody tr:last-child > *{border-bottom:0}
+.ad__szt thead th{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 4px;text-align:center}
+.ad__szt .ad__szt0{position:sticky;left:0;z-index:1;background:var(--card);text-align:left;padding-left:8px;box-shadow:1px 0 0 var(--line)}
+.ad__szin{
+  width:64px;height:38px;padding:0 6px;border:1.5px solid transparent;border-radius:var(--r-sm);background:var(--chip);
+  font:inherit;font-size:14px;font-weight:600;color:var(--ink);text-align:center;outline:none;font-variant-numeric:tabular-nums;
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)
+}
+.ad__szin:focus{border-color:var(--ink);background:var(--card)}
+.ad__szin--l{width:150px;text-align:left;font-weight:600;font-size:13px}
+.ad__szdel{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.ad__szdel:hover{background:var(--chip);color:var(--danger)}
+.ad__szdel .ic{width:14px;height:14px;stroke-width:2}
+.ad__szprods{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.ad__szp{display:flex;align-items:center;gap:10px;padding:5px 5px 5px 6px;border:1.5px solid var(--line);border-radius:var(--r-md);font-size:13px;font-weight:600}
+.ad__szp img{width:30px;height:38px;object-fit:contain;border-radius:3px;background:var(--photo);flex:none}
+.ad__szp span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad__szp button{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted);flex:none}
+.ad__szp button:hover{background:var(--chip);color:var(--danger)}
+.ad__szp .ic{width:14px;height:14px;stroke-width:2}
+/* предпросмотр — та же разметка, что в шторке покупателя */
+.ad__szpv{border:1.5px solid var(--line);border-radius:16px;padding:16px 18px 18px;background:var(--card);overflow:hidden}
+.ad__szpvh{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.ad__szpvh b{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.ad__szpv .sz__wrap{margin:0 -18px;padding:0 18px}
+.ad__szerr{margin:-4px 0 12px;padding:10px 12px;border-radius:var(--r-md);background:var(--tone-danger-bg);color:var(--danger);font-size:13px;font-weight:600}
+.ad__szerr[hidden]{display:none}
+.ad__szcnt{margin-right:auto;align-self:center;font-size:12.5px;font-weight:600;color:var(--muted)}
+.sz__tb--still tbody tr,.sz__tb--still ~ .sz__note{animation:none}
 .ad__vth{position:relative;flex:none;display:block}
 /* видео без обложки (кадр не снялся): тёмная плашка вместо пустого места,
    иначе от строки оставался один белый ▶ на белом */
@@ -7047,6 +7209,7 @@ const I = {
   grid:'<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/>',
   back:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  ruler:'<path d="M3.5 15.8 15.8 3.5l4.7 4.7L8.2 20.5z"/><path d="m7.4 11.9 1.9 1.9M10.2 9.1l1.2 1.2M13 6.3l1.9 1.9"/>',
   chev:'<path d="m9 5 7 7-7 7"/>',
   chevD:'<path d="m5 9 7 7 7-7"/>',
   chevU:'<path d="m5 15 7-7 7 7"/>',
@@ -8982,18 +9145,38 @@ function paintQty(){
 /* ===== ЦВЕТ ТОВАРА ОДНОЙ СТРОКОЙ =====
    Кружки цвета самой вещи и кружки её собратьев других цветов стоят вместе:
    для покупателя это один выбор, а двумя блоками он занимал пол-экрана.
-   Соседей берём той же категории И ТОГО ЖЕ ПОЛА: с мужского оверсайза
-   нажатие на чёрный уводило в женскую футболку — так быть не должно.
+   Собрат — та же вещь другого цвета: та же категория, ТОТ ЖЕ ПОЛ (с мужского
+   оверсайза чёрный уводил в женскую футболку) и ТА ЖЕ МОДЕЛЬ. Модель — это
+   название без цвета (modelKey): раньше хватало одной категории, и в «Куртках»
+   бомбер и жилет стали «цветами» друг друга — на бомбере два чёрных кружка,
+   и второй уводил на жилет. Одинаковых кружков не бывает вовсе: цвет, который
+   уже есть, второй раз не показываем.
    Имена цветов — общие, из TONES, а не как товар назвал админ. */
+/* Слова-цвета, которые встречаются в названиях, кроме пяти цветов коллекции */
+const COLOR_WORD = /^(?:сер|беж|хаки|зел|син|роз|фиол|оранж|ж[её]лт|бордо|графит|олив|песоч|пудр|лаванд|мят|изумр|терракот|кремов|сливоч|молоч|антрацит|grey|gray|beige|green|pink|navy|olive|sand|cream|milk|white|black|red|blue|brown|mokko)/i;
+function modelKey(p){
+  /* свои названия цветов товара («Mokko», «Молочная») — тоже не модель */
+  const own = new Set((p.colors || []).map(c => String(c && c.name || '').toLowerCase().replace(/ё/g, 'е')).filter(Boolean));
+  return String(p.name || '').toLowerCase().replace(/ё/g, 'е')
+    .split(/[^a-zа-я0-9]+/).filter(w => w && !own.has(w) && !toneOf(w) && !COLOR_WORD.test(w))
+    .join(' ');
+}
 function colorRowHTML(p){
   const own = (p.colors || []).filter(c => c && c.hex).map(c => ({
     hex: c.hex, name: toneNameOf(c.name), own: true, cur: S.color === c.hex
   }));
-  const mates = PRODUCTS.filter(x => x.on && x.id !== p.id && x.cat === p.cat &&
-      x.gender === p.gender && !soldOut(x) && (x.colors || []).some(c => c && c.hex))
-    .map(x => {
+  const key = modelKey(p);
+  /* цвет считаем «уже есть», если совпал код или имя из TONES */
+  const seen = new Set(own.flatMap(c => [String(c.hex).toLowerCase(), c.name]));
+  const mates = [];
+  PRODUCTS.filter(x => x.on && x.id !== p.id && x.cat === p.cat && x.gender === p.gender &&
+      !soldOut(x) && (x.colors || []).some(c => c && c.hex) && modelKey(x) === key)
+    .forEach(x => {
       const c = x.colors.find(c => c && c.hex);
-      return { hex: c.hex, name: toneNameOf(c.name), id: x.id, prod: x.name };
+      const m = { hex: c.hex, name: toneNameOf(c.name), id: x.id, prod: x.name };
+      if(seen.has(String(m.hex).toLowerCase()) || seen.has(m.name)) return;
+      seen.add(String(m.hex).toLowerCase()); seen.add(m.name);
+      mates.push(m);
     });
   const all = own.concat(mates).sort((a, b) => toneIdx(a.name) - toneIdx(b.name));
   if(!all.length) return '';
@@ -9006,6 +9189,175 @@ function colorRowHTML(p){
       : `<button class="col" data-a="pcolor:${c.id}"
           aria-pressed="false" aria-label="${esc(c.name)} — ${esc(c.prod)}" title="${esc(c.name)}">
           <i style="background:${esc(c.hex)}"></i></button>`).join('')}</div>`;
+}
+
+/* ==========================================================
+   ТАБЛИЦЫ РАЗМЕРОВ (CMS.sizeCharts, админка → «Размеры»)
+   У таблицы — название, размеры (колонки), строки замеров, примечание и
+   товары. В карточке таблица скрыта: рядом с «Размер» кнопка, по ней снизу
+   выезжает шторка. У товара без своей таблицы — общая картинка из той же
+   вкладки (CMS.sizeChart), если она загружена. Пределы совпадают с
+   SZ_LIMITS в server/cms-safe.js.
+   ========================================================== */
+const SZ_LIMITS = {charts:40, sizes:12, rows:16, title:60, label:60, val:20, note:300, size:12};
+const sizeCharts = () => (Array.isArray(CMS.sizeCharts) ? CMS.sizeCharts : []).filter(t => t && typeof t === 'object');
+/* таблица, в которой лежит товар (товар бывает только в одной) */
+const chartWith = id => sizeCharts().find(t => Array.isArray(t.pids) && t.pids.includes(+id)) || null;
+/* что открыть по кнопке: своя таблица с размерами и замерами, иначе картинка */
+function chartOf(p){
+  if(!p) return null;
+  const t = chartWith(p.id);
+  if(t && (t.sizes || []).length && (t.rows || []).length) return {kind:'table', t};
+  if(CMS.sizeChart && (p.sizes || []).length) return {kind:'img', src: CMS.sizeChart};
+  return null;
+}
+const SZ_NOTE = 'Замеры в сантиметрах. Проще всего сверить с вещью, которая хорошо сидит: разложите её на столе и измерьте так же.';
+/* Таблица — одна разметка для шторки покупателя и предпросмотра в админке.
+   o.pick — выбранный размер, o.avail(size) — можно ли его выбрать,
+   o.still — без кнопок и без анимации (предпросмотр). */
+function szTableHTML(t, o){
+  const cols = t.sizes || [], pick = o.pick || '';
+  const head = (c, i) => o.still
+    ? `<span class="sz__s"${c === pick ? ' aria-pressed="true"' : ''}>${esc(c)}</span>`
+    : `<button type="button" class="sz__s" data-szpick="${i}"${o.avail(c) ? '' : ` disabled title="Этого размера сейчас нет"`}
+        aria-pressed="${c === pick}">${esc(c)}</button>`;
+  const on = i => cols[i] === pick ? ' is-on' : '';
+  return `<div class="sz__wrap"${o.still ? '' : ` id="szWrap" tabindex="0" role="region" aria-label="Таблица размеров, листается вбок"`}>
+      <table class="sz__tb${o.still ? ' sz__tb--still' : ''}">
+        <thead><tr><th scope="col" class="sz__c0">Размер</th>${cols.map((c, i) => `<th scope="col" data-col="${i}" class="${on(i)}">${head(c, i)}</th>`).join('')}</tr></thead>
+        <tbody>${(t.rows || []).map((r, ri) => `<tr style="--i:${ri}"><th scope="row">${esc(r.label)}</th>${cols.map((c, i) =>
+          `<td data-col="${i}" class="${on(i)}">${(r.vals || [])[i] ? esc(r.vals[i]) : '<span class="sz__dash">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <p class="sz__note">${esc(t.note || SZ_NOTE)}</p>`;
+}
+/* Шторка с таблицей. Выбранный в карточке размер подсвечен колонкой;
+   нажатие на размер в шапке таблицы переносит подсветку, кнопка внизу
+   ставит этот размер в карточке и закрывает шторку. Размеры, которых у
+   товара нет или они кончились, видны, но не нажимаются. */
+function openSizeSheet(p){
+  const ch = chartOf(p);
+  if(!ch) return;
+  const t = ch.t;
+  const cols = ch.kind === 'table' ? t.sizes : [];
+  const avail = s => (p.sizes || []).includes(s) && stockOf(p, s) > 0;
+  let pick = cols.includes(S.size) && avail(S.size) ? S.size : (cols.find(avail) || '');
+  const canPick = !soldOut(p) && cols.some(avail);
+  const title = ch.kind === 'table' ? (t.title || p.name) : p.name;
+  const body = ch.kind === 'table' ? szTableHTML(t, {pick, avail})
+    : `<img class="sz__img" src="${esc(ch.src)}" alt="Таблица размеров">`;
+  openOv(`<div class="scrim scrim--sz"></div>
+    <div class="sheet sheet--sz" role="dialog" aria-modal="true" aria-labelledby="szT">
+      <div class="sz__grab" aria-hidden="true"><i></i></div>
+      <div class="sz__h">
+        <div><p class="sz__k">Таблица размеров</p><h2 class="sz__t" id="szT">${esc(title)}</h2></div>
+        <button class="sz__x" type="button" data-x aria-label="Закрыть">${svg('x','ic')}</button>
+      </div>
+      <div class="sz__b">${body}</div>
+      ${canPick ? `<div class="sz__f"><button class="sz__go" type="button" id="szGo"></button></div>` : ''}
+    </div>`);
+  const sh = ov.querySelector('.sheet--sz'), scrim = ov.querySelector('.scrim--sz');
+  const go = sh.querySelector('#szGo'), wrap = sh.querySelector('#szWrap');
+  const paint = first => {
+    const i = cols.indexOf(pick);
+    sh.querySelectorAll('[data-col]').forEach(x => x.classList.toggle('is-on', +x.dataset.col === i));
+    sh.querySelectorAll('[data-szpick]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.szpick === i)));
+    if(go) go.textContent = !pick ? 'Закрыть' : pick === S.size ? `Готово · размер ${pick}` : `Выбрать размер ${pick}`;
+    /* колонка выбранного размера — в поле зрения, если таблица шире экрана */
+    const th = wrap && i > -1 ? wrap.querySelector(`th[data-col="${i}"]`) : null;
+    if(th){
+      const fix = wrap.querySelector('.sz__c0').offsetWidth;
+      const l = th.offsetLeft - fix, r = th.offsetLeft + th.offsetWidth - wrap.clientWidth;
+      if(wrap.scrollLeft > l) wrap.scrollTo({left: l, behavior: first ? 'auto' : 'smooth'});
+      else if(wrap.scrollLeft < r) wrap.scrollTo({left: r + 20, behavior: first ? 'auto' : 'smooth'});
+    }
+  };
+  paint(true);
+  if(wrap){
+    const more = () => wrap.classList.toggle('is-more', wrap.scrollLeft + wrap.clientWidth < wrap.scrollWidth - 4);
+    wrap.addEventListener('scroll', more, {passive: true});
+    more();
+  }
+  sh.addEventListener('click', e => {
+    const b = e.target.closest('[data-szpick]');
+    if(!b || b.disabled) return;
+    pick = cols[+b.dataset.szpick];
+    paint();
+  });
+  if(go) go.onclick = () => {
+    /* размер ставим той же кнопкой, что в карточке: её обработчик обновит
+       остаток, количество и «В корзину» */
+    if(pick && pick !== S.size){
+      const b = [...document.querySelectorAll('#scr .size')].find(x => x.dataset.a === 'size:' + pick);
+      if(b) b.click();
+    }
+    closeOv();
+  };
+  /* свайп вниз за ручку или шапку — закрыть; не дотянул — шторка пружинит назад */
+  let y0 = null, dy = 0, t0 = 0;
+  const startDrag = e => {
+    if(e.button > 0 || e.target.closest('button') || matchMedia('(min-width:760px)').matches) return;
+    y0 = e.clientY; dy = 0; t0 = performance.now();
+    try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+    sh.classList.add('is-drag');
+  };
+  const moveDrag = e => {
+    if(y0 == null) return;
+    dy = Math.max(0, e.clientY - y0);
+    sh.style.transform = dy ? `translateY(${dy}px)` : '';
+    scrim.style.opacity = String(Math.max(0, 1 - dy / 420));
+  };
+  const endDrag = () => {
+    if(y0 == null) return;
+    const v = dy / Math.max(1, performance.now() - t0);
+    y0 = null;
+    sh.classList.remove('is-drag');
+    if(dy > 110 || (dy > 30 && v > .55)) return closeOv();
+    sh.style.transform = ''; scrim.style.opacity = '';
+  };
+  sh.querySelectorAll('.sz__grab, .sz__h').forEach(z => {
+    z.addEventListener('pointerdown', startDrag);
+    z.addEventListener('pointermove', moveDrag);
+    z.addEventListener('pointerup', endDrag);
+    z.addEventListener('pointercancel', endDrag);
+  });
+}
+/* Закрытая шторка размеров уходит вниз красиво: слой #ov очищается сразу
+   (для «Назад», Escape и следующего окна он уже пуст), а копия шторки
+   доигрывает уход поверх и исчезает. */
+function szGhost(){
+  const sh = ov.querySelector('.sheet--sz');
+  if(!sh || cvStill() || !sh.animate) return;
+  const desk = matchMedia('(min-width:760px)').matches;
+  const from = getComputedStyle(sh).transform;
+  const scroll = (sh.querySelector('.sz__b') || {}).scrollTop || 0;
+  const left = (sh.querySelector('.sz__wrap') || {}).scrollLeft || 0;
+  const g = document.createElement('div');
+  g.className = 'ov-ghost';
+  g.setAttribute('aria-hidden', 'true');
+  g.innerHTML = ov.innerHTML;
+  g.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
+  document.body.appendChild(g);
+  const gs = g.querySelector('.sheet--sz'), gc = g.querySelector('.scrim--sz');
+  gs.style.animation = 'none'; gc.style.animation = 'none';
+  g.querySelectorAll('.sz__tb tbody tr, .sz__note').forEach(x => { x.style.animation = 'none'; });
+  const b = gs.querySelector('.sz__b'); if(b) b.scrollTop = scroll;
+  const w = gs.querySelector('.sz__wrap'); if(w) w.scrollLeft = left;
+  const ease = 'cubic-bezier(.4,0,.7,.2)';
+  const a = gs.animate(desk
+    ? [{opacity: 1, transform: from === 'none' ? 'translateY(-50%)' : from}, {opacity: 0, transform: 'translateY(calc(-50% + 14px)) scale(.98)'}]
+    : [{transform: from === 'none' ? 'translateY(0)' : from}, {transform: 'translateY(100%)'}],
+    {duration: desk ? 220 : 300, easing: ease, fill: 'forwards'});
+  gc.animate([{opacity: getComputedStyle(ov.querySelector('.scrim--sz') || gc).opacity}, {opacity: 0}], {duration: 300, easing: 'ease-out', fill: 'forwards'});
+  const done = () => g.remove();
+  a.onfinish = done;
+  setTimeout(done, 600);
+}
+
+function szHeadHTML(p){
+  if(!chartOf(p)) return `<p class="pd__lab">Размер</p>`;
+  return `<div class="pd__szh"><p class="pd__lab">Размер</p>
+    <button class="pd__szb" type="button" data-a="szchart" aria-haspopup="dialog">${svg('ruler','ic')}<span>Таблица размеров</span></button></div>`;
 }
 
 function scrProduct(){
@@ -9055,9 +9407,10 @@ function scrProduct(){
 
       ${colorRowHTML(p)}
 
-      ${sizes.length ? `<p class="pd__lab">Размер</p>
+      ${sizes.length ? `${szHeadHTML(p)}
       <div class="sizes">${sizes.map(s => `<button class="size" data-a="size:${s}"
           aria-pressed="${S.size === s}">${s}</button>`).join('')}</div>` : ''}
+      ${!sizes.length && chartOf(p) ? `<button class="pd__szb pd__szb--solo" type="button" data-a="szchart">${svg('ruler','ic')}<span>Таблица размеров</span></button>` : ''}
       <div id="pdStock">${stockNote(p)}</div>
       ${out ? '' : `<div class="pd__qty" id="pdQty"${inCart(p) ? ' hidden' : ''}>${qtyRowHTML(p)}</div>`}
 
@@ -9072,11 +9425,6 @@ function scrProduct(){
   ${p.desc ? `<div class="pd__extra">
     <h2 class="pd__el">Описание</h2>
     <p class="pd__ed">${esc(p.desc)}</p>
-  </div>` : ''}
-
-  ${(CMS.sizeChart && (p.sizes || []).length) ? `<div class="pd__extra pd__chart">
-    <h2 class="pd__el">Таблица размеров</h2>
-    <img src="${CMS.sizeChart}" alt="Таблица размеров" loading="lazy">
   </div>` : ''}
 
   ${rvBlockHTML(p)}`;
@@ -13142,7 +13490,7 @@ const onOvClose = fn => { if(typeof fn === 'function') _ovClean.push(fn); };
 const runOvClean = () => {
   _ovClean.splice(0).forEach(f => { try{ f(); }catch(_){} });
 };
-const closeOv = () => { runOvClean(); ov.innerHTML = ''; document.body.style.overflow = ''; };
+const closeOv = () => { szGhost(); runOvClean(); ov.innerHTML = ''; document.body.style.overflow = ''; };
 function openOv(html){
   runOvClean();
   ov.innerHTML = html; document.body.style.overflow = 'hidden';
@@ -15020,6 +15368,9 @@ document.addEventListener('click', e => {
     }
     /* Соседний цвет — это другой товар. Меняем его мягко: без прыжка наверх
        и без общей анимации экрана, страница перетекает на месте. */
+    case 'szchart':
+      openSizeSheet(byId(S.productId));
+      break;
     case 'pcolor': {
       const next = byId(+a);
       if(!next || next.id === S.productId) break;
@@ -15719,6 +16070,7 @@ function defaultCms(){
     ]},
     customers:{},
     sizeChart:'',
+    sizeCharts: [],
     tryon: Object.assign({}, TRYON_DEFAULTS)
   };
 }
@@ -15763,7 +16115,8 @@ function loadCms(){
       customers: d.customers || {},
       promos: Array.isArray(d.promos) ? d.promos : base.promos,
       slides: Array.isArray(d.slides) ? d.slides.filter(s => s && (s.img || s.video)).slice(0, MAX_SLIDES) : base.slides,
-      vids: Array.isArray(d.vids) ? d.vids : []
+      vids: Array.isArray(d.vids) ? d.vids : [],
+      sizeCharts: Array.isArray(d.sizeCharts) ? d.sizeCharts : []
     });
     /* Первый заход после переименования: стоковые тексты/промо SAS → Canvas */
     if(!d.brand){
@@ -15803,10 +16156,14 @@ function cmsLegal(key){
    закрыть (см. videoSlideForm). Escape, системное «Назад» и крестик админки
    иначе молча сносили бы форму вместе с загрузкой на 60 % — без вопроса. */
 let videoFormGuard = null;
+/* То же для редактора таблицы размеров: Escape и «Назад» закрывают только
+   его, а с несохранёнными правками сначала спрашивают (см. szForm). */
+let szFormGuard = null;
 const closeAdmin = () => {
   /* открыт выбор товара для «Перейти» — Escape и «Назад» закрывают только его */
   const pp = adm.querySelector('.ad__form--pp');
   if(pp){ pp.remove(); return; }
+  if(szFormGuard && szFormGuard()) return;
   if(videoFormGuard && videoFormGuard()) return;
   adm.innerHTML = '';
   document.body.style.overflow = '';
@@ -15938,6 +16295,7 @@ function adNav(){
   const items = [
     ['dash','Аналитика','flame'],
     ['catalog','Каталог','grid'],
+    ['sizes','Размеры','ruler'],
     ['orders','Заказы','box'],
     ['reviews','Отзывы','star'],
     ['clients','Клиенты','user'],
@@ -16202,8 +16560,362 @@ function catVideosAdminHTML(){
   </div>`;
 }
 
-function viewCatalog(){
+/* ==========================================================
+   АДМИНКА → «РАЗМЕРЫ»: таблицы размеров (CMS.sizeCharts)
+   Таблиц сколько угодно (до SZ_LIMITS.charts). В каждой — название,
+   размеры, замеры, примечание и товары; товар бывает только в одной
+   таблице. Ниже — общая картинка-таблица для товаров без своей.
+   ========================================================== */
+const SZ_PRESETS = [['XS–XL', 'XS,S,M,L,XL'], ['S–XXL', 'S,M,L,XL,XXL'], ['42–52', '42,44,46,48,50,52'], ['Один размер', 'ONE SIZE']];
+const SZ_PARAMS = ['Обхват груди', 'Длина изделия', 'Ширина плеч', 'Длина рукава', 'Обхват талии', 'Обхват бёдер'];
+
+function viewSizes(){
+  const list = sizeCharts();
+  const full = list.length >= SZ_LIMITS.charts;
+  const rows = list.map(t => {
+    const prods = (t.pids || []).map(id => byId(id)).filter(Boolean);
+    const nr = (t.rows || []).length;
+    const warn = !(t.sizes || []).length || !nr ? 'Нет размеров или замеров — в карточках не появится'
+      : !prods.length ? 'Не привязана к товарам — в карточках её пока не видно' : '';
+    return `<div class="ad__row ad__row--click ad__szr" data-szed="${t.id}">
+      <span class="ad__szic">${svg('ruler','ic')}</span>
+      <div class="ad__i">
+        <span class="ad__n">${esc(t.title || 'Без названия')}</span>
+        <span class="ad__m">${(t.sizes || []).map(esc).join(' · ') || 'размеров нет'} · ${nr} ${plural(nr, ['замер','замера','замеров'])}</span>
+        ${prods.length ? `<span class="ad__szth">${prods.slice(0, 6).map(p => `<img src="${esc(p.img)}" alt="" title="${esc(p.name)}">`).join('')}${
+          prods.length > 6 ? `<i>+${prods.length - 6}</i>` : ''}<b>${prods.length} ${plural(prods.length, ['товар','товара','товаров'])}</b></span>` : ''}
+        ${warn ? `<span class="ad__m ad__szw">${warn}</span>` : ''}
+      </div>
+      <div class="ad__acts">
+        <button class="ad__ib" data-szdup="${t.id}" aria-label="Копия таблицы"${full ? ' disabled' : ''}>${svg('copy','ic')}</button>
+        <button class="ad__ib" data-szed="${t.id}" aria-label="Изменить">${svg('pencil','ic')}</button>
+        <button class="ad__ib ad__ib--d" data-szrm="${t.id}" aria-label="Удалить">${svg('trash','ic')}</button>
+      </div>
+    </div>`;
+  }).join('');
   const hasChart = !!(CMS.sizeChart);
+  return `
+  <div class="ad__panel">
+    <div class="ad__hrow"><div>
+      <h1 class="ad__h">Таблицы размеров</h1>
+      <p class="ad__sub">${list.length ? `${list.length} ${plural(list.length, ['таблица','таблицы','таблиц'])}` : 'Пока ни одной'} · в карточке товара — кнопка «Таблица размеров»</p>
+    </div>
+      <button class="ad__b ad__b--pri" id="aSzNew"${full ? ' disabled' : ''}>+ Таблица</button>
+    </div>
+    <p class="ad__hint" style="margin-top:0">Создайте таблицу, впишите размеры и замеры и добавьте товары. В их карточках таблица скрыта:
+      покупатель нажимает «Таблица размеров», и она выезжает снизу. Таблицу можно вставить целиком из Excel или Google Таблиц.</p>
+    <div class="ad__list">${rows || `<div class="ad__empty"><b>Таблиц пока нет</b>Нажмите «+ Таблица», впишите размеры и замеры и выберите товары.</div>`}</div>
+    <div class="ad__chart-box">
+      <div class="ad__box-t">Общая таблица-картинка</div>
+      <p class="ad__hint" style="margin-top:0">Для товаров без своей таблицы: откроется по той же кнопке. Если у товара есть таблица выше — покажется она.</p>
+      <input type="file" id="aChartFile" accept="image/*" class="hide" aria-hidden="true">
+      ${hasChart
+        ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="ad__b ad__b--pri" id="aChartChange">Изменить</button>
+            <button class="ad__b" id="aChartDel">Удалить</button>
+          </div>`
+        : `<button class="ad__b" id="aChartUp" style="width:100%">Загрузить картинку</button>`}
+    </div>
+  </div>`;
+}
+
+/* Новый id таблицы: не совпадает ни с одним (Date.now() дважды за мс бывает) */
+function szNewId(){
+  let id = Date.now();
+  while(sizeCharts().some(t => +t.id === id)) id++;
+  return id;
+}
+/* Сохранить список таблиц: товар — только в одной (pick выигрывает у остальных) */
+function szCommit(list, keepId){
+  const mine = list.find(t => +t.id === +keepId);
+  const taken = new Set(mine ? mine.pids : []);
+  CMS.sizeCharts = list.map(t => +t.id === +keepId ? t : Object.assign({}, t, {pids: (t.pids || []).filter(id => !taken.has(+id))}));
+  saveCms(); paintAdmin(); render(true);
+}
+
+/* Редактор таблицы */
+function szForm(src){
+  adm.querySelectorAll('.ad__form').forEach(x => x.remove());
+  const isNew = !src;
+  const d = src ? JSON.parse(JSON.stringify(src)) : {id: szNewId(), title: '', note: '', sizes: ['S','M','L','XL'], rows: [
+    {label: 'Обхват груди', vals: ['', '', '', '']}, {label: 'Длина изделия', vals: ['', '', '', '']}], pids: []};
+  d.sizes = (d.sizes || []).slice(); d.rows = (d.rows || []).map(r => ({label: r.label || '', vals: d.sizes.map((_, i) => (r.vals || [])[i] || '')}));
+  d.pids = (d.pids || []).filter(id => byId(id));
+  const w = document.createElement('div');
+  w.className = 'ad__form';
+  w.innerHTML = `<div class="ad__card ad__card--sz">
+    <h2 class="ad__ct">${isNew ? 'Новая таблица размеров' : 'Таблица размеров'}</h2>
+    <label class="ad__l" for="szTitle">Название — его видит покупатель над таблицей</label>
+    <input class="ad__f" id="szTitle" maxlength="${SZ_LIMITS.title}" placeholder="Например: Футболки оверсайз" value="${esc(d.title)}">
+
+    <div class="ad__szsec">
+      <span class="ad__l">Размеры</span>
+      <div class="ad__szchips" id="szSizes"></div>
+      <div class="ad__szpre"><span>Быстро:</span>${SZ_PRESETS.map(([t, v]) => `<button type="button" class="ad__szq" data-szpre="${v}">${t}</button>`).join('')}</div>
+    </div>
+
+    <div class="ad__szsec">
+      <span class="ad__l">Замеры</span>
+      <div class="ad__szgw"><div id="szGrid"></div></div>
+      <div class="ad__szpre" id="szParams"></div>
+      <p class="ad__hint" style="margin:8px 0 0">Можно скопировать таблицу из Excel или Google Таблиц и вставить в любую клетку — она разложится сама.</p>
+    </div>
+
+    <label class="ad__l" for="szNote">Примечание под таблицей (не обязательно)</label>
+    <textarea class="ad__f" id="szNote" rows="2" maxlength="${SZ_LIMITS.note}" placeholder="Замеры изделия в сантиметрах, допуск ±1 см">${esc(d.note)}</textarea>
+
+    <div class="ad__szsec">
+      <span class="ad__l">Товары — в их карточках будет эта таблица</span>
+      <div class="ad__szprods" id="szProds"></div>
+      <button type="button" class="ad__b" id="szAddP" style="width:100%">+ Добавить товары</button>
+    </div>
+
+    <div class="ad__szsec">
+      <span class="ad__l">Так увидит покупатель</span>
+      <div class="ad__szpv" id="szPv"></div>
+    </div>
+
+    <p class="ad__szerr" id="szErr" role="alert" hidden></p>
+    <div class="ad__foot">
+      ${isNew ? '' : '<button type="button" class="ad__b ad__b--ghost ad__pp-rm" id="szDel">Удалить</button>'}
+      <button type="button" class="ad__b" id="szX">Отмена</button>
+      <button type="button" class="ad__b ad__b--pri" id="szSave">Сохранить</button>
+    </div></div>`;
+  adm.appendChild(w);
+  const $ = q => w.querySelector(q);
+  const grid = $('#szGrid'), chips = $('#szSizes'), err = $('#szErr');
+  let dirty = false;
+  const touch = () => { dirty = true; err.hidden = true; };
+
+  /* ---- предпросмотр ---- */
+  let pvT = 0;
+  const paintPv = () => {
+    clearTimeout(pvT);
+    pvT = setTimeout(() => {
+      const t = {title: d.title, note: d.note, sizes: d.sizes, rows: d.rows.filter(r => r.label.trim())};
+      $('#szPv').innerHTML = t.sizes.length && t.rows.length
+        ? `<div class="ad__szpvh"><span class="sz__k">Таблица размеров</span><b>${esc(d.title.trim() || 'Название таблицы')}</b></div>${szTableHTML(t, {still: true, pick: t.sizes[Math.min(1, t.sizes.length - 1)]})}`
+        : `<div class="ad__pp-none">Добавьте размеры и хотя бы один замер — здесь появится таблица</div>`;
+    }, 120);
+  };
+
+  /* ---- размеры ---- */
+  const paintSizes = () => {
+    chips.innerHTML = d.sizes.map((z, i) => `<span class="ad__szchip">${esc(z)}<button type="button" data-szsrm="${i}" aria-label="Убрать размер ${esc(z)}">${svg('x','ic')}</button></span>`).join('')
+      + (d.sizes.length < SZ_LIMITS.sizes ? `<input class="ad__szadd" id="szSizeIn" maxlength="${SZ_LIMITS.size}" placeholder="+ размер" aria-label="Добавить размер" enterkeyhint="done">` : '');
+    const inp = $('#szSizeIn');
+    if(inp){
+      const add = () => {
+        const v = inp.value.split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+        inp.value = '';
+        let n = 0;
+        v.forEach(z => {
+          if(d.sizes.length >= SZ_LIMITS.sizes || d.sizes.includes(z)) return;
+          d.sizes.push(z.slice(0, SZ_LIMITS.size)); d.rows.forEach(r => r.vals.push('')); n++;
+        });
+        if(n){ touch(); paintSizes(); paintGrid(); paintPv(); $('#szSizeIn') && $('#szSizeIn').focus(); }
+      };
+      inp.onkeydown = e => { if(e.key === 'Enter' || e.key === ',' ){ e.preventDefault(); add(); } };
+      inp.onblur = add;
+    }
+  };
+  chips.onclick = e => {
+    const b = e.target.closest('[data-szsrm]');
+    if(!b) return;
+    const i = +b.dataset.szsrm;
+    d.sizes.splice(i, 1); d.rows.forEach(r => r.vals.splice(i, 1));
+    touch(); paintSizes(); paintGrid(); paintPv();
+  };
+  w.querySelectorAll('[data-szpre]').forEach(b => b.onclick = () => {
+    /* заготовка: значения тех размеров, что остались, сохраняются */
+    const next = b.dataset.szpre.split(',');
+    d.rows.forEach(r => { r.vals = next.map(z => { const k = d.sizes.indexOf(z); return k > -1 ? r.vals[k] : ''; }); });
+    d.sizes = next;
+    touch(); paintSizes(); paintGrid(); paintPv();
+  });
+
+  /* ---- сетка замеров ---- */
+  const paintGrid = () => {
+    grid.innerHTML = `<table class="ad__szt">
+      <thead><tr><th class="ad__szt0">Параметр</th>${d.sizes.map(z => `<th>${esc(z)}</th>`).join('')}<th aria-label="Убрать"></th></tr></thead>
+      <tbody>${d.rows.map((r, ri) => `<tr>
+        <th class="ad__szt0"><input class="ad__szin ad__szin--l" data-r="${ri}" data-c="-1" maxlength="${SZ_LIMITS.label}" value="${esc(r.label)}" placeholder="Параметр" aria-label="Параметр, строка ${ri + 1}"></th>
+        ${d.sizes.map((z, ci) => `<td><input class="ad__szin" data-r="${ri}" data-c="${ci}" maxlength="${SZ_LIMITS.val}" value="${esc(r.vals[ci])}" inputmode="decimal" aria-label="${esc(r.label || 'Параметр')}, размер ${esc(z)}"></td>`).join('')}
+        <td><button type="button" class="ad__szdel" data-szrowrm="${ri}" aria-label="Убрать строку">${svg('x','ic')}</button></td>
+      </tr>`).join('')}</tbody></table>
+      ${d.rows.length ? '' : '<div class="ad__pp-none">Добавьте параметр ниже — например, «Обхват груди»</div>'}`;
+    const used = new Set(d.rows.map(r => r.label.trim().toLowerCase().replace(/ё/g, 'е')));
+    $('#szParams').innerHTML = d.rows.length >= SZ_LIMITS.rows ? '' : `<span>Добавить:</span>${SZ_PARAMS.filter(x => !used.has(x.toLowerCase().replace(/ё/g, 'е')))
+      .map(x => `<button type="button" class="ad__szq" data-szrow="${x}">${x}</button>`).join('')}<button type="button" class="ad__szq ad__szq--own" data-szrow="">+ свой параметр</button>`;
+  };
+  grid.addEventListener('input', e => {
+    const x = e.target.closest('.ad__szin');
+    if(!x) return;
+    const r = d.rows[+x.dataset.r];
+    if(!r) return;
+    if(+x.dataset.c < 0) r.label = x.value; else r.vals[+x.dataset.c] = x.value;
+    touch(); paintPv();
+  });
+  /* Вставка из Excel / Google Таблиц: строки — через перевод строки, клетки —
+     через Tab. Раскладываем с той клетки, куда вставили; строк не хватает —
+     добавляем (до предела). Одна клетка без Tab — обычная вставка. */
+  grid.addEventListener('paste', e => {
+    const x = e.target.closest('.ad__szin');
+    const txt = (e.clipboardData || window.clipboardData) ? (e.clipboardData || window.clipboardData).getData('text') : '';
+    if(!x || !/[\t\n]/.test(txt.trim())) return;
+    e.preventDefault();
+    const lines = txt.replace(/\r/g, '').split('\n').filter((l, i, a) => l.length || i < a.length - 1).map(l => l.split('\t'));
+    let r0 = +x.dataset.r, c0 = +x.dataset.c;
+    lines.forEach((cells, li) => {
+      const ri = r0 + li;
+      if(ri >= SZ_LIMITS.rows) return;
+      while(d.rows.length <= ri) d.rows.push({label: '', vals: d.sizes.map(() => '')});
+      cells.forEach((v, k) => {
+        const ci = c0 + k;
+        v = v.trim();
+        if(ci < 0) d.rows[ri].label = v.slice(0, SZ_LIMITS.label);
+        else if(ci < d.sizes.length) d.rows[ri].vals[ci] = v.slice(0, SZ_LIMITS.val);
+      });
+    });
+    touch(); paintGrid(); paintPv();
+    toast(`Вставлено строк: ${Math.min(lines.length, SZ_LIMITS.rows - r0)}`);
+  });
+  w.addEventListener('click', e => {
+    const rm = e.target.closest('[data-szrowrm]');
+    if(rm){ d.rows.splice(+rm.dataset.szrowrm, 1); touch(); paintGrid(); paintPv(); return; }
+    const add = e.target.closest('[data-szrow]');
+    if(add && d.rows.length < SZ_LIMITS.rows){
+      d.rows.push({label: add.dataset.szrow, vals: d.sizes.map(() => '')});
+      touch(); paintGrid(); paintPv();
+      /* фокус — туда, где сейчас писать: в первую клетку значений, а у своего параметра — в название */
+      const ri = d.rows.length - 1;
+      const f = grid.querySelector(`.ad__szin[data-r="${ri}"][data-c="${add.dataset.szrow ? 0 : -1}"]`);
+      if(f) f.focus();
+    }
+  });
+
+  /* ---- товары ---- */
+  const paintProds = () => {
+    $('#szProds').innerHTML = d.pids.map(id => {
+      const p = byId(id);
+      return p ? `<span class="ad__szp"><img src="${esc(p.img)}" alt=""><span>${esc(p.name)}</span>
+        <button type="button" data-szprm="${id}" aria-label="Убрать «${esc(p.name)}»">${svg('x','ic')}</button></span>` : '';
+    }).join('') || `<div class="ad__szw">Товары не выбраны — таблицу сохранить можно, но в карточках её не будет</div>`;
+  };
+  $('#szProds').onclick = e => {
+    const b = e.target.closest('[data-szprm]');
+    if(!b) return;
+    d.pids = d.pids.filter(id => id !== +b.dataset.szprm);
+    touch(); paintProds();
+  };
+  $('#szAddP').onclick = () => szProductsPick(d.pids, d.id, ids => { d.pids = ids; touch(); paintProds(); });
+
+  $('#szTitle').oninput = e => { d.title = e.target.value; touch(); paintPv(); };
+  $('#szNote').oninput = e => { d.note = e.target.value; touch(); paintPv(); };
+
+  /* ---- закрыть / сохранить / удалить ---- */
+  const close = () => { clearTimeout(pvT); if(szFormGuard === guard) szFormGuard = null; w.remove(); };
+  const tryClose = () => {
+    if(!dirty) return close();
+    if(document.querySelector('.askw')) return;
+    askConfirm({title: 'Закрыть без сохранения?', text: 'Изменения в таблице пропадут.', ok: 'Закрыть', cancel: 'Остаться', onOk: close});
+  };
+  const guard = () => {
+    if(!document.body.contains(w)){ szFormGuard = null; return false; }
+    tryClose();
+    return true;
+  };
+  szFormGuard = guard;
+  $('#szX').onclick = tryClose;
+  w.onclick = e => { if(e.target === w) tryClose(); };
+  $('#szSave').onclick = () => {
+    const title = d.title.trim().slice(0, SZ_LIMITS.title) || 'Таблица размеров';
+    const sizes = d.sizes.map(z => String(z).trim()).filter(Boolean);
+    const rows = d.rows.map(r => ({label: r.label.trim().slice(0, SZ_LIMITS.label), vals: r.vals.map(v => String(v || '').trim().slice(0, SZ_LIMITS.val))}))
+      .filter(r => r.label);
+    const say = t => { err.textContent = t; err.hidden = false; err.scrollIntoView({block: 'nearest', behavior: 'smooth'}); };
+    if(!sizes.length) return say('Добавьте хотя бы один размер.');
+    if(!rows.length) return say('Добавьте хотя бы один замер с названием — например, «Обхват груди».');
+    if(d.rows.some(r => !r.label.trim() && r.vals.some(v => String(v).trim()))) return say('У строки с цифрами нет названия параметра — впишите его или уберите строку.');
+    const t = {id: d.id, title, note: d.note.trim().slice(0, SZ_LIMITS.note), sizes, rows, pids: d.pids.slice()};
+    const list = sizeCharts().slice();
+    const i = list.findIndex(x => +x.id === +t.id);
+    if(i > -1) list[i] = t; else list.push(t);
+    /* товары, которые были в других таблицах, переезжают сюда */
+    const moved = sizeCharts().filter(x => +x.id !== +t.id && (x.pids || []).some(id => t.pids.includes(+id)));
+    close();
+    szCommit(list, t.id);
+    toast(moved.length ? `Сохранено. Товары перенесены из: ${moved.map(x => '«' + (x.title || 'без названия') + '»').join(', ')}` : 'Таблица сохранена');
+  };
+  if($('#szDel')) $('#szDel').onclick = () => askConfirm({
+    title: `Удалить «${d.title || 'таблицу'}»?`,
+    text: 'В карточках её товаров кнопка «Таблица размеров» пропадёт (или откроется общая картинка, если она загружена).',
+    onOk(){ close(); szCommit(sizeCharts().filter(x => +x.id !== +d.id), null); toast('Таблица удалена'); }
+  });
+
+  paintSizes(); paintGrid(); paintProds(); paintPv();
+  setTimeout(() => { const f = $('#szTitle'); if(f && !d.title) f.focus(); }, 60);
+}
+
+/* Выбор товаров для таблицы: несколько сразу, с поиском. Товар из другой
+   таблицы помечен — при сохранении он переедет сюда. */
+function szProductsPick(cur, ownId, done){
+  adm.querySelectorAll('.ad__form--pp').forEach(x => x.remove());
+  const sel = new Set(cur.map(Number));
+  const other = id => sizeCharts().find(t => +t.id !== +ownId && (t.pids || []).includes(+id));
+  const w = document.createElement('div');
+  w.className = 'ad__form ad__form--top ad__form--pp';
+  w.innerHTML = `<div class="ad__card">
+    <h2 class="ad__ct">Товары для таблицы</h2>
+    <p class="ad__hint" style="margin-top:0">Отметьте товары — в их карточках появится кнопка «Таблица размеров».</p>
+    <input class="ad__f" id="szpQ" type="search" autocomplete="off" placeholder="Название или артикул">
+    <div class="ad__pp" id="szpList" role="listbox" aria-multiselectable="true" aria-label="Товары"></div>
+    <div class="ad__foot">
+      <span class="ad__szcnt" id="szpN"></span>
+      <button class="ad__b" id="szpX" type="button">Отмена</button>
+      <button class="ad__b ad__b--pri" id="szpOk" type="button">Готово</button>
+    </div></div>`;
+  adm.appendChild(w);
+  const $ = q => w.querySelector(q);
+  const list = $('#szpList'), qIn = $('#szpQ');
+  const norm = t => String(t || '').toLowerCase().replace(/ё/g, 'е');
+  const count = () => { $('#szpN').textContent = sel.size ? `Выбрано: ${sel.size}` : ''; };
+  const paint = () => {
+    const q = norm(qIn.value.trim());
+    const items = PRODUCTS.filter(p => !q || norm(p.name).includes(q) || norm(p.sku).includes(q));
+    list.innerHTML = items.length ? items.map(p => {
+      const o = other(p.id);
+      return `<button class="ad__pp-it" type="button" role="option" data-pp="${p.id}" aria-selected="${sel.has(+p.id)}">
+        <img src="${esc(p.img)}" alt="" loading="lazy" decoding="async">
+        <span class="ad__pp-tx"><b>${esc(p.name)}</b>
+          <i>${GENDER_LAB[p.gender] || ''}${p.cat ? ' · ' + esc(p.cat) : ''}${p.on ? '' : ' · скрыт'}${o ? ` · сейчас в «${esc(o.title || 'без названия')}»` : ''}</i></span>
+        <span class="ad__pp-ck">${svg('check','ic')}</span>
+      </button>`;
+    }).join('') : `<div class="ad__pp-none">Ничего не нашлось</div>`;
+  };
+  list.onclick = e => {
+    const b = e.target.closest('[data-pp]');
+    if(!b) return;
+    const id = +b.dataset.pp;
+    if(sel.has(id)) sel.delete(id); else sel.add(id);
+    b.setAttribute('aria-selected', String(sel.has(id)));
+    count();
+  };
+  qIn.addEventListener('input', paint);
+  const close = () => w.remove();
+  $('#szpX').onclick = close;
+  w.onclick = e => { if(e.target === w) close(); };
+  /* порядок: сначала те, что уже были, потом новые — в порядке каталога */
+  $('#szpOk').onclick = () => {
+    const keep = cur.map(Number).filter(id => sel.has(id));
+    const add = PRODUCTS.map(p => +p.id).filter(id => sel.has(id) && !keep.includes(id));
+    close(); done(keep.concat(add));
+  };
+  paint(); count();
+  setTimeout(() => qIn.focus(), 60);
+}
+
+function viewCatalog(){
   return `
   <div class="ad__panel">
     <div class="ad__hrow"><div>
@@ -16223,17 +16935,6 @@ function viewCatalog(){
     </div>
     ${catVideosAdminHTML()}
     <div class="ad__list" id="aList">${adRows()}</div>
-    <div class="ad__chart-box">
-      <div class="ad__box-t">Таблица размеров</div>
-      <p class="ad__hint" style="margin-top:0">Одна на весь каталог — показывается на карточке товара.</p>
-      <input type="file" id="aChartFile" accept="image/*" class="hide" aria-hidden="true">
-      ${hasChart
-        ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="ad__b ad__b--pri" id="aChartChange">Изменить</button>
-            <button class="ad__b" id="aChartDel">Удалить</button>
-          </div>`
-        : `<button class="ad__b ad__b--pri" id="aChartUp" style="width:100%">Загрузить таблицу</button>`}
-    </div>
   </div>`;
 }
 
@@ -18147,7 +18848,7 @@ function paintAdmin(){
     });
   }
   if(adTab === 'clients') loadAccounts();
-  const views = {dash:viewDash, catalog:viewCatalog, orders:viewOrders, reviews:viewReviews, clients:viewClients,
+  const views = {dash:viewDash, catalog:viewCatalog, sizes:viewSizes, orders:viewOrders, reviews:viewReviews, clients:viewClients,
     logo:viewLogo, slider:viewSlider, onb:viewOnb, tryon:viewTryon, promo:viewPromo, content:viewContent};
   if(adTab === 'pvz') adTab = 'dash';
   const html = (views[adTab]||viewDash)();
@@ -18169,6 +18870,9 @@ function paintAdmin(){
 }
 
 function bindAdminView(){
+  /* таблицы размеров */
+  const szNew = document.getElementById('aSzNew');
+  if(szNew) szNew.onclick = () => szForm(null);
   /* пункты выдачи */
   const pvzNewB = document.getElementById('aPvzNew');
   if(pvzNewB) pvzNewB.onclick = () => pvzForm(null);
@@ -18587,6 +19291,35 @@ adm.addEventListener('click', e => {
   const vmv = e.target.closest('[data-cvmv]');
   const ved = e.target.closest('[data-cved]');
   const vrm = e.target.closest('[data-cvrm]');
+  /* таблицы размеров: удалить, копия, изменить (вся строка — тоже «изменить») */
+  const szrm = e.target.closest('[data-szrm]');
+  if(szrm){
+    const t = sizeCharts().find(x => +x.id === +szrm.dataset.szrm);
+    if(!t) return;
+    askConfirm({
+      title: `Удалить «${t.title || 'таблицу'}»?`,
+      text: 'В карточках её товаров кнопка «Таблица размеров» пропадёт (или откроется общая картинка, если она загружена).',
+      onOk(){ szCommit(sizeCharts().filter(x => +x.id !== +t.id), null); toast('Таблица удалена'); }
+    });
+    return;
+  }
+  const szdup = e.target.closest('[data-szdup]');
+  if(szdup){
+    const t = sizeCharts().find(x => +x.id === +szdup.dataset.szdup);
+    if(!t || sizeCharts().length >= SZ_LIMITS.charts) return;
+    /* товар бывает только в одной таблице — у копии товаров нет */
+    const copy = Object.assign(JSON.parse(JSON.stringify(t)), {id: szNewId(), title: ((t.title || 'Таблица') + ' (копия)').slice(0, SZ_LIMITS.title), pids: []});
+    szCommit(sizeCharts().concat([copy]), copy.id);
+    szForm(copy);
+    toast('Копия создана — поправьте замеры и добавьте товары');
+    return;
+  }
+  const szed = e.target.closest('[data-szed]');
+  if(szed){
+    const t = sizeCharts().find(x => +x.id === +szed.dataset.szed);
+    if(t) szForm(t);
+    return;
+  }
   const vln = e.target.closest('[data-cvln]');
   if(vln){
     const id = +vln.dataset.cvln;
@@ -19358,6 +20091,7 @@ async function bootFromServer(){
           promos: Array.isArray(cms.promos) ? cms.promos : defaultCms().promos,
           slides: Array.isArray(cms.slides) ? cms.slides : [],
           vids: Array.isArray(cms.vids) ? cms.vids : [],
+          sizeCharts: Array.isArray(cms.sizeCharts) ? cms.sizeCharts : [],
           about: {blocks: (cms.about && Array.isArray(cms.about.blocks)) ? cms.about.blocks : []},
           usp: uspMerge(defaultCms().usp, cms.usp)
         });
@@ -19761,10 +20495,14 @@ bootFromServer().catch((err) => {
           if(prev !== JSON.stringify(CMS.shipping || {}) + JSON.stringify(CMS.reviews || {})) dirty = true;
           /* главная (фото, тексты, плашки) — иначе правки из админки
              доезжали до покупателя только после перезагрузки страницы */
-          const homeKey = () => JSON.stringify([CMS.slides || [], CMS.vids || [], CMS.texts || {}, CMS.usp || {}, CMS.about || {}]);
+          const homeKey = () => JSON.stringify([CMS.slides || [], CMS.vids || [], CMS.texts || {}, CMS.usp || {}, CMS.about || {},
+            CMS.sizeCharts || [], CMS.sizeChart || '']);
           const beforeHome = homeKey();
           if(Array.isArray(cms.slides)) CMS.slides = cms.slides;
           if(Array.isArray(cms.vids)) CMS.vids = cms.vids;
+          /* таблицы размеров — кнопка в карточке появляется без перезагрузки */
+          if(Array.isArray(cms.sizeCharts)) CMS.sizeCharts = cms.sizeCharts;
+          if(typeof cms.sizeChart === 'string') CMS.sizeChart = cms.sizeChart;
           CMS.texts = Object.assign({}, CMS.texts || {}, cms.texts || {});
           CMS.usp = uspMerge(defaultCms().usp, cms.usp);
           if(cms.about && Array.isArray(cms.about.blocks)) CMS.about = cms.about;

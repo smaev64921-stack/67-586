@@ -106,7 +106,47 @@ function scrubCmsInput(cms) {
     }
     out.onb = clean;
   }
+  if (out.sizeCharts != null) out.sizeCharts = cleanSizeCharts(out.sizeCharts);
   return out;
+}
+
+/* Таблицы размеров (админка → «Размеры»). У каждой — название, размеры
+   (колонки), строки замеров, примечание и товары, в карточках которых она
+   открывается. Всё — короткие строки без управляющих символов; товар может
+   быть только в одной таблице (первая выигрывает), id таблиц не повторяются.
+   Пределы совпадают с SZ_LIMITS в index.html. */
+const SZ_LIMITS = { charts: 40, sizes: 12, rows: 16, title: 60, label: 60, val: 20, note: 300, size: 12 };
+function szStr(v, max) {
+  return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+function cleanSizeCharts(list) {
+  const usedPid = new Set();
+  const usedId = new Set();
+  return (Array.isArray(list) ? list : [])
+    .filter((t) => t && typeof t === 'object')
+    .map((t) => {
+      const id = +t.id;
+      if (!Number.isSafeInteger(id) || id <= 0 || usedId.has(id)) return null;
+      usedId.add(id);
+      const sizes = (Array.isArray(t.sizes) ? t.sizes : [])
+        .map((s) => szStr(s, SZ_LIMITS.size)).filter(Boolean).slice(0, SZ_LIMITS.sizes);
+      const rows = (Array.isArray(t.rows) ? t.rows : [])
+        .filter((r) => r && typeof r === 'object')
+        .map((r) => ({
+          label: szStr(r.label, SZ_LIMITS.label),
+          vals: sizes.map((_, i) => szStr(Array.isArray(r.vals) ? r.vals[i] : '', SZ_LIMITS.val))
+        }))
+        .filter((r) => r.label)
+        .slice(0, SZ_LIMITS.rows);
+      const pids = [];
+      (Array.isArray(t.pids) ? t.pids : []).forEach((x) => {
+        const n = +x;
+        if (Number.isSafeInteger(n) && n > 0 && !usedPid.has(n)) { usedPid.add(n); pids.push(n); }
+      });
+      return { id, title: szStr(t.title, SZ_LIMITS.title), note: szStr(t.note, SZ_LIMITS.note), sizes, rows, pids };
+    })
+    .filter(Boolean)
+    .slice(0, SZ_LIMITS.charts);
 }
 
 /**
