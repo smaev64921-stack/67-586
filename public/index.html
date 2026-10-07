@@ -2594,21 +2594,29 @@ html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--
 .sz__x:hover{background:var(--line)}
 .sz__x:active{transform:scale(.94)}
 .sz__x .ic{width:17px;height:17px;stroke-width:1.9}
-.sz__b{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 20px 20px}
-/* таблица: первая колонка закреплена, размеры листаются вбок */
-.sz__wrap{overflow-x:auto;margin:0 -20px;padding:0 20px;scrollbar-width:none;outline:none}
+.sz__b{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0 20px 20px}
+.sz__b--img{display:block;overflow-y:auto;overscroll-behavior:contain}
+/* Таблица сама листается в обе стороны: строка размеров закреплена сверху,
+   колонка параметров — слева. Длинную таблицу читаешь, не теряя, где
+   какой размер; примечание под ней всегда на виду. */
+.sz__wrap{flex:0 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;margin:0 -20px;padding:0 20px;scrollbar-width:none;outline:none}
 .sz__wrap::-webkit-scrollbar{display:none}
 .sz__tb{border-collapse:separate;border-spacing:0;min-width:100%;font-size:14px;font-variant-numeric:tabular-nums}
 .sz__tb th,.sz__tb td{padding:0 4px;height:50px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line);
   transition:background-color .35s var(--ease),color .35s var(--ease)}
-.sz__tb thead th{height:auto;padding:4px 3px 10px;border-bottom:1px solid var(--ink)}
+.sz__tb thead th{height:auto;padding:4px 3px 10px;border-bottom:1px solid var(--ink);position:sticky;top:0;z-index:2;background:var(--card)}
+.sz__tb thead th.is-on{background:linear-gradient(rgba(11,11,11,.045),rgba(11,11,11,.045)),var(--card)}
 .sz__tb tbody th{
   position:sticky;left:0;z-index:1;background:var(--card);text-align:left;padding-right:14px;
   font-size:12.5px;font-weight:600;color:var(--ink-soft);white-space:normal;min-width:100px;max-width:140px;line-height:1.3
 }
-.sz__tb thead .sz__c0{position:sticky;left:0;z-index:2;background:var(--card);text-align:left;vertical-align:bottom;
+.sz__tb thead .sz__c0{position:sticky;left:0;top:0;z-index:3;background:var(--card);text-align:left;vertical-align:bottom;
   font-size:10.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-left:0}
 .sz__tb tbody tr:last-child > *{border-bottom:0}
+/* закреплённая колонка закрывает и поле слева — прокрученные цифры не
+   просвечивают у её края; после прокрутки у неё появляется тонкая черта */
+.sz__tb tbody th,.sz__tb thead .sz__c0{box-shadow:-20px 0 0 var(--card)}
+.sz__wrap.is-scrolled .sz__tb tbody th,.sz__wrap.is-scrolled .sz__tb thead .sz__c0{box-shadow:-20px 0 0 var(--card),1px 0 0 var(--line)}
 .sz__tb td{min-width:50px;font-weight:600;color:var(--ink)}
 /* таблица шире шторки — правый край растворяется: видно, что она листается */
 .sz__wrap.is-more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
@@ -2616,6 +2624,7 @@ html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--
 .sz__tb tbody tr:last-child td.is-on{border-radius:0 0 12px 12px}
 .sz__dash{color:var(--muted2);font-weight:500}
 .sz__s{
+  display:inline-flex;align-items:center;justify-content:center;
   min-width:44px;height:40px;padding:0 9px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.03em;
   border:1.5px solid var(--line2);background:var(--card);color:var(--ink);
   transition:background-color .3s var(--ease),color .3s var(--ease),border-color .3s var(--ease),transform .15s var(--ease)
@@ -2623,9 +2632,12 @@ html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--
 .sz__s:active{transform:scale(.94)}
 .sz__s[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
 .sz__s:disabled{color:var(--muted2);border-style:dashed;cursor:default}
+/* размер, которого у товара нет вовсе, — подпись, а не кнопка */
+span.sz__s:not([aria-pressed="true"]){border-color:transparent;background:none}
+.sz__tb--still span.sz__s:not([aria-pressed="true"]){border-color:var(--line2);background:var(--card)}
 .sz__tb tbody tr{animation:szRow .55s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(.16s + var(--i,0) * 45ms)}
 @keyframes szRow{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.sz__note{margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--chip);
+.sz__note{flex:none;margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--chip);overflow-wrap:anywhere;
   font-size:12.5px;line-height:1.5;color:var(--ink-soft);animation:szRow .55s cubic-bezier(.16,1,.3,1) .3s both}
 .sz__img{display:block;width:100%;height:auto;border-radius:12px;background:var(--photo)}
 .sz__f{flex:none;padding:12px 20px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
@@ -2637,14 +2649,22 @@ html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--
 .sz__go:hover{opacity:.9}
 /* копия закрытой шторки доигрывает уход и исчезает; нажатия сквозь неё */
 .ov-ghost,.ov-ghost *{pointer-events:none!important}
+/* на узком телефоне 5 размеров (а на 390 px и 6) помещаются без прокрутки */
+@media (max-width:400px){
+  .sz__tb tbody th{min-width:80px;padding-right:8px}
+  .sz__tb td{min-width:44px}
+  .sz__s{min-width:38px;height:38px;padding:0 6px}
+}
 @media (min-width:760px){
-  .sheet--sz{border-radius:20px;max-height:min(84vh,720px);animation:szPop .5s cubic-bezier(.16,1,.3,1);box-shadow:0 30px 80px -20px rgba(0,0,0,.45)}
+  /* .sheet.sheet--sz: общее правило окон на компьютере (.sheet{animation:fadeIn…})
+     стоит в файле ниже — своё должно его перебить */
+  .sheet.sheet--sz{border-radius:20px;max-height:min(84vh,720px);animation:szPop .5s cubic-bezier(.16,1,.3,1);box-shadow:0 30px 80px -20px rgba(0,0,0,.45)}
   .sz__grab{display:none}
   .sz__h{padding-top:22px;touch-action:auto}
 }
 @keyframes szPop{from{opacity:0;transform:translateY(calc(-50% + 18px)) scale(.98)}to{opacity:1;transform:translateY(-50%)}}
 @media (prefers-reduced-motion:reduce){
-  .scrim--sz,.sheet--sz,.sz__tb tbody tr,.sz__note{animation:none}
+  .scrim--sz,.sheet--sz,.sheet.sheet--sz,.sz__tb tbody tr,.sz__note{animation:none}
   .sheet--sz,.sz__tb th,.sz__tb td,.sz__s{transition:none}
 }
 .sheet__h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex:none}
@@ -4434,6 +4454,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .ad__szp{display:flex;align-items:center;gap:10px;padding:5px 5px 5px 6px;border:1.5px solid var(--line);border-radius:var(--r-md);font-size:13px;font-weight:600}
 .ad__szp img{width:30px;height:38px;object-fit:contain;border-radius:3px;background:var(--photo);flex:none}
 .ad__szp span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ad__szp span .ad__szw{white-space:normal;font-style:normal;font-weight:500;line-height:1.35}
 .ad__szp button{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted);flex:none}
 .ad__szp button:hover{background:var(--chip);color:var(--danger)}
 .ad__szp .ic{width:14px;height:14px;stroke-width:2}
@@ -9152,14 +9173,24 @@ function paintQty(){
    и второй уводил на жилет. Одинаковых кружков не бывает вовсе: цвет, который
    уже есть, второй раз не показываем.
    Имена цветов — общие, из TONES, а не как товар назвал админ. */
-/* Слова-цвета, которые встречаются в названиях, кроме пяти цветов коллекции */
-const COLOR_WORD = /^(?:сер|беж|хаки|зел|син|роз|фиол|оранж|ж[её]лт|бордо|графит|олив|песоч|пудр|лаванд|мят|изумр|терракот|кремов|сливоч|молоч|антрацит|grey|gray|beige|green|pink|navy|olive|sand|cream|milk|white|black|red|blue|brown|mokko)/i;
+/* Слово-цвет в названии — целиком, с окончанием прилагательного: «синее»,
+   «тёмно» (из «тёмно-синий»), «молочная», «Mokko», «black». Корень сам по
+   себе не годится: «синтепон», «Сердце», «Роза», «Термобельё», «Blackout» —
+   это не цвета, и такие товары не должны склеиваться в одну модель. */
+const COLOR_STEM = '(?:бел|черн|красн|син|сер|зелен|желт|розов|голуб|коричнев|бежев|фиолетов|оранжев|бордов|молочн|кремов|песочн|' +
+  'оливков|графитов|изумрудн|лавандов|мятн|пудров|сливочн|терракотов|бирюзов|малинов|вишнев|горчичн|шоколадн|кофейн|' +
+  'антрацитов|жемчужн|серебрист|золотист|темн|светл|ярк|бледн|пыльн|нежн|глубок|насыщенн|приглушенн)';
+const COLOR_WORD = new RegExp('^(?:' + COLOR_STEM + '(?:ый|ий|ой|ая|яя|ое|ее|ого|его|ому|ему|ым|им|ую|юю|ые|ие|ых|их|о|е)?|' +
+  'шоколад|мокко|mokko|хаки|бордо|графит|айвори|экрю|нюд|капучино|латте|антрацит|олива|лаванда|мята|пудра|беж|' +
+  'black|white|red|blue|navy|grey|gray|green|beige|brown|pink|cream|milk|sand|olive|khaki|mocha|ivory|ecru|nude|latte|chocolate)$', 'i');
+const nameWords = t => String(t || '').toLowerCase().replace(/ё/g, 'е').split(/[^a-zа-я0-9]+/).filter(Boolean);
+/* Модель товара без цвета: «Футболка оверсайз шоколад» и «Футболка оверсайз
+   белая» — одна модель, «Бомбер» и «Жилет» — разные, хоть и обе «Куртки».
+   Свои названия цветов товара («Тёмно-синий», «Mokko») тоже вычёркиваем —
+   по словам, а не целой строкой. */
 function modelKey(p){
-  /* свои названия цветов товара («Mokko», «Молочная») — тоже не модель */
-  const own = new Set((p.colors || []).map(c => String(c && c.name || '').toLowerCase().replace(/ё/g, 'е')).filter(Boolean));
-  return String(p.name || '').toLowerCase().replace(/ё/g, 'е')
-    .split(/[^a-zа-я0-9]+/).filter(w => w && !own.has(w) && !toneOf(w) && !COLOR_WORD.test(w))
-    .join(' ');
+  const own = new Set((p.colors || []).flatMap(c => nameWords(c && c.name)));
+  return nameWords(p.name).filter(w => !own.has(w) && !COLOR_WORD.test(w)).join(' ');
 }
 function colorRowHTML(p){
   const own = (p.colors || []).filter(c => c && c.hex).map(c => ({
@@ -9199,7 +9230,7 @@ function colorRowHTML(p){
    вкладки (CMS.sizeChart), если она загружена. Пределы совпадают с
    SZ_LIMITS в server/cms-safe.js.
    ========================================================== */
-const SZ_LIMITS = {charts:40, sizes:12, rows:16, title:60, label:60, val:20, note:300, size:12};
+const SZ_LIMITS = {charts:40, sizes:12, rows:16, title:60, label:60, val:20, note:300, size:12, pids:500};
 const sizeCharts = () => (Array.isArray(CMS.sizeCharts) ? CMS.sizeCharts : []).filter(t => t && typeof t === 'object');
 /* таблица, в которой лежит товар (товар бывает только в одной) */
 const chartWith = id => sizeCharts().find(t => Array.isArray(t.pids) && t.pids.includes(+id)) || null;
@@ -9213,14 +9244,19 @@ function chartOf(p){
 }
 const SZ_NOTE = 'Замеры в сантиметрах. Проще всего сверить с вещью, которая хорошо сидит: разложите её на столе и измерьте так же.';
 /* Таблица — одна разметка для шторки покупателя и предпросмотра в админке.
-   o.pick — выбранный размер, o.avail(size) — можно ли его выбрать,
-   o.still — без кнопок и без анимации (предпросмотр). */
+   o.pick — выбранный размер; o.state(size) — 'on' (есть, можно выбрать),
+   'out' (у товара есть, но кончился), иначе просто подпись (у товара такого
+   размера нет — например, таблица «42–52» у товара с S–XL: это справка, а не
+   «нет в наличии»). o.still — предпросмотр: подписи, без анимации. */
 function szTableHTML(t, o){
   const cols = t.sizes || [], pick = o.pick || '';
-  const head = (c, i) => o.still
-    ? `<span class="sz__s"${c === pick ? ' aria-pressed="true"' : ''}>${esc(c)}</span>`
-    : `<button type="button" class="sz__s" data-szpick="${i}"${o.avail(c) ? '' : ` disabled title="Этого размера сейчас нет"`}
-        aria-pressed="${c === pick}">${esc(c)}</button>`;
+  const st = c => o.still ? '' : o.state(c);
+  const head = (c, i) => {
+    const s0 = st(c);
+    if(s0 === 'on') return `<button type="button" class="sz__s" data-szpick="${i}" aria-pressed="${c === pick}">${esc(c)}</button>`;
+    if(s0 === 'out') return `<button type="button" class="sz__s" disabled aria-pressed="false" title="Этого размера сейчас нет">${esc(c)}</button>`;
+    return `<span class="sz__s"${c === pick ? ' aria-pressed="true"' : ''}>${esc(c)}</span>`;
+  };
   const on = i => cols[i] === pick ? ' is-on' : '';
   return `<div class="sz__wrap"${o.still ? '' : ` id="szWrap" tabindex="0" role="region" aria-label="Таблица размеров, листается вбок"`}>
       <table class="sz__tb${o.still ? ' sz__tb--still' : ''}">
@@ -9233,19 +9269,36 @@ function szTableHTML(t, o){
 }
 /* Шторка с таблицей. Выбранный в карточке размер подсвечен колонкой;
    нажатие на размер в шапке таблицы переносит подсветку, кнопка внизу
-   ставит этот размер в карточке и закрывает шторку. Размеры, которых у
-   товара нет или они кончились, видны, но не нажимаются. */
-function openSizeSheet(p){
+   ставит этот размер в карточке и закрывает шторку. Размер, который у
+   товара есть, но кончился, виден и не нажимается; размеры, которых у
+   товара нет вовсе, — просто подписи. */
+let szOpening = false;
+async function openSizeSheet(p){
   const ch = chartOf(p);
-  if(!ch) return;
+  if(!ch || szOpening) return;
+  const opener = document.activeElement;
+  /* картинку-таблицу сначала скачиваем: иначе шторка въезжала пустой
+     полоской и потом прыгала вверх, когда картинка приходила */
+  let imgWH = '';
+  if(ch.kind === 'img'){
+    szOpening = true;
+    const im = new Image();
+    im.src = ch.src;
+    try{ await Promise.race([im.decode ? im.decode() : Promise.resolve(), new Promise(r => setTimeout(r, 1500))]); }catch(_){}
+    szOpening = false;
+    if(im.naturalWidth) imgWH = ` width="${im.naturalWidth}" height="${im.naturalHeight}"`;
+    if(S.screen !== 'product' || +S.productId !== +p.id) return;   // пока качали, человек ушёл
+  }
   const t = ch.t;
   const cols = ch.kind === 'table' ? t.sizes : [];
-  const avail = s => (p.sizes || []).includes(s) && stockOf(p, s) > 0;
-  let pick = cols.includes(S.size) && avail(S.size) ? S.size : (cols.find(avail) || '');
-  const canPick = !soldOut(p) && cols.some(avail);
+  const has = s => (p.sizes || []).includes(s);
+  const state = s => !has(s) ? '' : stockOf(p, s) > 0 ? 'on' : 'out';
+  const ok = s => state(s) === 'on';
+  let pick = cols.includes(S.size) && ok(S.size) ? S.size : (cols.find(ok) || '');
+  const canPick = !soldOut(p) && cols.some(ok);
   const title = ch.kind === 'table' ? (t.title || p.name) : p.name;
-  const body = ch.kind === 'table' ? szTableHTML(t, {pick, avail})
-    : `<img class="sz__img" src="${esc(ch.src)}" alt="Таблица размеров">`;
+  const body = ch.kind === 'table' ? szTableHTML(t, {pick, state})
+    : `<img class="sz__img" src="${esc(ch.src)}"${imgWH} alt="Таблица размеров">`;
   openOv(`<div class="scrim scrim--sz"></div>
     <div class="sheet sheet--sz" role="dialog" aria-modal="true" aria-labelledby="szT">
       <div class="sz__grab" aria-hidden="true"><i></i></div>
@@ -9253,36 +9306,59 @@ function openSizeSheet(p){
         <div><p class="sz__k">Таблица размеров</p><h2 class="sz__t" id="szT">${esc(title)}</h2></div>
         <button class="sz__x" type="button" data-x aria-label="Закрыть">${svg('x','ic')}</button>
       </div>
-      <div class="sz__b">${body}</div>
+      <div class="sz__b${ch.kind === 'img' ? ' sz__b--img' : ''}">${body}</div>
       ${canPick ? `<div class="sz__f"><button class="sz__go" type="button" id="szGo"></button></div>` : ''}
     </div>`);
   const sh = ov.querySelector('.sheet--sz'), scrim = ov.querySelector('.scrim--sz');
   const go = sh.querySelector('#szGo'), wrap = sh.querySelector('#szWrap');
+  /* закрыли — фокус обратно на «Таблица размеров», а не в начало страницы */
+  onOvClose(() => {
+    const back = opener && opener.isConnected && opener !== document.body ? opener : document.querySelector('#scr .pd__szb');
+    if(back) try{ back.focus({preventScroll: true}); }catch(_){}
+  });
+  /* колонка выбранного размера — целиком на виду: не под закреплённой
+     колонкой слева и не под растворённым краем справа */
+  const reveal = (i, smooth) => {
+    const th = wrap && i > -1 ? wrap.querySelector(`thead th[data-col="${i}"]`) : null;
+    if(!th) return;
+    const wr = wrap.getBoundingClientRect(), cr = th.getBoundingClientRect();
+    const left = wrap.querySelector('.sz__c0').getBoundingClientRect().right + 4;
+    const right = wr.right - 20 - 36;
+    const dx = cr.left < left ? cr.left - left : cr.right > right ? cr.right - right : 0;
+    if(dx) wrap.scrollBy({left: dx, behavior: smooth ? 'smooth' : 'auto'});
+  };
   const paint = first => {
     const i = cols.indexOf(pick);
     sh.querySelectorAll('[data-col]').forEach(x => x.classList.toggle('is-on', +x.dataset.col === i));
     sh.querySelectorAll('[data-szpick]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.szpick === i)));
     if(go) go.textContent = !pick ? 'Закрыть' : pick === S.size ? `Готово · размер ${pick}` : `Выбрать размер ${pick}`;
-    /* колонка выбранного размера — в поле зрения, если таблица шире экрана */
-    const th = wrap && i > -1 ? wrap.querySelector(`th[data-col="${i}"]`) : null;
-    if(th){
-      const fix = wrap.querySelector('.sz__c0').offsetWidth;
-      const l = th.offsetLeft - fix, r = th.offsetLeft + th.offsetWidth - wrap.clientWidth;
-      if(wrap.scrollLeft > l) wrap.scrollTo({left: l, behavior: first ? 'auto' : 'smooth'});
-      else if(wrap.scrollLeft < r) wrap.scrollTo({left: r + 20, behavior: first ? 'auto' : 'smooth'});
-    }
+    reveal(i, !first);
   };
   paint(true);
   if(wrap){
-    const more = () => wrap.classList.toggle('is-more', wrap.scrollLeft + wrap.clientWidth < wrap.scrollWidth - 4);
-    wrap.addEventListener('scroll', more, {passive: true});
-    more();
+    /* край справа растворяется, пока есть куда листать; после прокрутки
+       у закреплённой колонки появляется тонкая черта */
+    const edges = () => {
+      wrap.classList.toggle('is-more', wrap.scrollLeft + wrap.clientWidth < wrap.scrollWidth - 4);
+      wrap.classList.toggle('is-scrolled', wrap.scrollLeft > 2);
+    };
+    wrap.addEventListener('scroll', edges, {passive: true});
+    edges();
   }
   sh.addEventListener('click', e => {
     const b = e.target.closest('[data-szpick]');
     if(!b || b.disabled) return;
     pick = cols[+b.dataset.szpick];
     paint();
+  });
+  /* Tab ходит по кругу внутри окна, а не уходит за затемнение */
+  sh.addEventListener('keydown', e => {
+    if(e.key !== 'Tab') return;
+    const f = [...sh.querySelectorAll('button:not([disabled]), [tabindex="0"]')].filter(x => x.offsetParent !== null);
+    if(!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
   });
   if(go) go.onclick = () => {
     /* размер ставим той же кнопкой, что в карточке: её обработчик обновит
@@ -9293,26 +9369,41 @@ function openSizeSheet(p){
     }
     closeOv();
   };
-  /* свайп вниз за ручку или шапку — закрыть; не дотянул — шторка пружинит назад */
-  let y0 = null, dy = 0, t0 = 0;
+  /* Свайп вниз за ручку или шапку — закрыть; не дотянул — шторка пружинит
+     назад. Схватили, пока шторка ещё въезжает, — она остаётся под пальцем,
+     а не доезжает сама и прыгает. Скорость — по последним 100 мс движения:
+     короткий бросок после удержания тоже закрывает. */
+  let drag = null;
   const startDrag = e => {
     if(e.button > 0 || e.target.closest('button') || matchMedia('(min-width:760px)').matches) return;
-    y0 = e.clientY; dy = 0; t0 = performance.now();
-    try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+    let base = 0;
+    try{ base = Math.max(0, new DOMMatrix(getComputedStyle(sh).transform).m42 || 0); }catch(_){}
+    sh.style.animation = 'none';
     sh.classList.add('is-drag');
+    sh.style.transform = base ? `translateY(${base}px)` : '';
+    drag = {y0: e.clientY, base, dy: base, s: [{y: e.clientY, t: performance.now()}]};
+    try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
   };
   const moveDrag = e => {
-    if(y0 == null) return;
-    dy = Math.max(0, e.clientY - y0);
-    sh.style.transform = dy ? `translateY(${dy}px)` : '';
-    scrim.style.opacity = String(Math.max(0, 1 - dy / 420));
+    if(!drag) return;
+    drag.dy = Math.max(0, drag.base + e.clientY - drag.y0);
+    sh.style.transform = drag.dy ? `translateY(${drag.dy}px)` : '';
+    scrim.style.opacity = String(Math.max(0, 1 - drag.dy / 420));
+    const now = performance.now();
+    drag.s.push({y: e.clientY, t: now});
+    while(drag.s.length > 2 && now - drag.s[0].t > 100) drag.s.shift();
   };
   const endDrag = () => {
-    if(y0 == null) return;
-    const v = dy / Math.max(1, performance.now() - t0);
-    y0 = null;
+    if(!drag) return;
+    const d = drag, a = d.s[0], z = d.s[d.s.length - 1];
+    const v = z.t > a.t ? (z.y - a.y) / (z.t - a.t) : 0;
+    drag = null;
     sh.classList.remove('is-drag');
-    if(dy > 110 || (dy > 30 && v > .55)) return closeOv();
+    if(d.dy > 110 || (d.dy > 24 && v > .45)){
+      closeOv();
+      syncBackSoon();          // жест — не клик: «Назад» иначе остался бы взведённым
+      return;
+    }
     sh.style.transform = ''; scrim.style.opacity = '';
   };
   sh.querySelectorAll('.sz__grab, .sz__h').forEach(z => {
@@ -9410,7 +9501,7 @@ function scrProduct(){
       ${sizes.length ? `${szHeadHTML(p)}
       <div class="sizes">${sizes.map(s => `<button class="size" data-a="size:${s}"
           aria-pressed="${S.size === s}">${s}</button>`).join('')}</div>` : ''}
-      ${!sizes.length && chartOf(p) ? `<button class="pd__szb pd__szb--solo" type="button" data-a="szchart">${svg('ruler','ic')}<span>Таблица размеров</span></button>` : ''}
+      ${!sizes.length && chartOf(p) ? `<button class="pd__szb pd__szb--solo" type="button" data-a="szchart" aria-haspopup="dialog">${svg('ruler','ic')}<span>Таблица размеров</span></button>` : ''}
       <div id="pdStock">${stockNote(p)}</div>
       ${out ? '' : `<div class="pd__qty" id="pdQty"${inCart(p) ? ' hidden' : ''}>${qtyRowHTML(p)}</div>`}
 
@@ -16569,14 +16660,27 @@ function catVideosAdminHTML(){
 const SZ_PRESETS = [['XS–XL', 'XS,S,M,L,XL'], ['S–XXL', 'S,M,L,XL,XXL'], ['42–52', '42,44,46,48,50,52'], ['Один размер', 'ONE SIZE']];
 const SZ_PARAMS = ['Обхват груди', 'Длина изделия', 'Ширина плеч', 'Длина рукава', 'Обхват талии', 'Обхват бёдер'];
 
+/* Порядок размеров: буквенные — от меньшего к большему, числа — по
+   возрастанию. k — род (буквы или числа): сравниваем только одного рода. */
+const SZ_ORDER = ['XXXS','XXS','XS','S','M','L','XL','XXL','XXXL','4XL','5XL','6XL','7XL','8XL'];
+function szRank(z){
+  const u = String(z || '').trim().toUpperCase().replace(/\s+/g, '').replace(/^2XL$/, 'XXL').replace(/^3XL$/, 'XXXL').replace(/^2XS$/, 'XXS');
+  const k = SZ_ORDER.indexOf(u);
+  if(k > -1) return {k: 'a', v: k};
+  const n = /^(\d{2,3})(?:[-–/]\d{2,3})?$/.exec(u);
+  return n ? {k: 'n', v: +n[1]} : null;
+}
+
 function viewSizes(){
   const list = sizeCharts();
   const full = list.length >= SZ_LIMITS.charts;
   const rows = list.map(t => {
     const prods = (t.pids || []).map(id => byId(id)).filter(Boolean);
     const nr = (t.rows || []).length;
+    const off = prods.filter(p => (p.sizes || []).length && !(t.sizes || []).some(z => (p.sizes || []).includes(z)));
     const warn = !(t.sizes || []).length || !nr ? 'Нет размеров или замеров — в карточках не появится'
-      : !prods.length ? 'Не привязана к товарам — в карточках её пока не видно' : '';
+      : !prods.length ? 'Не привязана к товарам — в карточках её пока не видно'
+      : off.length ? `Размеры не совпадают с размерами товара (${off.length}) — выбрать размер в таблице нельзя` : '';
     return `<div class="ad__row ad__row--click ad__szr" data-szed="${t.id}">
       <span class="ad__szic">${svg('ruler','ic')}</span>
       <div class="ad__i">
@@ -16699,24 +16803,59 @@ function szForm(src){
     }, 120);
   };
 
-  /* ---- размеры ---- */
+  /* ---- размеры ----
+     Новый размер встаёт на своё место: XS — перед S, 42 — перед 44 (если
+     все размеры таблицы одного рода); непонятный — в конец. Значения
+     колонок едут вместе с размерами. */
+  const szKey = z => String(z || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const insertSize = z => {
+    z = szKey(z).slice(0, SZ_LIMITS.size);
+    if(!z || d.sizes.some(x => szKey(x) === z)) return 'dup';
+    if(d.sizes.length >= SZ_LIMITS.sizes) return 'full';
+    const r = szRank(z);
+    let at = d.sizes.length;
+    if(r && d.sizes.every(x => { const q = szRank(x); return q && q.k === r.k; })){
+      const j = d.sizes.findIndex(x => szRank(x).v > r.v);
+      if(j > -1) at = j;
+    }
+    d.sizes.splice(at, 0, z);
+    d.rows.forEach(rw => rw.vals.splice(at, 0, ''));
+    return 'ok';
+  };
+  /* Текст из поля «+ размер» — в размеры. Списком тоже: «42 44 46»,
+     «XS, S, M» или строка, скопированная из таблицы. refocus — вернуть
+     курсор в поле (после Enter); при уходе из поля фокус не трогаем. */
+  const commitSizes = refocus => {
+    const inp = $('#szSizeIn');
+    if(!inp || !inp.value.trim()) return 0;
+    const list = inp.value.split(/[,;\s]+/).filter(Boolean);
+    inp.value = '';
+    let n = 0;
+    const full = [];
+    list.forEach(z => { const r = insertSize(z); if(r === 'ok') n++; else if(r === 'full') full.push(szKey(z)); });
+    if(full.length) toast(`Больше ${SZ_LIMITS.sizes} размеров нельзя — не добавлены: ${full.join(', ')}`);
+    if(n){
+      touch(); paintSizes(); paintGrid(); paintPv(); paintProds();
+      if(refocus){ const f = $('#szSizeIn'); if(f) f.focus(); }
+    }
+    return n;
+  };
   const paintSizes = () => {
     chips.innerHTML = d.sizes.map((z, i) => `<span class="ad__szchip">${esc(z)}<button type="button" data-szsrm="${i}" aria-label="Убрать размер ${esc(z)}">${svg('x','ic')}</button></span>`).join('')
-      + (d.sizes.length < SZ_LIMITS.sizes ? `<input class="ad__szadd" id="szSizeIn" maxlength="${SZ_LIMITS.size}" placeholder="+ размер" aria-label="Добавить размер" enterkeyhint="done">` : '');
+      + (d.sizes.length < SZ_LIMITS.sizes ? `<input class="ad__szadd" id="szSizeIn" placeholder="+ размер" aria-label="Добавить размер — можно несколько через пробел" enterkeyhint="done" autocomplete="off">` : '');
     const inp = $('#szSizeIn');
     if(inp){
-      const add = () => {
-        const v = inp.value.split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
-        inp.value = '';
-        let n = 0;
-        v.forEach(z => {
-          if(d.sizes.length >= SZ_LIMITS.sizes || d.sizes.includes(z)) return;
-          d.sizes.push(z.slice(0, SZ_LIMITS.size)); d.rows.forEach(r => r.vals.push('')); n++;
-        });
-        if(n){ touch(); paintSizes(); paintGrid(); paintPv(); $('#szSizeIn') && $('#szSizeIn').focus(); }
-      };
-      inp.onkeydown = e => { if(e.key === 'Enter' || e.key === ',' ){ e.preventDefault(); add(); } };
-      inp.onblur = add;
+      inp.onkeydown = e => { if(e.key === 'Enter' || e.key === ','){ e.preventDefault(); commitSizes(true); } };
+      /* Ушли из поля, не нажав Enter, — размер всё равно добавляем, но уже
+         после того, как фокус перешёл: нажатие (на «Сохранить», в клетку)
+         не теряется, и курсор остаётся там, куда человек нажал. */
+      inp.onblur = () => setTimeout(() => {
+        const a = document.activeElement;
+        const r = a && a.dataset ? a.dataset.r : null, c = a && a.dataset ? a.dataset.c : null;
+        if(!commitSizes(false) || !a || a.isConnected) return;
+        const f = r != null ? grid.querySelector(`.ad__szin[data-r="${r}"][data-c="${c}"]`) : null;
+        if(f) f.focus({preventScroll: true});
+      }, 0);
     }
   };
   chips.onclick = e => {
@@ -16724,14 +16863,14 @@ function szForm(src){
     if(!b) return;
     const i = +b.dataset.szsrm;
     d.sizes.splice(i, 1); d.rows.forEach(r => r.vals.splice(i, 1));
-    touch(); paintSizes(); paintGrid(); paintPv();
+    touch(); paintSizes(); paintGrid(); paintPv(); paintProds();
   };
   w.querySelectorAll('[data-szpre]').forEach(b => b.onclick = () => {
     /* заготовка: значения тех размеров, что остались, сохраняются */
     const next = b.dataset.szpre.split(',');
     d.rows.forEach(r => { r.vals = next.map(z => { const k = d.sizes.indexOf(z); return k > -1 ? r.vals[k] : ''; }); });
     d.sizes = next;
-    touch(); paintSizes(); paintGrid(); paintPv();
+    touch(); paintSizes(); paintGrid(); paintPv(); paintProds();
   });
 
   /* ---- сетка замеров ---- */
@@ -16740,7 +16879,7 @@ function szForm(src){
       <thead><tr><th class="ad__szt0">Параметр</th>${d.sizes.map(z => `<th>${esc(z)}</th>`).join('')}<th aria-label="Убрать"></th></tr></thead>
       <tbody>${d.rows.map((r, ri) => `<tr>
         <th class="ad__szt0"><input class="ad__szin ad__szin--l" data-r="${ri}" data-c="-1" maxlength="${SZ_LIMITS.label}" value="${esc(r.label)}" placeholder="Параметр" aria-label="Параметр, строка ${ri + 1}"></th>
-        ${d.sizes.map((z, ci) => `<td><input class="ad__szin" data-r="${ri}" data-c="${ci}" maxlength="${SZ_LIMITS.val}" value="${esc(r.vals[ci])}" inputmode="decimal" aria-label="${esc(r.label || 'Параметр')}, размер ${esc(z)}"></td>`).join('')}
+        ${d.sizes.map((z, ci) => `<td><input class="ad__szin" data-r="${ri}" data-c="${ci}" maxlength="${SZ_LIMITS.val}" value="${esc(r.vals[ci])}" autocomplete="off" aria-label="${esc(r.label || 'Параметр')}, размер ${esc(z)}"></td>`).join('')}
         <td><button type="button" class="ad__szdel" data-szrowrm="${ri}" aria-label="Убрать строку">${svg('x','ic')}</button></td>
       </tr>`).join('')}</tbody></table>
       ${d.rows.length ? '' : '<div class="ad__pp-none">Добавьте параметр ниже — например, «Обхват груди»</div>'}`;
@@ -16757,28 +16896,70 @@ function szForm(src){
     touch(); paintPv();
   });
   /* Вставка из Excel / Google Таблиц: строки — через перевод строки, клетки —
-     через Tab. Раскладываем с той клетки, куда вставили; строк не хватает —
-     добавляем (до предела). Одна клетка без Tab — обычная вставка. */
+     через Tab. Раскладываем с той клетки, куда вставили. Первая строка вида
+     «Размер | XS | S | M …» — это размеры: они и становятся колонками
+     таблицы (значения прежних размеров сохраняются по имени). Что не
+     поместилось — не молча: в сообщении сказано, сколько и почему. */
+  const SZ_HEAD = /^(?:\d?X{0,4}[SML]|\dXL|\dXS|ONE ?SIZE|\d{2,3}(?:[-–/]\d{2,3})?)$/i;
   grid.addEventListener('paste', e => {
     const x = e.target.closest('.ad__szin');
-    const txt = (e.clipboardData || window.clipboardData) ? (e.clipboardData || window.clipboardData).getData('text') : '';
+    const cd = e.clipboardData || window.clipboardData;
+    const txt = cd ? cd.getData('text') : '';
     if(!x || !/[\t\n]/.test(txt.trim())) return;
     e.preventDefault();
-    const lines = txt.replace(/\r/g, '').split('\n').filter((l, i, a) => l.length || i < a.length - 1).map(l => l.split('\t'));
-    let r0 = +x.dataset.r, c0 = +x.dataset.c;
+    let lines = txt.replace(/\r/g, '').split('\n').map(l => l.split('\t').map(v => v.trim()));
+    while(lines.length && !lines[lines.length - 1].some(Boolean)) lines.pop();
+    if(!lines.length) return;
+    const r0 = +x.dataset.r, c0 = +x.dataset.c;
+    const notes = [];
+    /* строка размеров — только если вставили в начало строки (в «Параметр»
+       или в первый размер) */
+    if(c0 <= 0){
+      const h = lines[0];
+      const lab = c0 < 0 ? h[0] : '';
+      const cells = (c0 < 0 ? h.slice(1) : h).filter(Boolean);
+      const isHead = cells.length && cells.every(v => SZ_HEAD.test(v)) &&
+        (cells.some(v => /[a-z]/i.test(v)) || /^(?:размер\S*|size\S*|рос\S*|рус\S*|ru|eu|int|)$/i.test(lab));
+      if(isHead){
+        const seen = new Set();
+        const next = cells.map(v => v.toUpperCase().slice(0, SZ_LIMITS.size)).filter(v => !seen.has(v) && seen.add(v));
+        if(next.length > SZ_LIMITS.sizes) notes.push(`размеров больше ${SZ_LIMITS.sizes} — лишние не вошли: ${next.slice(SZ_LIMITS.sizes).join(', ')}`);
+        const keep = next.slice(0, SZ_LIMITS.sizes);
+        d.rows.forEach(r => { r.vals = keep.map(z => { const k = d.sizes.indexOf(z); return k > -1 ? r.vals[k] : ''; }); });
+        d.sizes = keep;
+        lines = lines.slice(1);
+      }
+    }
+    let put = 0, lostRows = 0, lostCols = 0;
     lines.forEach((cells, li) => {
       const ri = r0 + li;
-      if(ri >= SZ_LIMITS.rows) return;
+      if(ri >= SZ_LIMITS.rows){ lostRows++; return; }
       while(d.rows.length <= ri) d.rows.push({label: '', vals: d.sizes.map(() => '')});
       cells.forEach((v, k) => {
         const ci = c0 + k;
-        v = v.trim();
         if(ci < 0) d.rows[ri].label = v.slice(0, SZ_LIMITS.label);
         else if(ci < d.sizes.length) d.rows[ri].vals[ci] = v.slice(0, SZ_LIMITS.val);
+        else if(v) lostCols = Math.max(lostCols, ci - d.sizes.length + 1);
       });
+      put++;
     });
-    touch(); paintGrid(); paintPv();
-    toast(`Вставлено строк: ${Math.min(lines.length, SZ_LIMITS.rows - r0)}`);
+    if(lostCols) notes.push(`не поместились столбцы: ${lostCols} — сначала добавьте размеры или вставьте таблицу вместе со строкой размеров`);
+    if(lostRows) notes.push(`ещё ${lostRows} ${plural(lostRows, ['строка','строки','строк'])} не вошли — максимум ${SZ_LIMITS.rows}`);
+    touch(); paintSizes(); paintGrid(); paintPv(); paintProds();
+    toast(`Вставлено строк: ${put}` + (notes.length ? '. ' + notes.join('; ') : ''));
+  });
+  /* клетка, куда ушёл фокус (Tab, стрелки клавиатуры телефона), не должна
+     прятаться под закреплённой колонкой «Параметр» */
+  grid.addEventListener('focusin', e => {
+    const x = e.target.closest('.ad__szin');
+    const gw = grid.parentElement;
+    if(!x || +x.dataset.c < 0 || !gw) return;
+    const stick = grid.querySelector('.ad__szt0');
+    const L = stick ? stick.getBoundingClientRect().right : gw.getBoundingClientRect().left;
+    const R = gw.getBoundingClientRect().right;
+    const rc = x.getBoundingClientRect();
+    if(rc.left < L + 4) gw.scrollLeft -= L + 4 - rc.left;
+    else if(rc.right > R - 4) gw.scrollLeft += rc.right - R + 4;
   });
   w.addEventListener('click', e => {
     const rm = e.target.closest('[data-szrowrm]');
@@ -16795,10 +16976,15 @@ function szForm(src){
   });
 
   /* ---- товары ---- */
+  /* У товара нет ни одного размера из таблицы (таблица «42–52», а у
+     товара S–XL) — покупатель увидит её справкой, но выбрать размер в ней
+     не сможет. Говорим об этом здесь, а не узнаём от покупателя. */
   const paintProds = () => {
+    const off = p => (p.sizes || []).length && !d.sizes.some(z => (p.sizes || []).includes(z));
     $('#szProds').innerHTML = d.pids.map(id => {
       const p = byId(id);
-      return p ? `<span class="ad__szp"><img src="${esc(p.img)}" alt=""><span>${esc(p.name)}</span>
+      return p ? `<span class="ad__szp"><img src="${esc(p.img)}" alt=""><span>${esc(p.name)}${off(p)
+          ? `<i class="ad__szw">Размеры товара (${(p.sizes || []).map(esc).join(', ')}) не совпадают с таблицей — выбрать размер в ней нельзя</i>` : ''}</span>
         <button type="button" data-szprm="${id}" aria-label="Убрать «${esc(p.name)}»">${svg('x','ic')}</button></span>` : '';
     }).join('') || `<div class="ad__szw">Товары не выбраны — таблицу сохранить можно, но в карточках её не будет</div>`;
   };
@@ -16829,6 +17015,7 @@ function szForm(src){
   $('#szX').onclick = tryClose;
   w.onclick = e => { if(e.target === w) tryClose(); };
   $('#szSave').onclick = () => {
+    commitSizes(false);      // размер, вписанный в «+ размер» без Enter, тоже сохраняем
     const title = d.title.trim().slice(0, SZ_LIMITS.title) || 'Таблица размеров';
     const sizes = d.sizes.map(z => String(z).trim()).filter(Boolean);
     const rows = d.rows.map(r => ({label: r.label.trim().slice(0, SZ_LIMITS.label), vals: r.vals.map(v => String(v || '').trim().slice(0, SZ_LIMITS.val))}))

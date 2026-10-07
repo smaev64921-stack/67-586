@@ -115,7 +115,7 @@ function scrubCmsInput(cms) {
    открывается. Всё — короткие строки без управляющих символов; товар может
    быть только в одной таблице (первая выигрывает), id таблиц не повторяются.
    Пределы совпадают с SZ_LIMITS в index.html. */
-const SZ_LIMITS = { charts: 40, sizes: 12, rows: 16, title: 60, label: 60, val: 20, note: 300, size: 12 };
+const SZ_LIMITS = { charts: 40, sizes: 12, rows: 16, title: 60, label: 60, val: 20, note: 300, size: 12, pids: 500 };
 function szStr(v, max) {
   return String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 }
@@ -128,20 +128,27 @@ function cleanSizeCharts(list) {
       const id = +t.id;
       if (!Number.isSafeInteger(id) || id <= 0 || usedId.has(id)) return null;
       usedId.add(id);
-      const sizes = (Array.isArray(t.sizes) ? t.sizes : [])
-        .map((s) => szStr(s, SZ_LIMITS.size)).filter(Boolean).slice(0, SZ_LIMITS.sizes);
+      /* размеры без повторов: с двумя «M» подсветка и выбор шли бы по первой */
+      /* src — номер колонки во входных данных: значения берём по нему,
+         чтобы после выброшенного повтора они не съехали на соседний размер */
+      const seen = new Set();
+      const cols = (Array.isArray(t.sizes) ? t.sizes : [])
+        .map((s, src) => ({ s: szStr(s, SZ_LIMITS.size), src }))
+        .filter((c) => c.s && !seen.has(c.s.toLowerCase()) && seen.add(c.s.toLowerCase()))
+        .slice(0, SZ_LIMITS.sizes);
+      const sizes = cols.map((c) => c.s);
       const rows = (Array.isArray(t.rows) ? t.rows : [])
         .filter((r) => r && typeof r === 'object')
         .map((r) => ({
           label: szStr(r.label, SZ_LIMITS.label),
-          vals: sizes.map((_, i) => szStr(Array.isArray(r.vals) ? r.vals[i] : '', SZ_LIMITS.val))
+          vals: cols.map((c) => szStr(Array.isArray(r.vals) ? r.vals[c.src] : '', SZ_LIMITS.val))
         }))
         .filter((r) => r.label)
         .slice(0, SZ_LIMITS.rows);
       const pids = [];
-      (Array.isArray(t.pids) ? t.pids : []).forEach((x) => {
+      (Array.isArray(t.pids) ? t.pids : []).slice(0, SZ_LIMITS.pids * 4).forEach((x) => {
         const n = +x;
-        if (Number.isSafeInteger(n) && n > 0 && !usedPid.has(n)) { usedPid.add(n); pids.push(n); }
+        if (pids.length < SZ_LIMITS.pids && Number.isSafeInteger(n) && n > 0 && !usedPid.has(n)) { usedPid.add(n); pids.push(n); }
       });
       return { id, title: szStr(t.title, SZ_LIMITS.title), note: szStr(t.note, SZ_LIMITS.note), sizes, rows, pids };
     })
