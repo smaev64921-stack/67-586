@@ -342,6 +342,9 @@ function healthPayload() {
     push: push.configured(),
     telegram: telegramBot.configured(),
     telegramBot: telegramBot.botUsername() || '',
+    /* опрос Telegram: идёт ли, каким путём и последняя ошибка — чтобы
+       причину было видно без журнала хостинга */
+    telegramPoll: telegramBot.pollStatus(),
     telegramGateway,
     google: false,
     /* публичный идентификатор — по нему браузер рисует кнопку Google */

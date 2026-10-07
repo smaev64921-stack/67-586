@@ -68,6 +68,35 @@ const STATUS_CODE = {
 
 let BOT_USERNAME = '';
 
+/* Ответ не от Telegram: у Telegram (и у нашего ретранслятора) всегда JSON с
+   полем ok. HTML-страница прокси или хостинга, пустой ответ — это кто-то
+   посередине. Раньше это было безликое «Telegram getUpdates failed», и по
+   журналу причину было не найти; теперь видно, что пришло и откуда. */
+function notTelegram(method, r, text) {
+  const type = String(r.headers.get('content-type') || '').split(';')[0].trim() || 'без типа';
+  /* у страницы ошибки самое осмысленное — заголовок («504 Gateway Time-out») */
+  const raw = String(text || '');
+  const title = /<title[^>]*>([^<]*)<\/title>/i.exec(raw);
+  const body = title ? title[1] : raw.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]*>/g, ' ');
+  const snippet = tgApi.redact(body.replace(/\s+/g, ' ').trim()).slice(0, 90);
+  return Object.assign(
+    new Error(`Telegram ${method}: ответ не от Telegram — HTTP ${r.status}, ${type}${snippet ? ` «${snippet}»` : ', пусто'} (${tgApi.where()})`),
+    { status: r.status, notTelegram: true }
+  );
+}
+
+/* Разбор ответа Bot API: result или ошибка с понятным текстом */
+async function tgResult(method, r) {
+  const text = await r.text().catch(() => '');
+  let data = null;
+  try { data = JSON.parse(text); } catch (_) {}
+  if (!data || typeof data !== 'object' || typeof data.ok !== 'boolean') throw notTelegram(method, r, text);
+  if (!data.ok) {
+    throw Object.assign(new Error(data.description || `Telegram ${method}: HTTP ${r.status}`), { tg: data, status: r.status });
+  }
+  return data.result;
+}
+
 function api(method, body) {
   const token = TOKEN();
   if (!token) return Promise.reject(new Error('TELEGRAM_BOT_TOKEN missing'));
@@ -76,13 +105,7 @@ function api(method, body) {
     headers: tgApi.headers({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body || {}),
     signal: tgApi.timeout(method)
-  }).then(async (r) => {
-    const data = await r.json().catch(() => ({}));
-    if (!data.ok) {
-      throw Object.assign(new Error(data.description || `Telegram ${method} failed`), { tg: data });
-    }
-    return data.result;
-  }, (e) => { throw tgApi.netError(e); });
+  }).then((r) => tgResult(method, r), (e) => { throw tgApi.netError(e); });
 }
 
 function shopHttps() {
@@ -2335,11 +2358,7 @@ async function sendDocumentFile(chatId, filePath, filename, caption) {
     body: form,
     signal: tgApi.timeout('sendDocument')
   }).catch((e) => { throw tgApi.netError(e); });
-  const data = await r.json().catch(() => ({}));
-  if (!data.ok) {
-    throw new Error(data.description || 'Telegram sendDocument failed');
-  }
-  return data.result;
+  return tgResult('sendDocument', r);
 }
 
 async function downloadTgFile(fileId, destPath) {
@@ -3107,30 +3126,91 @@ async function setupWebhook(publicUrl) {
   return { mode: 'webhook', url };
 }
 
+/* Состояние опроса — для журнала и /api/health (pollStatus). */
+const poll = { on: false, ok: null, failures: 0, since: '', lastOk: '', lastError: '', timeout: 25, loggedAt: 0 };
+/* /api/health открыт всем — адрес ретранслятора туда не выносим */
+function pollStatus() {
+  return {
+    on: poll.on,
+    ok: poll.ok,
+    route: tgApi.viaRelay() ? 'relay' : 'direct',
+    waitSeconds: poll.timeout,
+    failures: poll.failures,
+    failingSince: poll.failures ? poll.since : '',
+    lastError: poll.failures ? poll.lastError.replace(/ \((через ретранслятор|напрямую)[^)]*\)$/, '') : '',
+    lastOk: poll.lastOk
+  };
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 let polling = false;
 async function startPolling() {
   if (polling) return { mode: 'polling' };
   polling = true;
+  poll.on = true;
   try { await api('deleteWebhook', { drop_pending_updates: false }); } catch (_) {}
+  /* Сколько секунд Telegram держит запрос, ожидая новых сообщений. Можно
+     задать TG_POLL_TIMEOUT (0–40); по умолчанию 25. */
+  const envT = parseInt(process.env.TG_POLL_TIMEOUT, 10);
+  poll.timeout = Number.isFinite(envT) && envT >= 0 && envT <= 40 ? envT : 25;
   let offset = 0;
+  let backoff = 0;
   const tick = async () => {
     if (!polling || !TOKEN()) return;
+    const t0 = Date.now();
     try {
       const updates = await api('getUpdates', {
         offset,
-        timeout: 25,
+        timeout: poll.timeout,
         allowed_updates: ['message', 'callback_query']
       });
+      if (poll.failures) {
+        console.log(`TG poll: связь с Telegram восстановлена (${tgApi.where()}), ошибок подряд было: ${poll.failures}`);
+      }
+      poll.ok = true;
+      poll.failures = 0;
+      poll.lastError = '';
+      poll.lastOk = new Date().toISOString();
+      backoff = 0;
       for (const u of updates || []) {
         offset = u.update_id + 1;
         try { await handleUpdate(u); } catch (e) { console.error('TG handle:', e.message); }
       }
+      /* без долгого ожидания Telegram отвечает сразу — опрашиваем не чаще
+         раза в 1,5 с, а не в бесконечном цикле */
+      if (poll.timeout < 5) await sleep(1500);
     } catch (e) {
+      const held = Date.now() - t0;
+      /* Долгий запрос оборвал кто-то посередине: прокси хостинга перед
+         ретранслятором часто держит соединение 10–20 с, а getUpdates ждёт до
+         25 с. Пришёл не ответ Telegram (или таймаут) после долгого ожидания —
+         ждём вдвое меньше и сразу пробуем снова; дойдём до 0 — обычный
+         частый опрос. Это не ошибка связи, а подстройка под прокси. */
+      const cut = (e.notTelegram || e.name === 'TimeoutError' || /таймаут|ETIMEDOUT|ECONNRESET|UND_ERR_SOCKET/.test(e.message)) &&
+        held >= 5000 && poll.timeout > 0;
+      if (cut) {
+        const next = poll.timeout > 5 ? Math.floor(poll.timeout / 2) : 0;
+        console.warn(`TG poll: долгий запрос оборвался через ${Math.round(held / 1000)} с (${e.message}). ` +
+          `Ждать ответа Telegram буду не ${poll.timeout} с, а ${next} с.`);
+        poll.timeout = next;
+        if (polling) setTimeout(tick, 300);
+        return;
+      }
+      poll.ok = false;
+      if (!poll.failures) poll.since = new Date().toISOString();
+      poll.failures++;
       /* warn, а не error: это сбой самого канала связи с Telegram, и
          жаловаться на него через Telegram бессмысленно — сообщение
-         уйдёт тем же путём, который сейчас не работает. */
-      console.warn('TG poll:', e.message);
-      await new Promise((r) => setTimeout(r, 2500));
+         уйдёт тем же путём, который сейчас не работает. Одну и ту же ошибку
+         пишем раз в 10 минут, а не каждые 2,5 с; паузы растут до минуты. */
+      const now = Date.now();
+      if (e.message !== poll.lastError || now - poll.loggedAt > 10 * 60 * 1000) {
+        console.warn(`TG poll: ${e.message}${poll.failures > 1 ? ` · ошибок подряд: ${poll.failures}` : ''}`);
+        poll.loggedAt = now;
+      }
+      poll.lastError = e.message;
+      backoff = Math.min(backoff ? backoff * 2 : 2500, 60 * 1000);
+      await sleep(backoff);
     }
     if (polling) setImmediate(tick);
   };
@@ -3138,7 +3218,7 @@ async function startPolling() {
   return { mode: 'polling' };
 }
 
-function stopPolling() { polling = false; }
+function stopPolling() { polling = false; poll.on = false; }
 
 function verifyWebhookSecret(req) {
   const expected = WEBHOOK_SECRET();
@@ -3289,6 +3369,7 @@ module.exports = {
   verifyWebhookSecret,
   configured,
   stopPolling,
+  pollStatus,
   notifyCustomerOrder,
   notifyCustomerNewOrder,
   notifyOwnerNewOrder,

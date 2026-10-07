@@ -69,4 +69,11 @@ function netError(e) {
   return out;
 }
 
-module.exports = { base, viaRelay, headers, botUrl, fileUrl, timeout, netError, redact };
+/* Куда ходим — для журнала: только адрес сервера, без пути
+   (в пути — токен бота). */
+function where() {
+  if (!viaRelay()) return 'напрямую api.telegram.org';
+  try { return 'через ретранслятор ' + new URL(base()).origin; } catch (_) { return 'через ретранслятор'; }
+}
+
+module.exports = { base, viaRelay, headers, botUrl, fileUrl, timeout, netError, redact, where };
