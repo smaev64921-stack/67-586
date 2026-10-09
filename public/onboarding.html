@@ -2023,6 +2023,8 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   try{
     var flag = sessionStorage.getItem('lc_launch');
     if(flag) sessionStorage.removeItem('lc_launch');
+    /* показали знакомство — следующие три дня магазин открывается сразу (index.html) */
+    try{ localStorage.setItem('lc_intro_at', String(Date.now())); }catch(_){}
     var mm = function(q){ try{ return matchMedia(q).matches; }catch(_){ return false; } };
     var app = mm('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)') || navigator.standalone === true;
     var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
@@ -2501,7 +2503,8 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   'use strict';
   /* Кнопка называется «Перейти в каталог», но приводит на главный экран:
      оттуда видно и подборки, и разделы, а каталог — в одно касание. */
-  var HOME = '/#home';
+  /* метки рекламной ссылки (utm_*) пришли сюда из магазина — несём их обратно */
+  var HOME = '/' + location.search + '#home';
   var HANDOFF = 'lc_enter';   /* по нему магазин узнаёт, что мы пришли отсюда */
 
   var root = document.documentElement;
@@ -3631,7 +3634,7 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
   try{
     if(history.state && history.state.lcSheet){
       var nav = performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
-      if(nav && nav.type === 'back_forward'){ location.replace('/#home'); return; }
+      if(nav && nav.type === 'back_forward'){ location.replace('/' + location.search + '#home'); return; }
       history.back();
     }
   }catch(_){}

@@ -41,7 +41,8 @@
 ]}
 </script>
 
-<!-- Знакомство с магазином — при каждом входе на сайт или запуске приложения.
+<!-- Знакомство с магазином — при входе на сайт или запуске приложения, но не
+     чаще раза в три дня на одном устройстве (владелец, 2026-10-09).
      Стоит здесь, до стилей и разметки: иначе человек успел бы увидеть
      кусок каталога и его бы дёрнуло на другую страницу.
      Внутри одного визита не повторяем: как только человек пошёл по магазину,
@@ -62,6 +63,21 @@
     if(sessionStorage.getItem('shop_place_v1')) return;   // человек уже ходит по магазину
     var q = new URLSearchParams(location.search);
     if(q.get('tg_admin') || q.get('paid')) return;
+    /* Не чаще раза в три дня: в остальные заходы — сразу магазин (приложение
+       при этом играет свою заставку со знаком, скрипт ниже). Время показа
+       ставим здесь, перед уходом, и ещё раз на самом знакомстве — на случай
+       прямой ссылки на него. Часы сбились назад — считаем, что давно. */
+    var INTRO_GAP = 3 * 24 * 60 * 60 * 1000;
+    var last = +localStorage.getItem('lc_intro_at') || 0, now = Date.now();
+    if(last && now >= last && now - last < INTRO_GAP){
+      /* без знакомства — туда же, куда оно ведёт: на главную (а не в каталог
+         по умолчанию); метки рекламных ссылок в адресе остаются */
+      window.__lcSkipIntro = true;
+      try{ history.replaceState(history.state, '', location.pathname + location.search + '#home'); }catch(_){}
+      return;
+    }
+    localStorage.setItem('lc_intro_at', String(now));
+    window.__lcToIntro = true;   /* заставке ниже: сейчас уйдём на знакомство */
     /* Приложение: системный экран загрузки у него чёрный, и знакомство
        начнёт с чёрного кадра заставки — знак сразу рисуется. Отмечаем запуск
        для знакомства и не даём этой странице нарисовать светлый скелет:
@@ -83,7 +99,7 @@
          кадр браузер держит на экране, пока не нарисуется следующая страница.
          Таймер — страховка, если кадр так и не придёт: уйти надо в любом случае. */
       var gone = false;
-      var go = function(){ if(!gone){ gone = true; location.replace('/onboarding.html'); } };
+      var go = function(){ if(!gone){ gone = true; location.replace('/onboarding.html' + location.search); } };
       requestAnimationFrame(function(){ setTimeout(go, 0); });
       setTimeout(go, 300);
       /* Остальное этой страницы не нужно: всё, что ниже в файле, становится
@@ -94,7 +110,7 @@
       document.write('<plaintext style="display:none">');
       return;
     }
-    location.replace('/onboarding.html');
+    location.replace('/onboarding.html' + location.search);
   }catch(e){}   /* приватный режим без localStorage — просто открываем магазин */
 })();
 </script>
@@ -315,13 +331,13 @@ html.lc-leaving .lcc{opacity:0}
     var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
     var reload = nav.type === 'reload' || (performance.navigation && performance.navigation.type === 1);
     /* Скрипт выше сейчас уведёт на знакомство — тогда заставку не поднимаем,
-       иначе она мелькнула бы перед ним. */
-    var q = new URLSearchParams(location.search);
-    var toIntro = !location.hash && !sessionStorage.getItem('shop_place_v1') && !q.get('tg_admin') && !q.get('paid');
+       иначе она мелькнула бы перед ним. Решает он сам (в том числе «не чаще
+       раза в три дня») — здесь только его ответ. */
+    var toIntro = window.__lcToIntro === true;
     var play;
     if(handoff) play = false;                          /* продолжение анимации со знакомства */
     else if(toIntro) return;
-    else if(reload || (app && !location.hash)) play = !mm('(prefers-reduced-motion: reduce)');
+    else if(reload || (app && (!location.hash || window.__lcSkipIntro))) play = !mm('(prefers-reduced-motion: reduce)');
     else if(app) play = false;                         /* приложение открыли по ссылке на товар */
     else return;
 
@@ -20248,7 +20264,8 @@ async function bootFromServer(){
      попадает в load — занавес дождётся и его. Только главная: остальные
      входы (оплата, бот, Google, письмо, ссылка на товар, каталог с его
      роликами) идут прежним путём. */
-  if(PRODUCTS.length && !location.search && location.hash === '#home'){
+  if(PRODUCTS.length && location.hash === '#home'
+     && (!location.search || /^\?(?:utm_[a-z_]+=[^&]*(?:&|$))+$/i.test(location.search))){
     try{ restorePlace(); render(true); }catch(e){ _paintKey = ''; console.warn('early paint', e); }
   }
   if(window.LC){
