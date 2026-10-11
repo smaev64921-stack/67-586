@@ -2,6 +2,24 @@
 <html lang="ru" translate="no" class="notranslate">
 <head>
 <meta charset="UTF-8">
+<!-- Знакомство теперь только раздел «О бренде» (/onboarding.html#about). По
+     прямому адресу без #about сюда попадают со старых закладок, значков «На
+     экран Домой», сохранённых с этой страницы (своего манифеста у неё нет,
+     и телефон запоминает сам адрес), и из подсказок адресной строки — таких
+     сразу в магазин. Метка в sessionStorage — защита от петли со старой
+     копией магазина из кэша, которая сама уводила сюда: новый магазин метку
+     снимает, старый — нет, и тогда показываем «О бренде». -->
+<script>
+(function(){
+  try{
+    if(location.hash === '#about') return;
+    var k = 'lc_onb_bounce', t = +sessionStorage.getItem(k) || 0, now = Date.now();
+    if(t && now - t < 15000){ history.replaceState(history.state, '', location.pathname + location.search + '#about'); return; }
+    sessionStorage.setItem(k, String(now));
+    location.replace('/' + location.search);
+  }catch(_){}
+})();
+</script>
 <!-- Масштабирование запрещено: знакомство листается по экранам с прилипанием,
      и случайный щипок сбивал и масштаб, и прилипание разом. На самом сайте
      то же ограничение. -->

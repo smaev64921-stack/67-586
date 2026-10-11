@@ -52,6 +52,9 @@
 <script>
 (function(){
   try{
+    /* дошли до нового магазина — метка прыжка с прямого адреса знакомства
+       больше не нужна (см. начало onboarding.html) */
+    sessionStorage.removeItem('lc_onb_bounce');
     /* прежняя ссылка на текстовую «О бренде» (#info/about) — на главную */
     if(/^#info[=\/]about$/i.test(location.hash)) history.replaceState(history.state, '', location.pathname + location.search + '#home');
     if(location.hash) return;
