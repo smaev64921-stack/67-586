@@ -106,6 +106,8 @@ try {
 } catch (_) {}
 try { db.exec('ALTER TABLE products ADD COLUMN size_chart TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
 try { db.exec("ALTER TABLE products ADD COLUMN colors_json TEXT NOT NULL DEFAULT '[]'"); } catch (_) {}
+/* все разделы каталога, где виден товар (gender — основной из них) */
+try { db.exec("ALTER TABLE products ADD COLUMN genders_json TEXT NOT NULL DEFAULT '[]'"); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN middle_name TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch (_) {}
 /* Подтверждён ли номер. Вписанный руками в профиле номер — просто контакт;

@@ -20,21 +20,39 @@ function getRev() {
   return require('./rev').read('products');
 }
 
+const GENDERS = ['w', 'u', 'm'];
+
+/**
+ * Разделы каталога, где виден товар: один товар может стоять сразу в
+ * «Мужском» и «Унисекс» (владелец, 2026-10-11). Основной пол (gender) идёт
+ * первым — по нему подписи и всё, что знает только об одном поле.
+ */
+function cleanGenders(list, primary) {
+  const out = GENDERS.includes(primary) ? [primary] : [];
+  for (const g of Array.isArray(list) ? list : []) {
+    if (GENDERS.includes(g) && !out.includes(g)) out.push(g);
+  }
+  return out;
+}
+
 function rowToProduct(row) {
   if (!row) return null;
   let sizes = [];
   let stock = {};
   let gal = [];
   let colors = [];
+  let genders = [];
   try { sizes = JSON.parse(row.sizes_json || '[]'); } catch (_) {}
   try { stock = JSON.parse(row.stock_json || '{}'); } catch (_) {}
   try { gal = JSON.parse(row.gal_json || '[]'); } catch (_) {}
   try { colors = JSON.parse(row.colors_json || '[]'); } catch (_) {}
+  try { genders = JSON.parse(row.genders_json || '[]'); } catch (_) {}
   return {
     id: row.id,
     name: row.name,
     cat: row.cat,
     gender: row.gender,
+    genders: cleanGenders(genders, row.gender),
     price: row.price,
     old: row.old_price || 0,
     sku: row.sku,
@@ -85,6 +103,21 @@ function upsertProduct(p) {
     stock = Object.fromEntries(sizes.map((s) => [s, 12]));
   }
   const gal = Array.isArray(p.gal) ? p.gal : (p.img ? [p.img] : []);
+  /* Разделы. Не пришли совсем (старая админка из кэша, посев) — у
+     существующего товара оставляем прежние, иначе правка цены молча убрала
+     бы его из второго раздела. Основной — присланный gender, если он среди
+     отмеченных, иначе первый отмеченный. */
+  let picked = cleanGenders(p.genders, null);
+  if (!Array.isArray(p.genders) && p.id) {
+    const row = db.prepare('SELECT gender, genders_json FROM products WHERE id = ?').get(+p.id);
+    if (row) {
+      let prev = [];
+      try { prev = JSON.parse(row.genders_json || '[]'); } catch (_) {}
+      picked = cleanGenders(prev, GENDERS.includes(p.gender) ? p.gender : row.gender);
+    }
+  }
+  const gender = GENDERS.includes(p.gender) && (!picked.length || picked.includes(p.gender))
+    ? p.gender : (picked[0] || 'm');
   const payload = {
     name: String(p.name || '').trim() || 'Товар',
     /* раздел — свободная строка (список разделов живёт на витрине, CATS);
@@ -92,7 +125,8 @@ function upsertProduct(p) {
        оно разделитель в data-a="cat:<раздел>:<пол>" */
     cat: String(p.cat || '').replace(/:/g, ' ').trim().slice(0, 40) || 'Футболки',
     /* известный пол сохраняем как есть, любой другой или пустой — 'm', как и раньше */
-    gender: ['w', 'u', 'm'].includes(p.gender) ? p.gender : 'm',
+    gender,
+    genders_json: JSON.stringify(cleanGenders(picked, gender)),
     price: Math.max(0, Math.round(+p.price || 0)),
     old_price: Math.max(0, Math.round(+p.old || 0)),
     sku: String(p.sku || '').trim() || ('LC' + Date.now().toString(36).toUpperCase()),
@@ -114,7 +148,7 @@ function upsertProduct(p) {
         name=@name, cat=@cat, gender=@gender, price=@price, old_price=@old_price, sku=@sku,
         sizes_json=@sizes_json, stock_json=@stock_json, on_sale=@on_sale, img=@img, gal_json=@gal_json,
         desc_text=@desc_text, badge=@badge, tryon=@tryon, size_chart=@size_chart,
-        colors_json=@colors_json, updated_at=datetime('now')
+        colors_json=@colors_json, genders_json=@genders_json, updated_at=datetime('now')
       WHERE id=@id
     `).run({ ...payload, id: +p.id });
     /* Такого товара нет (удалён в другой вкладке, или номер выдуман
@@ -127,8 +161,8 @@ function upsertProduct(p) {
     return getProduct(+p.id);
   }
   const info = db.prepare(`
-    INSERT INTO products (name, cat, gender, price, old_price, sku, sizes_json, stock_json, on_sale, img, gal_json, desc_text, badge, tryon, size_chart, colors_json)
-    VALUES (@name, @cat, @gender, @price, @old_price, @sku, @sizes_json, @stock_json, @on_sale, @img, @gal_json, @desc_text, @badge, @tryon, @size_chart, @colors_json)
+    INSERT INTO products (name, cat, gender, price, old_price, sku, sizes_json, stock_json, on_sale, img, gal_json, desc_text, badge, tryon, size_chart, colors_json, genders_json)
+    VALUES (@name, @cat, @gender, @price, @old_price, @sku, @sizes_json, @stock_json, @on_sale, @img, @gal_json, @desc_text, @badge, @tryon, @size_chart, @colors_json, @genders_json)
   `).run(payload);
   bumpRev();
   return getProduct(info.lastInsertRowid);

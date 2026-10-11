@@ -971,6 +971,14 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .mnu__gen:hover{background:var(--ink);color:#fff}
 .mnu__sec{border-top:1px solid var(--line);padding:6px 0}
 .mnu__sec:first-child{border-top:0}
+/* «Поделиться» — первая строка шторки: ссылка на сам магазин */
+.mnu__share{display:flex;align-items:center;gap:10px;width:100%;margin:2px 0 8px;padding:13px 14px;
+  border:1px solid var(--line);border-radius:var(--r-sm);font-size:14.5px;font-weight:600;text-align:left;
+  transition:background var(--dur) var(--ease)}
+.mnu__share:hover{background:var(--chip)}
+.mnu__share > span{flex:1}
+.mnu__share small{font-size:12px;color:var(--muted)}
+.mnu__share + .mnu__sec{border-top:0}
 .mnu__cap{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted2);padding:10px 8px 4px}
 .mnu__i{
@@ -1068,6 +1076,12 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .crumbs b{font-weight:400;color:var(--ink)}
 .crumbs a{transition:color var(--dur) var(--ease)}
 .crumbs a:hover{color:var(--ink)}
+/* «На главную» в каталоге — заметная кнопка, а не только строка крошек */
+.crumbs__home{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 13px 0 11px;margin-right:5px;
+  border:1px solid var(--line);border-radius:var(--r-pill);font-size:12.5px;font-weight:600;color:var(--ink);
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.crumbs__home:hover{background:var(--chip);border-color:var(--line2)}
+.crumbs__home .ic{width:15px;height:15px}
 
 .ph{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px var(--pad) 16px}
 .ph__t{font-size:20px;font-weight:700;letter-spacing:.01em;text-transform:uppercase;line-height:1.2}
@@ -7152,11 +7166,17 @@ const SIZELESS_CATS = CATS.filter(c => c.sizeless).map(c => c.t);
    держим отдельным флагом. Тогда всё чинится само: сняли последний аксессуар
    с продажи — и фильтр, и заголовок раздела возвращаются к прежнему виду,
    без единой правки кода. */
-const catsOf = g => [...new Set(PRODUCTS.filter(p => p.on && p.gender === g).map(p => p.cat))];
+const catsOf = g => [...new Set(PRODUCTS.filter(p => p.on && hasGender(p, g)).map(p => p.cat))];
 /* Подписи пола. Порядок ключей — порядок вкладок на витрине: унисекс первым. */
 const GENDER_LAB = {u:'Унисекс', w:'Женское', m:'Мужское'};
+/* Разделы товара: их может быть несколько — например, «Мужское» и «Унисекс»
+   (genders с сервера, основной — gender). Ответ без genders — только gender. */
+const gendersOf = p => (p && Array.isArray(p.genders) && p.genders.length) ? p.genders : [(p && p.gender) || 'm'];
+const hasGender = (p, g) => gendersOf(p).includes(g);
+/* подпись разделов в порядке вкладок: «Унисекс, Мужское» */
+const genderLabels = p => Object.keys(GENDER_LAB).filter(g => hasGender(p, g)).map(g => GENDER_LAB[g]).join(', ') || 'Мужское';
 /* Товар в разделе каталога: пол + категория ('' — все категории). */
-const inSection = (p, g, c) => !!p && p.on && p.gender === g && (!c || p.cat === c);
+const inSection = (p, g, c) => !!p && p.on && hasGender(p, g) && (!c || p.cat === c);
 /* Куда вести с главной («В каталог»): в текущий пол, если там такие товары есть,
    иначе в первый пол, где они есть. Из строки разделов пол не трогаем. */
 const genderFor = c => {
@@ -8652,7 +8672,8 @@ function scrCatalog(){
   const sortT = SORTS.find(s => s.k === S.sort).t;
   const gl = GENDER_LAB[S.gender] || GENDER_LAB.u;
   return `
-  <nav class="crumbs"><a href="#" data-a="go:home">Главная</a><i>/</i><a href="#" data-a="cat:">Каталог</a><i>/</i>
+  <nav class="crumbs"><button class="crumbs__home" data-a="go:home">${svg('home','ic ic--sm')}На главную</button>
+    <a href="#" data-a="cat:">Каталог</a><i>/</i>
     ${S.cat ? `<a href="#" data-a="cat:">${gl}</a><i>/</i><b>${esc(S.cat)}</b>` : `<b>${gl}</b>`}</nav>
   <div class="ph">
     <h1 class="ph__t">${catalogTitle()}</h1>
@@ -9174,7 +9195,7 @@ function colorRowHTML(p){
   /* цвет считаем «уже есть», если совпал код или имя из TONES */
   const seen = new Set(own.flatMap(c => [String(c.hex).toLowerCase(), c.name]));
   const mates = [];
-  PRODUCTS.filter(x => x.on && x.id !== p.id && x.cat === p.cat && x.gender === p.gender &&
+  PRODUCTS.filter(x => x.on && x.id !== p.id && x.cat === p.cat && gendersOf(x).some(g => hasGender(p, g)) &&
       !soldOut(x) && (x.colors || []).some(c => c && c.hex) && modelKey(x) === key)
     .forEach(x => {
       const c = x.colors.find(c => c && c.hex);
@@ -14218,6 +14239,8 @@ function sheetMenu(){
       <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button>
     </div>
     <div class="mnu__b">
+      <button class="mnu__share" data-a="shareSite">${svg('share','ic ic--sm')}<span>Поделиться магазином</span>
+        <small>${esc(location.host)}</small></button>
       <div class="mnu__sec">
         <div class="mnu__cap">Каталог</div>
         ${Object.keys(GENDER_LAB).map(genBlock).join('')}
@@ -14510,7 +14533,7 @@ function modalSearch(){
       <button class="ci" style="width:100%;text-align:left" data-a="open:${p.id}">
         <img class="ci__i" src="${p.img}" alt="" style="width:48px;height:60px">
         <span class="ci__b"><span class="ci__n">${p.name}</span>
-        <span class="ci__m">${GENDER_LAB[p.gender] || 'Мужское'} · ${p.cat}${p.sku ? ' · ' + p.sku : ''} · ${money(p.price)}</span></span>
+        <span class="ci__m">${genderLabels(p)} · ${p.cat}${p.sku ? ' · ' + p.sku : ''} · ${money(p.price)}</span></span>
       </button>`).join('');
   };
   const search = (q) => {
@@ -14520,7 +14543,7 @@ function modalSearch(){
     const score = p => {
       const blob = [
         p.name, p.cat, p.sku || '', p.desc || '',
-        p.gender === 'w' ? 'женское женская женский женские женщинам девушкам' : p.gender === 'u' ? 'унисекс unisex всем' : 'мужское мужская мужской мужские мужчинам',
+        gendersOf(p).map(g => g === 'w' ? 'женское женская женский женские женщинам девушкам' : g === 'u' ? 'унисекс unisex всем' : 'мужское мужская мужской мужские мужчинам').join(' '),
         /* Синонимы — только своей категории (CATS.syn): иначе косметичка
            находилась бы по запросу «футболка», и человек решил бы, что поиск
            сломан. Худи найдётся и по «кофта», бомбер — по «куртка». */
@@ -14614,6 +14637,19 @@ function shareProduct(){
     return;
   }
   copyText(url, 'Ссылка скопирована');
+}
+
+/* «Поделиться магазином» в шторке — ссылка на главную */
+function shareSite(){
+  const url = location.origin + '/';
+  const title = BRAND;
+  const text = BRAND + ' — базовые вещи на каждый день';
+  if(navigator.share){
+    /* сами закрыли окно «Поделиться» — ничего не копируем */
+    navigator.share({title, text, url}).catch(e => { if(!e || e.name !== 'AbortError') copyText(url, 'Ссылка на магазин скопирована'); });
+    return;
+  }
+  copyText(url, 'Ссылка на магазин скопирована');
 }
 
 function modalChat(){
@@ -16095,6 +16131,9 @@ document.addEventListener('click', e => {
     case 'share':
       shareProduct();
       break;
+    case 'shareSite':
+      shareSite();
+      break;
     case 'soon':
       toast('Раздел в разработке'); break;
     case 'tgskip': {
@@ -16489,7 +16528,7 @@ function viewDash(){
 
 function adRows(){
   const list = PRODUCTS.filter(p =>
-    (adG === 'all' || p.gender === adG) && (!adQ || p.name.toLowerCase().includes(adQ.toLowerCase()) || (p.sku||'').includes(adQ)));
+    (adG === 'all' || hasGender(p, adG)) && (!adQ || p.name.toLowerCase().includes(adQ.toLowerCase()) || (p.sku||'').includes(adQ)));
   if(!list.length) return `<div class="ad__empty"><b>Товаров нет</b>Нажмите «Добавить товар», чтобы открыть витрину.</div>`;
   return list.map(p => {
     ensureProductMeta(p);
@@ -16499,7 +16538,7 @@ function adRows(){
       <img class="ad__th" src="${p.img}" alt="">
       <div class="ad__i">
         <span class="ad__n">${esc(p.name)} ${badge}</span>
-        <span class="ad__m">${GENDER_LAB[p.gender] || 'Мужское'} · ${esc(p.cat)} · арт. ${esc(p.sku||'—')}</span>
+        <span class="ad__m">${genderLabels(p)} · ${esc(p.cat)} · арт. ${esc(p.sku||'—')}</span>
         <span class="ad__m">Остаток: ${stockN} · ${esc((p.sizes||[]).join(', ')||'—')}</span>
         ${(() => {
           /* Рейтинг рядом с остатком: сразу видно, на какой товар
@@ -16585,7 +16624,7 @@ function cvProductPick(cur, done){
       <button class="ad__pp-it" type="button" role="option" data-pp="${p.id}" aria-selected="${+p.id === sel}">
         <img src="${esc(p.img)}" alt="" loading="lazy" decoding="async">
         <span class="ad__pp-tx"><b>${esc(p.name)}</b>
-          <i>${money(p.price)} · ${GENDER_LAB[p.gender] || ''}${p.sku ? ' · арт. ' + esc(p.sku) : ''}${p.on ? '' : ' · скрыт'}</i></span>
+          <i>${money(p.price)} · ${genderLabels(p)}${p.sku ? ' · арт. ' + esc(p.sku) : ''}${p.on ? '' : ' · скрыт'}</i></span>
         <span class="ad__pp-ck">${svg('check','ic')}</span>
       </button>`).join('')
       : `<div class="ad__pp-none">Ничего не нашлось</div>`;
@@ -17101,7 +17140,7 @@ function szProductsPick(cur, ownId, done){
       return `<button class="ad__pp-it" type="button" role="option" data-pp="${p.id}" aria-selected="${sel.has(+p.id)}">
         <img src="${esc(p.img)}" alt="" loading="lazy" decoding="async">
         <span class="ad__pp-tx"><b>${esc(p.name)}</b>
-          <i>${GENDER_LAB[p.gender] || ''}${p.cat ? ' · ' + esc(p.cat) : ''}${p.on ? '' : ' · скрыт'}${o ? ` · сейчас в «${esc(o.title || 'без названия')}»` : ''}</i></span>
+          <i>${genderLabels(p)}${p.cat ? ' · ' + esc(p.cat) : ''}${p.on ? '' : ' · скрыт'}${o ? ` · сейчас в «${esc(o.title || 'без названия')}»` : ''}</i></span>
         <span class="ad__pp-ck">${svg('check','ic')}</span>
       </button>`;
     }).join('') : `<div class="ad__pp-none">Ничего не нашлось</div>`;
@@ -19710,7 +19749,8 @@ function pForm(p){
   const d = p || {name:'',cat:CAT_NAMES[0],gender:'m',price:'',old:'',img:'',sku:'',sizes:[],on:true,desc:'',badge:'',stock:{},gal:[],tryon:false};
   /* кнопки — разделы из CATS; старая категория товара не из списка тоже видна */
   const cats = [...new Set([...CAT_NAMES, d.cat].filter(Boolean))];
-  let gender = d.gender || 'm';
+  /* разделы, где будет виден товар: можно несколько, хотя бы один */
+  let genders = gendersOf(d).slice();
   let cat = d.cat || cats[0];
   let badge = d.badge || '';
   const MAX_PHOTOS = 8;
@@ -19726,10 +19766,9 @@ function pForm(p){
     <input class="ad__f" id="xn" value="${(d.name||'').replace(/"/g,'&quot;')}" placeholder="Футболка Oversize Black">
     <label class="ad__l">Раздел</label>
     <div class="ad__pick" id="xGender">
-      <button type="button" class="ad__pick-b" data-v="u" aria-pressed="${gender==='u'}">Унисекс</button>
-      <button type="button" class="ad__pick-b" data-v="w" aria-pressed="${gender==='w'}">Женское</button>
-      <button type="button" class="ad__pick-b" data-v="m" aria-pressed="${gender==='m'}">Мужское</button>
+      ${Object.keys(GENDER_LAB).map(g => `<button type="button" class="ad__pick-b" data-v="${g}" aria-pressed="${genders.includes(g)}">${GENDER_LAB[g]}</button>`).join('')}
     </div>
+    <p class="ad__hint" style="margin:8px 0 12px">Можно отметить несколько — товар появится в каждом из этих разделов.</p>
     <label class="ad__l">Категория</label>
     <div class="ad__pick" id="xCat">
       ${cats.map(c => `<button type="button" class="ad__pick-b" data-v="${esc(c)}" aria-pressed="${c===cat}">${esc(c)}</button>`).join('')}
@@ -19813,7 +19852,20 @@ function pForm(p){
       });
     };
   };
-  bindPick(w.querySelector('#xGender'), () => gender, v => { gender = v; });
+  /* «Раздел» — переключатели: нажатие отмечает или снимает. Последний
+     отмеченный снять нельзя: товар без раздела не найти на витрине. */
+  const gBox = w.querySelector('#xGender');
+  gBox.onclick = e => {
+    const b = e.target.closest('.ad__pick-b'); if(!b) return;
+    const v = b.dataset.v;
+    if(genders.includes(v)){
+      if(genders.length === 1){ toast('Нужен хотя бы один раздел'); return; }
+      genders = genders.filter(g => g !== v);
+    }else genders.push(v);
+    gBox.querySelectorAll('.ad__pick-b').forEach(x => {
+      x.setAttribute('aria-pressed', genders.includes(x.dataset.v) ? 'true' : 'false');
+    });
+  };
   /* Новый товар: раздел угадываем по названию, пока его не выбрали руками.
      Иначе худи, заведённое второпях с телефона, молча уехало бы в «Футболки». */
   let catTouched = !!p;
@@ -20149,7 +20201,9 @@ function pForm(p){
     const data = {
       name, price, cat, sizes, stock, badge,
       old:+w.querySelector('#xo').value || 0,
-      gender,
+      /* основной раздел — прежний, если его не сняли */
+      gender: genders.includes(d.gender) ? d.gender : genders[0],
+      genders: Object.keys(GENDER_LAB).filter(g => genders.includes(g)),
       sku:w.querySelector('#xs').value.trim() || String(Math.floor(10000 + Math.random() * 90000)),
       desc:w.querySelector('#xd').value.trim(),
       img,
