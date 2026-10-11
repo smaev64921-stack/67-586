@@ -41,77 +41,29 @@
 ]}
 </script>
 
-<!-- Знакомство с магазином — при входе на сайт или запуске приложения, но не
-     чаще раза в три дня на одном устройстве (владелец, 2026-10-09).
-     Стоит здесь, до стилей и разметки: иначе человек успел бы увидеть
-     кусок каталога и его бы дёрнуло на другую страницу.
-     Внутри одного визита не повторяем: как только человек пошёл по магазину,
-     появляется отметка о месте, и обновление страницы знакомство не покажет.
-     Ссылки с якорем (#p=, #reset=, #google_token=) и возвраты с оплаты
-     или из бота пропускаем — это осмысленный переход, а не вход в магазин. -->
+<!-- Вход в магазин — сразу главная (#home), и на сайте, и в приложении.
+     Знакомство с магазином (onboarding.html) с 2026-10-11 живёт в разделе
+     «О бренде» и открывается оттуда (владелец: «весь онбординг перенести в
+     раздел о бренде»), а не на входе. Приложение при запуске по-прежнему
+     играет свою заставку со знаком — скрипт заставки ниже, по __lcSkipIntro.
+     Ссылки с якорем (#p=, #reset=, #google_token=), возвраты с оплаты и из
+     бота, обновление страницы внутри визита — как есть: это осмысленный
+     переход, его место и так известно. -->
 <script>
 (function(){
   try{
+    /* прежняя ссылка на текстовую «О бренде» (#info/about) — на главную */
+    if(/^#info[=\/]about$/i.test(location.hash)) history.replaceState(history.state, '', location.pathname + location.search + '#home');
     if(location.hash) return;
-    /* Поисковым роботам и сборщикам превью ссылок — сразу магазин: иначе в
-       выдачу и в превью попадало бы знакомство, а не витрина. Показываем им
-       ровно то же, что человеку после «Пропустить». */
-    /* Только роботы: встроенный браузер Telegram на Android пишет в
-       userAgent «Telegram-Android», Яндекс.Браузер — «YaBrowser», и
-       покупатели из них знакомство видеть должны. */
+    /* Роботам и сборщикам превью — как раньше: без подмены адреса. */
     if(/bot\b|crawl|spider|slurp|yandex|bingpreview|facebookexternalhit|vkshare|whatsapp\/|lighthouse|pagespeed|google-inspectiontool/i.test(navigator.userAgent || '')) return;
     if(sessionStorage.getItem('shop_place_v1')) return;   // человек уже ходит по магазину
     var q = new URLSearchParams(location.search);
     if(q.get('tg_admin') || q.get('paid')) return;
-    /* Не чаще раза в три дня: в остальные заходы — сразу магазин (приложение
-       при этом играет свою заставку со знаком, скрипт ниже). Время показа
-       ставим здесь, перед уходом, и ещё раз на самом знакомстве — на случай
-       прямой ссылки на него. Часы сбились назад — считаем, что давно. */
-    var INTRO_GAP = 3 * 24 * 60 * 60 * 1000;
-    var last = +localStorage.getItem('lc_intro_at') || 0, now = Date.now();
-    if(last && now >= last && now - last < INTRO_GAP){
-      /* без знакомства — туда же, куда оно ведёт: на главную (а не в каталог
-         по умолчанию); метки рекламных ссылок в адресе остаются */
-      window.__lcSkipIntro = true;
-      try{ history.replaceState(history.state, '', location.pathname + location.search + '#home'); }catch(_){}
-      return;
-    }
-    localStorage.setItem('lc_intro_at', String(now));
-    window.__lcToIntro = true;   /* заставке ниже: сейчас уйдём на знакомство */
-    /* Приложение: системный экран загрузки у него чёрный, и знакомство
-       начнёт с чёрного кадра заставки — знак сразу рисуется. Отмечаем запуск
-       для знакомства и не даём этой странице нарисовать светлый скелет:
-       иначе между двумя чёрными кадрами мелькнул бы светлый. */
-    var app = false;
-    try{ app = matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)').matches || navigator.standalone === true; }catch(_){}
-    if(app){
-      sessionStorage.setItem('lc_launch', String(Date.now()));
-      var black = document.createElement('style');
-      black.textContent = 'html{background:#0b0b0b!important}body{display:none!important}';
-      document.head.appendChild(black);
-      /* Строка состояния тоже чёрная: иначе после системного экрана она на
-         миг белела (светлый theme-color магазина). */
-      var tc = document.querySelector('meta[name="theme-color"]');
-      if(tc) tc.content = '#0b0b0b';
-      /* Сначала один чёрный кадр, потом уход. Если уйти сразу, эта страница
-         не рисует ничего, и пока грузится знакомство, телефон ~0,6 с показывал
-         свой пустой тёмно-серый фон (видео владельца, 2026-10-03). Нарисованный
-         кадр браузер держит на экране, пока не нарисуется следующая страница.
-         Таймер — страховка, если кадр так и не придёт: уйти надо в любом случае. */
-      var gone = false;
-      var go = function(){ if(!gone){ gone = true; location.replace('/onboarding.html' + location.search); } };
-      requestAnimationFrame(function(){ setTimeout(go, 0); });
-      setTimeout(go, 300);
-      /* Остальное этой страницы не нужно: всё, что ниже в файле, становится
-         скрытым текстом — без стилей и скриптов магазина, и чёрный кадр
-         приходит сразу, даже на медленном телефоне. Не window.stop(): после
-         него Chrome не рисует страницу совсем, кадра и ухода не было, и
-         приложение висело на сером экране (ec77263, владелец, 2026-10-04). */
-      document.write('<plaintext style="display:none">');
-      return;
-    }
-    location.replace('/onboarding.html' + location.search);
-  }catch(e){}   /* приватный режим без localStorage — просто открываем магазин */
+    /* Главная, а не каталог по умолчанию; метки рекламных ссылок остаются. */
+    window.__lcSkipIntro = true;
+    history.replaceState(history.state, '', location.pathname + location.search + '#home');
+  }catch(e){}
 })();
 </script>
 
@@ -330,13 +282,11 @@ html.lc-leaving .lcc{opacity:0}
     var app = mm('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)') || navigator.standalone === true;
     var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
     var reload = nav.type === 'reload' || (performance.navigation && performance.navigation.type === 1);
-    /* Скрипт выше сейчас уведёт на знакомство — тогда заставку не поднимаем,
-       иначе она мелькнула бы перед ним. Решает он сам (в том числе «не чаще
-       раза в три дня») — здесь только его ответ. */
-    var toIntro = window.__lcToIntro === true;
     var play;
-    if(handoff) play = false;                          /* продолжение анимации со знакомства */
-    else if(toIntro) return;
+    if(handoff) play = false;                          /* продолжение анимации со знакомства (старая ссылка без #about) */
+    /* «Назад» из «О бренде», а браузер не сохранил страницу и грузит её
+       заново: это не запуск приложения — без заставки и без чёрного занавеса */
+    else if(nav.type === 'back_forward') return;
     else if(reload || (app && (!location.hash || window.__lcSkipIntro))) play = !mm('(prefers-reduced-motion: reduce)');
     else if(app) play = false;                         /* приложение открыли по ссылке на товар */
     else return;
@@ -7187,7 +7137,7 @@ function legalLineAuto(){
 const CATS = [
   {t:'Футболки',   slug:'futbolki',   syn:'футболка футболки tshirt t-shirt tee'},
   {t:'Кофты',      slug:'kofty',      syn:'кофта кофты худи толстовка свитшот свитер джемпер зип hoodie sweatshirt'},
-  {t:'Куртки',     slug:'kurtki',     syn:'куртка куртки бомбер ветровка jacket bomber'},
+  {t:'Куртки',     slug:'kurtki',     syn:'куртка куртки бомбер ветровка пуховик пуховики jacket bomber puffer'},
   {t:'Аксессуары', slug:'aksessuary', syn:'аксессуар аксессуары косметичка чехол сумка', sizeless:true}
 ];
 const CAT_NAMES = CATS.map(c => c.t);
@@ -7206,8 +7156,13 @@ const GENDER_LAB = {u:'Унисекс', w:'Женское', m:'Мужское'};
 const inSection = (p, g, c) => !!p && p.on && p.gender === g && (!c || p.cat === c);
 /* Куда вести с главной («В каталог»): в текущий пол, если там такие товары есть,
    иначе в первый пол, где они есть. Из строки разделов пол не трогаем. */
-const genderFor = c => [S.gender, ...Object.keys(GENDER_LAB)]
-  .find(g => PRODUCTS.some(p => inSection(p, g, c))) || S.gender;
+const genderFor = c => {
+  const gs = [S.gender, ...Object.keys(GENDER_LAB)];
+  /* сначала пол, где есть что купить: иначе «Куртки» вели в «Унисекс», где
+     только бомбер и жилет «нет в наличии», а пуховики — в «Женском»/«Мужском» */
+  return gs.find(g => PRODUCTS.some(p => inSection(p, g, c) && !soldOut(p)))
+    || gs.find(g => PRODUCTS.some(p => inSection(p, g, c))) || S.gender;
+};
 
 /* ===== ЦВЕТА КОЛЛЕКЦИИ =====
    Пять цветов знакомства и их имена — одно место на весь магазин. В каталоге
@@ -11034,7 +10989,9 @@ const PDN = {
   /* бомбер внутри */ '75d9fcba8f34920d':{"g":[0.3013,0.638],"n":[{"n":"06","t":"Карман на молнии","s":"tr","p":[[0.6471,0.4671,0,[[0.4673,1],[0.4573,0],[0.416,1],[0.3433,0]]]]},{"n":"07","t":"Серебристая подкладка","s":"tl","p":[[0.4675,0.4686,1,[[0.4687,0],[0.434,1],[0.4233,0],[0.408,1],[0.372,0],[0.364,1],[0.3007,0]]]]}]},
   /* бомбер внутри, снимок 06.10 (партия 2026-10-06-bomber-inside) */ '129009ec136d2012':{"g":[0.2973,0.642],"n":[{"n":"06","t":"Карман на молнии","s":"tr","p":[[0.6469,0.4639,0,[[0.464,1],[0.4547,0],[0.412,1],[0.34,0]]]]},{"n":"07","t":"Серебристая подкладка","s":"tl","p":[[0.5421,0.4454,1,[[0.4453,0],[0.406,1],[0.3947,0],[0.3813,1],[0.304,0]]]]}]},
   /* жилет спереди */ 'e0669a38102bd9ca':{"g":[0.1507,0.79],"n":[{"n":"01","t":"Ветрозащитная планка","s":"tl","p":[[0.469,0.4384,0,[[0.4387,1],[0.1513,0]]]]},{"n":"02","t":"Утяжка по низу","s":"br","p":[[0.2373,0.761,0,[[0.7613,1],[0.7693,0]]],[0.7584,0.761,0,[[0.7613,1],[0.7693,0]]]]}]},
-  /* жилет внутри */ '985e0e739ea08af5':{"g":[0.2113,0.7293],"n":[{"n":"03","t":"Внутренний карман","s":"tr","p":[[0.6611,0.4516,0,[[0.4513,1],[0.3033,0]]]]},{"n":"04","t":"Утеплённый подклад","s":"tl","p":[[0.4829,0.4825,0,[[0.4827,1],[0.2113,0]]]]}]}
+  /* жилет внутри */ '985e0e739ea08af5':{"g":[0.2113,0.7293],"n":[{"n":"03","t":"Внутренний карман","s":"tr","p":[[0.6611,0.4516,0,[[0.4513,1],[0.3033,0]]]]},{"n":"04","t":"Утеплённый подклад","s":"tl","p":[[0.4829,0.4825,0,[[0.4827,1],[0.2113,0]]]]}]},
+  /* пуховик спереди (обе карточки) */ 'a8bfffa7ad19d916':{"g":[0.198,0.7427],"n":[{"n":"01","t":"Капюшон на кнопках","s":"tr","p":[[0.717,0.3113,0,[[0.3113,1],[0.246,0]]]]},{"n":"02","t":"Воротник-стойка","s":"tl","p":[[0.412,0.24,0,[[0.24,1],[0.202,0]]]]},{"n":"03","t":"Боковые карманы","s":"bl","p":[[0.3,0.5533,0,[[0.5533,1],[0.726,0]]]]},{"n":"04","t":"Ветрозащитная планка","s":"br","p":[[0.502,0.6667,0,[[0.6667,1],[0.7407,0]]]]}]},
+  /* пуховик сзади (обе карточки) */ 'c014f0eb689bb556':{"g":[0.1707,0.7693],"n":[{"n":"05","t":"Объёмный капюшон","s":"tl","p":[[0.45,0.2133,0,[[0.2133,1],[0.1727,0]]]]},{"n":"06","t":"Манжеты на резинке","s":"br","p":[[0.178,0.732,0,[[0.732,1],[0.7407,0]]],[0.815,0.7313,0,[[0.7313,1],[0.7413,0]]]]}]}
 };
 /* откат партии фото 2026-10-06-bomber-inside (was/) кладёт прежний снимок
    перекодированным — хеш у него другой, выноски те же */
@@ -12037,6 +11994,7 @@ function legalDocOffer(){
 }
 
 function goInfo(key){
+  if(key === 'about') return openAbout();
   if(!INFO_PAGES[key]) return toast('Раздел в разработке');
   S.infoKey = key;
   closeOv();
@@ -13043,7 +13001,8 @@ function applyRouteHash(raw){
     return true;
   }
   const info = /^info[=/]([a-z0-9_-]+)$/i.exec(h);
-  if(info && INFO_PAGES[info[1]]){
+  /* #info/about — прежняя текстовая «О бренде»: теперь раздел — знакомство */
+  if(info && info[1].toLowerCase() !== 'about' && INFO_PAGES[info[1]]){
     S.infoKey = info[1];
     S.screen = 'info';
     return true;
@@ -13073,7 +13032,8 @@ function applySavedPlace(d){
   if(d.orderTab) S.orderTab = d.orderTab;
   if(d.filter && typeof d.filter === 'object') S.filter = Object.assign({}, S.filter, d.filter);
   if(d.sort) S.sort = d.sort;
-  if(d.screen && SCREENS[d.screen]){
+  /* прежняя текстовая «О бренде» больше не открывается — остаёмся на главной */
+  if(d.screen && SCREENS[d.screen] && !(d.screen === 'info' && (d.infoKey || 'about') === 'about')){
     if(d.screen === 'product' && !byId(S.productId)) S.screen = 'catalog';
     /* вход — теперь окно поверх магазина, восстанавливать его нечего */
     else if(d.screen === 'auth') S.screen = 'profile';
@@ -13183,6 +13143,7 @@ function needBack(){
    «Назад», чтобы выйти, а не происходило ничего — выходил только со
    второго раза. Теперь лишнюю запись съедаем сами. */
 function syncBack(){
+  if(aboutLeaving()) return;     /* уходим в «О бренде» — см. openAbout */
   const need = needBack();
   if(need === _backArmed) return;
   try{
@@ -13202,6 +13163,47 @@ function syncBack(){
 /* Прежнее имя: им зовут из go() и openOv(). */
 const armBack = syncBack;
 
+/* «О бренде» — это знакомство с магазином (onboarding.html#about), владелец,
+   2026-10-11. Уходим обычным переходом (запись в истории), поэтому «Закрыть»
+   там и системное «Назад» возвращают ровно на этот экран — браузер достаёт
+   страницу из кэша как была. Пока переход идёт, своё «Назад» не трогаем:
+   иначе history.back() из syncBack (меню только что закрылось) отменил бы его. */
+let _aboutNav = 0;      /* когда ушли в «О бренде»; 0 — не уходим */
+const aboutLeaving = () => _aboutNav && Date.now() - _aboutNav < 8000;
+function openAbout(){
+  if(aboutLeaving()) return;                 /* второй тап, пока переход идёт */
+  closeOv();
+  const nav = () => {
+    _aboutNav = Date.now();
+    persistPlace();
+    location.assign('/onboarding.html#about');
+  };
+  /* Запасная запись «Назад» (меню было открыто) ушла бы вместе с магазином:
+     если браузер не сохранит страницу, первое «Назад» после «О бренде»
+     упёрлось бы в неё и ничего не сделало. Съедаем её до ухода. */
+  if(_backArmed){
+    _backArmed = false;
+    _backEating = true;
+    let done = false;
+    const once = () => { if(done) return; done = true; nav(); };
+    window.addEventListener('popstate', once, {once:true});
+    setTimeout(once, 400);
+    history.back();
+  }else nav();
+}
+window.addEventListener('pageshow', e => {
+  /* «Перейти в каталог» на последнем экране знакомства — метку разбираем при
+     любом возврате из кэша (в том числе после «Назад» → «Вперёд» → кнопка) */
+  let to = '';
+  if(e.persisted){
+    try{ to = sessionStorage.getItem('lc_about_to') || ''; sessionStorage.removeItem('lc_about_to'); }catch(_){}
+  }
+  if(!_aboutNav && !to) return;
+  _aboutNav = 0;
+  if(to === 'catalog') go('catalog');
+  syncBack();
+});
+
 /* Одно место на все случаи вместо вызова из каждой кнопки «закрыть».
    Закрыть слой можно крестиком, тапом по затемнению, клавишей, кнопкой
    внутри самого окна — перечислять их поимённо значит однажды забыть один
@@ -13215,6 +13217,9 @@ document.addEventListener('click', syncBackSoon, true);
 document.addEventListener('keydown', syncBackSoon, true);
 
 window.addEventListener('popstate', () => {
+  /* Ходим по истории внутри магазина — значит, переход в «О бренде» не
+     состоялся (человек нажал «Назад», пока грузилось): своё «Назад» — снова наше */
+  if(!_backEating) _aboutNav = 0;
   /* Свою защитную запись съели — адрес вернулся к прежнему. Переписываем его
      на нынешнее место: иначе выбор раздела в меню на каталоге оставлял в
      адресе прежний раздел, и обновление страницы открывало его. */
@@ -14512,7 +14517,7 @@ function modalSearch(){
     const score = p => {
       const blob = [
         p.name, p.cat, p.sku || '', p.desc || '',
-        p.gender === 'w' ? 'женское женщинам девушкам' : p.gender === 'u' ? 'унисекс unisex всем' : 'мужское мужчинам',
+        p.gender === 'w' ? 'женское женская женский женские женщинам девушкам' : p.gender === 'u' ? 'унисекс unisex всем' : 'мужское мужская мужской мужские мужчинам',
         /* Синонимы — только своей категории (CATS.syn): иначе косметичка
            находилась бы по запросу «футболка», и человек решил бы, что поиск
            сломан. Худи найдётся и по «кофта», бомбер — по «куртка». */
@@ -14523,7 +14528,9 @@ function modalSearch(){
       const name = (p.name || '').toLowerCase();
       if(name.includes(v)) s += 8;
       tokens.forEach(t => {
-        if(name.includes(t)) s += 4;
+        /* по основе слова: «пуховики» находят «пуховик» в названии */
+        const st = t.length > 5 ? t.slice(0, -1) : t;
+        if(name.includes(st)) s += 4;
         if((p.sku || '').toLowerCase().includes(t)) s += 6;
         if((p.cat || '').toLowerCase().includes(t)) s += 2;
       });
@@ -14532,7 +14539,7 @@ function modalSearch(){
     return {
       lab: 'Результаты',
       list: PRODUCTS.filter(p => p.on && score(p) > 0)
-        .sort((a,b) => score(b) - score(a))
+        .sort((a,b) => (score(b) - score(a)) || (soldOut(a) - soldOut(b)))
         .slice(0, 12)
     };
   };
@@ -17494,7 +17501,7 @@ function viewOnb(){
   <div class="ad__panel">
     <div class="ad__hrow"><div>
       <h1 class="ad__h">Онбординг</h1>
-      <p class="ad__sub">Знакомство с магазином при первом входе</p>
+      <p class="ad__sub">Раздел «О бренде» — знакомство с магазином</p>
     </div></div>
 
     <div class="ad__step">
@@ -18451,8 +18458,9 @@ function aboutEditorHTML(){
     : `<div class="ad__empty"><b>Блоков пока нет</b>Добавьте ряд фото и текст — страница «О бренде» соберётся из них.</div>`;
 
   return `<div class="ad__box" style="margin-top:12px">
-    <div class="ad__box-t">Страница «О бренде»</div>
-    <p class="ad__hint" style="margin-top:0">Показывается сверху вниз: ряд фото, потом текст, потом снова фото — как нужно.
+    <div class="ad__box-t">Прежняя страница «О бренде»</div>
+    <p class="ad__hint" style="margin-top:0"><b>На сайте больше не показывается:</b> раздел «О бренде» теперь открывает знакомство (правится в «Онбординг»). Блоки сохранены на всякий случай.
+      Показывались сверху вниз: ряд фото, потом текст, потом снова фото.
       ${list.length} из ${MAX_ABOUT_BLOCKS} блоков.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <button class="ad__b ad__b--pri" id="abAddPh"${list.length >= MAX_ABOUT_BLOCKS ? ' disabled' : ''}>+ Ряд фото</button>
@@ -18680,8 +18688,8 @@ function viewContent(){
     ${aboutEditorHTML()}
     <div class="ad__box" style="margin-top:12px">
       <div class="ad__box-t">Тексты страниц</div>
-      <label class="ad__l">О бренде — запасной текст</label>
-      <p class="ad__hint" style="margin-top:0">Показывается, только если выше не собрано ни одного блока.</p>
+      <label class="ad__l">О бренде — запасной текст (прежняя страница, на сайте не показывается)</label>
+      <p class="ad__hint" style="margin-top:0">Раздел «О бренде» теперь открывает знакомство.</p>
       <textarea class="ad__f" id="txAboutL" rows="2">${esc(t.aboutLead||'')}</textarea>
       <label class="ad__l">О бренде — запасные абзацы (через Enter)</label>
       <textarea class="ad__f" id="txAboutB" rows="4">${esc(t.aboutBody||'')}</textarea>
@@ -19808,7 +19816,7 @@ function pForm(p){
   let catTouched = !!p;
   const guessCat = n =>
     /худи|кофт|свитшот|свитер|джемпер|толстовк|hood|sweat/i.test(n) ? 'Кофты' :
-    /куртк|бомбер|ветровк|жилет|jacket|bomber/i.test(n) ? 'Куртки' :
+    /куртк|бомбер|ветровк|жилет|пуховик|jacket|bomber|puffer/i.test(n) ? 'Куртки' :
     /косметич|сумк|чехол|шоппер|шопер|кепк|панам|носк/i.test(n) ? 'Аксессуары' :
     /футболк|t-?shirt|\btee\b/i.test(n) ? 'Футболки' : '';
   bindPick(w.querySelector('#xCat'), () => cat, v => { cat = v; catTouched = true; });
@@ -20131,7 +20139,7 @@ function pForm(p){
     const fallback = garment(
       /худи|hood/i.test(name) ? 'hoodie' : /джоггер|брюк/i.test(name) ? 'joggers' :
       /шорт/i.test(name) ? 'shorts' : /свитер|вязк/i.test(name) ? 'sweater' :
-      /бомбер|куртк|жилет/i.test(name) ? 'jacket' : /костюм/i.test(name) ? 'suit' :
+      /бомбер|куртк|жилет|пуховик/i.test(name) ? 'jacket' : /костюм/i.test(name) ? 'suit' :
       /свитшот/i.test(name) ? 'sweat' : 'tshirt');
     const photos = galList.filter(Boolean);
     const img = photos[0] || fallback;
@@ -20257,6 +20265,14 @@ async function bootFromServer(){
   loadUser();
   rvLoad();
   wipeStaleBrowserJunk();
+  /* «Перейти в каталог» в «О бренде», а страница магазина при возврате
+     загрузилась заново (не из кэша «назад») — открываем каталог */
+  try{
+    if(sessionStorage.getItem('lc_about_to') === 'catalog'){
+      sessionStorage.removeItem('lc_about_to');
+      history.replaceState(history.state, '', location.pathname + location.search + '#catalog');
+    }
+  }catch(_){}
   /* Главная с прошлого раза уже в памяти (товары, фото, тексты) — рисуем её
      сразу, не дожидаясь пяти ответов сервера подряд. Занавес из знакомства
      уходит по load, и раньше под ним оказывался серый скелет без шапки, а
