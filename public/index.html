@@ -1408,9 +1408,16 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
   border-radius:var(--r-lg)
 }
 /* Портретное окно под пропорцию съёмки — как в каталоге. */
-.pd__hero{position:relative;flex:none;aspect-ratio:2/3;max-height:62svh;background:#fff;
+/* Размер окна задан явно, а не aspect-ratio + max-height: Safari на iPhone
+   при таком сочетании сужал само окно до 2:3 от высоты (справа белая полоса),
+   а фото внутри раздувалось и резалось по бёдра. Android держал полную
+   ширину и 62svh — так теперь везде: ширина экрана минус поля .pd (2×12),
+   высота — 1,5 ширины, но не больше 62svh. */
+.pd__hero{position:relative;flex:none;width:100%;height:min(calc(150vw - 36px),62svh);background:#fff;
   overflow:hidden;border-radius:var(--r-lg) var(--r-lg) 0 0}
+/* лента — по окну целиком, без процентов от высоты, вычисленной по пропорции */
 .pd__track{
+  position:absolute;inset:0;
   display:flex;height:100%;overflow-x:auto;overflow-y:hidden;
   scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;
   touch-action:pan-x pan-y
@@ -4161,7 +4168,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
     column-gap:26px;row-gap:12px;align-items:start;
     max-width:760px;margin:10px auto 0;padding:14px;height:auto;min-height:0
   }
-  .pd__hero{grid-column:1;grid-row:1;aspect-ratio:2/3;max-height:none;flex:none;border-radius:var(--r-lg);margin-top:0}
+  .pd__hero{grid-column:1;grid-row:1;aspect-ratio:2/3;height:auto;max-height:none;flex:none;border-radius:var(--r-lg);margin-top:0}
   .pd .thumbs{grid-column:1;grid-row:2;padding:0}
   /* Описание занимает правую колонку целиком — и когда миниатюр нет тоже. */
   .pd__body{grid-column:2;grid-row:1 / span 2;max-width:none}
@@ -7148,19 +7155,24 @@ function legalLineAuto(){
    Один список на весь магазин. Порядок здесь — порядок кнопок в каталоге,
    разделов на главной и пунктов меню. t — как категория записана у товара
    (product.cat), slug — для адреса (#catalog/u/kofty), syn — чем ещё её ищут
-   в поиске, sizeless — размеров не бывает, форма товара их не требует.
+   в поиске, sizeless — размеров не бывает, форма товара их не требует,
+   apart — товары видны только внутри своего раздела: их нет во «Все»
+   каталога, на полках главной и в «Популярном» поиска (владелец, 2026-10-13:
+   косметичка — только в «Аксессуарах»). Поиск по слову их находит.
    Этот же список — кнопки «Категория» в форме товара: своей строки там не
    напечатать. Новый раздел — одна строка здесь, больше нигде. */
 const CATS = [
   {t:'Футболки',   slug:'futbolki',   syn:'футболка футболки tshirt t-shirt tee'},
   {t:'Кофты',      slug:'kofty',      syn:'кофта кофты худи толстовка свитшот свитер джемпер зип hoodie sweatshirt'},
   {t:'Куртки',     slug:'kurtki',     syn:'куртка куртки бомбер ветровка пуховик пуховики jacket bomber puffer'},
-  {t:'Аксессуары', slug:'aksessuary', syn:'аксессуар аксессуары косметичка чехол сумка', sizeless:true}
+  {t:'Аксессуары', slug:'aksessuary', syn:'аксессуар аксессуары косметичка чехол сумка', sizeless:true, apart:true}
 ];
 const CAT_NAMES = CATS.map(c => c.t);
 const catMeta = t => CATS.find(c => c.t === t) || null;
 /* Категории, у которых размеров не бывает: форма товара не требует их отметить. */
 const SIZELESS_CATS = CATS.filter(c => c.sizeless).map(c => c.t);
+/* товар из раздела, который показываем только в нём самом (CATS.apart) */
+const apartCat = p => !!(catMeta(p && p.cat) || {}).apart;
 
 /* Какие категории реально есть в разделе — считаем по самим товарам, а не
    держим отдельным флагом. Тогда всё чинится само: сняли последний аксессуар
@@ -7175,8 +7187,8 @@ const gendersOf = p => (p && Array.isArray(p.genders) && p.genders.length) ? p.g
 const hasGender = (p, g) => gendersOf(p).includes(g);
 /* подпись разделов в порядке вкладок: «Унисекс, Мужское» */
 const genderLabels = p => Object.keys(GENDER_LAB).filter(g => hasGender(p, g)).map(g => GENDER_LAB[g]).join(', ') || 'Мужское';
-/* Товар в разделе каталога: пол + категория ('' — все категории). */
-const inSection = (p, g, c) => !!p && p.on && hasGender(p, g) && (!c || p.cat === c);
+/* Товар в разделе каталога: пол + категория ('' — все категории, кроме apart). */
+const inSection = (p, g, c) => !!p && p.on && hasGender(p, g) && (c ? p.cat === c : !apartCat(p));
 /* Куда вести с главной («В каталог»): в текущий пол, если там такие товары есть,
    иначе в первый пол, где они есть. Из строки разделов пол не трогаем. */
 const genderFor = c => {
@@ -11204,7 +11216,7 @@ function pFormOverShop(){
    попадали. Пол не фильтруем: на главной всё сразу. Внутри полки новые
    первыми, распроданные — в самом конце. */
 function homeShelves(){
-  const on = PRODUCTS.filter(p => p && p.on);
+  const on = PRODUCTS.filter(p => p && p.on && !apartCat(p));
   const catOf = p => p.cat || CAT_NAMES[0];
   const order = [...CAT_NAMES, ...new Set(on.map(catOf).filter(c => !CAT_NAMES.includes(c)))];
   return order.map(c => ({c, list: on.filter(p => catOf(p) === c)
@@ -14214,12 +14226,13 @@ function sheetMenu(){
   const genBlock = g => {
     if(!PRODUCTS.length) return item(`cat::${g}`, 'grid', GENDER_LAB[g]);
     const total = PRODUCTS.filter(p => inSection(p, g, '')).length;
-    if(!total) return item(`cat::${g}`, 'grid', GENDER_LAB[g], 0, true);
     const cats = [...CAT_NAMES, ...catsOf(g).filter(c => c && !CAT_NAMES.includes(c))]
       .map(c => [c, PRODUCTS.filter(p => inSection(p, g, c)).length])
       .filter(([, n]) => n);
+    /* пусто, если нет и аксессуаров: их в total не считаем (CATS.apart) */
+    if(!cats.length) return item(`cat::${g}`, 'grid', GENDER_LAB[g], 0, true);
     /* одна категория — строка «Все товары» вела бы туда же: её не дублируем */
-    const rows = (cats.length > 1 ? [['', 'Все товары', total]] : [])
+    const rows = (cats.length > 1 && total ? [['', 'Все товары', total]] : [])
       .concat(cats.map(([c, n]) => [c, esc(c), n]));
     const on = g === openG;
     const cur = c => on && S.cat === c ? ' aria-current="page"' : '';
@@ -14524,7 +14537,7 @@ function refreshCardBuys(){
 }
 
 function modalSearch(){
-  const popular = PRODUCTS.filter(p => p.on).slice(0, 6);
+  const popular = PRODUCTS.filter(p => p.on && !apartCat(p)).slice(0, 6);
   const renderList = (list, lab) => {
     if(!list.length){
       return `<p class="sres-empty">Ничего не нашлось.<br>Попробуйте другое название, артикул или «футболк».</p>`;
