@@ -971,14 +971,15 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .mnu__gen:hover{background:var(--ink);color:#fff}
 .mnu__sec{border-top:1px solid var(--line);padding:6px 0}
 .mnu__sec:first-child{border-top:0}
-/* «Поделиться» — первая строка шторки: ссылка на сам магазин */
-.mnu__share{display:flex;align-items:center;gap:10px;width:100%;margin:2px 0 8px;padding:13px 14px;
-  border:1px solid var(--line);border-radius:var(--r-sm);font-size:14.5px;font-weight:600;text-align:left;
-  transition:background var(--dur) var(--ease)}
-.mnu__share:hover{background:var(--chip)}
-.mnu__share > span{flex:1}
-.mnu__share small{font-size:12px;color:var(--muted)}
-.mnu__share + .mnu__sec{border-top:0}
+/* «Поделиться магазином» — внизу шторки, над соцсетями: небольшая
+   кнопка-пилюля, а не строка во всю ширину (владелец, 2026-10-13) */
+.mnu__share{display:inline-flex;align-items:center;gap:7px;height:34px;margin:6px 0 0;padding:0 14px 0 12px;
+  border:1px solid var(--line2);border-radius:var(--r-pill);font-size:13px;font-weight:600;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.mnu__share:hover{background:var(--chip);border-color:var(--ink)}
+.mnu__share .ic{width:15px;height:15px}
+.mnu__shw{border-top:1px solid var(--line);margin-top:6px;padding:12px 4px 0}
+.mnu__shw + .mnu__soc{border-top:0;margin-top:0;padding-top:14px}
 .mnu__cap{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted2);padding:10px 8px 4px}
 .mnu__i{
@@ -3555,6 +3556,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   color:var(--ink-soft);transition:all var(--dur) var(--ease)
 }
 .ft__soc-b:hover{border-color:var(--ink);color:var(--ink)}
+.ft__soc-b svg{width:17px;height:17px;fill:currentColor}
 .ft__soc-b.is-soon{opacity:.4;pointer-events:none}
 
 /* ---- информационные страницы ---- */
@@ -7103,8 +7105,10 @@ const LINKS = {
   /* Соцсети. Порядок здесь = порядок значков в шторке. Пустая ссылка не
      прячет значок: он остаётся на месте и говорит, что раздел готовится, —
      так видно, что бренд там будет, и не приходится верстать заново. */
+  /* Ссылки задаёт админ: «Контент» → «Соцсети» (CMS.contacts.social).
+     Здесь — запасные, на случай пустого поля в админке. */
   social: {
-    whatsapp: '',    // https://wa.me/7XXXXXXXXXX
+    tiktok: '',      // https://www.tiktok.com/@...
     telegram: '',    // https://t.me/...  (пусто — возьмётся ссылка на бота)
     instagram: '',   // https://instagram.com/...
     max: '',         // https://max.ru/...
@@ -7156,23 +7160,25 @@ function legalLineAuto(){
    разделов на главной и пунктов меню. t — как категория записана у товара
    (product.cat), slug — для адреса (#catalog/u/kofty), syn — чем ещё её ищут
    в поиске, sizeless — размеров не бывает, форма товара их не требует,
-   apart — товары видны только внутри своего раздела: их нет во «Все»
-   каталога, на полках главной и в «Популярном» поиска (владелец, 2026-10-13:
-   косметичка — только в «Аксессуарах»). Поиск по слову их находит.
+   last — товары раздела всегда в самом конце любого списка: во «Все»
+   каталога при любой сортировке, на главной, в поиске, в избранном
+   (владелец, 2026-10-13: «косметичка всегда и везде в самом низу»).
    Этот же список — кнопки «Категория» в форме товара: своей строки там не
    напечатать. Новый раздел — одна строка здесь, больше нигде. */
 const CATS = [
   {t:'Футболки',   slug:'futbolki',   syn:'футболка футболки tshirt t-shirt tee'},
   {t:'Кофты',      slug:'kofty',      syn:'кофта кофты худи толстовка свитшот свитер джемпер зип hoodie sweatshirt'},
   {t:'Куртки',     slug:'kurtki',     syn:'куртка куртки бомбер ветровка пуховик пуховики jacket bomber puffer'},
-  {t:'Аксессуары', slug:'aksessuary', syn:'аксессуар аксессуары косметичка чехол сумка', sizeless:true, apart:true}
+  {t:'Аксессуары', slug:'aksessuary', syn:'аксессуар аксессуары косметичка чехол сумка', sizeless:true, last:true}
 ];
 const CAT_NAMES = CATS.map(c => c.t);
 const catMeta = t => CATS.find(c => c.t === t) || null;
 /* Категории, у которых размеров не бывает: форма товара не требует их отметить. */
 const SIZELESS_CATS = CATS.filter(c => c.sizeless).map(c => c.t);
-/* товар из раздела, который показываем только в нём самом (CATS.apart) */
-const apartCat = p => !!(catMeta(p && p.cat) || {}).apart;
+/* товар из раздела, который всегда стоит в конце списка (CATS.last) */
+const lastCat = p => !!(catMeta(p && p.cat) || {}).last;
+/* такие товары — в конец, порядок внутри обеих частей не меняется */
+const sinkLast = list => [...list.filter(p => !lastCat(p)), ...list.filter(lastCat)];
 
 /* Какие категории реально есть в разделе — считаем по самим товарам, а не
    держим отдельным флагом. Тогда всё чинится само: сняли последний аксессуар
@@ -7187,8 +7193,8 @@ const gendersOf = p => (p && Array.isArray(p.genders) && p.genders.length) ? p.g
 const hasGender = (p, g) => gendersOf(p).includes(g);
 /* подпись разделов в порядке вкладок: «Унисекс, Мужское» */
 const genderLabels = p => Object.keys(GENDER_LAB).filter(g => hasGender(p, g)).map(g => GENDER_LAB[g]).join(', ') || 'Мужское';
-/* Товар в разделе каталога: пол + категория ('' — все категории, кроме apart). */
-const inSection = (p, g, c) => !!p && p.on && hasGender(p, g) && (c ? p.cat === c : !apartCat(p));
+/* Товар в разделе каталога: пол + категория ('' — все категории). */
+const inSection = (p, g, c) => !!p && p.on && hasGender(p, g) && (!c || p.cat === c);
 /* Куда вести с главной («В каталог»): в текущий пол, если там такие товары есть,
    иначе в первый пол, где они есть. Из строки разделов пол не трогаем. */
 const genderFor = c => {
@@ -8564,7 +8570,7 @@ function listProducts(){
     const x = rvStats(a.id), y = rvStats(b.id);
     return (y.avg - x.avg) || (y.n - x.n) || (b.id - a.id);
   });
-  return list;
+  return sinkLast(list);
 }
 
 /* Что написано на кнопке карточки. Одно место — чтобы разметка и
@@ -10560,7 +10566,7 @@ function scrProfile(){
 }
 
 function scrFavs(){
-  const list = PRODUCTS.filter(p => S.favs.includes(p.id));
+  const list = sinkLast(PRODUCTS.filter(p => S.favs.includes(p.id)));
   return `<h1 class="form__t">Избранное</h1>
     ${list.length ? `<div class="grid">${list.map(cardHTML).join('')}</div>`
     : `<p class="none">Здесь пока пусто.<br>Отмечайте ♥ понравившиеся вещи — они соберутся тут.</p>`}`;
@@ -11216,9 +11222,11 @@ function pFormOverShop(){
    попадали. Пол не фильтруем: на главной всё сразу. Внутри полки новые
    первыми, распроданные — в самом конце. */
 function homeShelves(){
-  const on = PRODUCTS.filter(p => p && p.on && !apartCat(p));
+  const on = PRODUCTS.filter(p => p && p.on);
   const catOf = p => p.cat || CAT_NAMES[0];
-  const order = [...CAT_NAMES, ...new Set(on.map(catOf).filter(c => !CAT_NAMES.includes(c)))];
+  /* полка раздела с флагом last — последней, даже после своих разделов */
+  const order = [...CAT_NAMES, ...new Set(on.map(catOf).filter(c => !CAT_NAMES.includes(c)))]
+    .sort((a, b) => !!(catMeta(a) || {}).last - !!(catMeta(b) || {}).last);
   return order.map(c => ({c, list: on.filter(p => catOf(p) === c)
       .sort((a, b) => (soldOut(a) - soldOut(b)) || (b.id - a.id))}))
     .filter(s => s.list.length);
@@ -12059,10 +12067,10 @@ function ftCol(title, linksHtml, open){
   </details>`;
 }
 function siteFooter(){
-  const soc = Object.entries(LINKS.social || {})
-    .filter(([, url]) => url && String(url).startsWith('http'))
-    .map(([name, url]) =>
-      `<a class="ft__soc-b" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${name}">${svg('ext','ic ic--sm')}</a>`
+  /* те же соцсети, что в шторке (SOCIALS), но только с готовой ссылкой */
+  const soc = SOCIALS.map(x => [x, socialUrl(x.k)]).filter(([, url]) => url)
+    .map(([x, url]) =>
+      `<a class="ft__soc-b" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(x.t)}" title="${esc(x.t)}">${socIcon(x.k)}</a>`
     ).join('');
   return `<footer class="ft">
     <div class="ft__inner">
@@ -14226,13 +14234,12 @@ function sheetMenu(){
   const genBlock = g => {
     if(!PRODUCTS.length) return item(`cat::${g}`, 'grid', GENDER_LAB[g]);
     const total = PRODUCTS.filter(p => inSection(p, g, '')).length;
+    if(!total) return item(`cat::${g}`, 'grid', GENDER_LAB[g], 0, true);
     const cats = [...CAT_NAMES, ...catsOf(g).filter(c => c && !CAT_NAMES.includes(c))]
       .map(c => [c, PRODUCTS.filter(p => inSection(p, g, c)).length])
       .filter(([, n]) => n);
-    /* пусто, если нет и аксессуаров: их в total не считаем (CATS.apart) */
-    if(!cats.length) return item(`cat::${g}`, 'grid', GENDER_LAB[g], 0, true);
     /* одна категория — строка «Все товары» вела бы туда же: её не дублируем */
-    const rows = (cats.length > 1 && total ? [['', 'Все товары', total]] : [])
+    const rows = (cats.length > 1 ? [['', 'Все товары', total]] : [])
       .concat(cats.map(([c, n]) => [c, esc(c), n]));
     const on = g === openG;
     const cur = c => on && S.cat === c ? ' aria-current="page"' : '';
@@ -14252,8 +14259,6 @@ function sheetMenu(){
       <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button>
     </div>
     <div class="mnu__b">
-      <button class="mnu__share" data-a="shareSite">${svg('share','ic ic--sm')}<span>Поделиться магазином</span>
-        <small>${esc(location.host)}</small></button>
       <div class="mnu__sec">
         <div class="mnu__cap">Каталог</div>
         ${Object.keys(GENDER_LAB).map(genBlock).join('')}
@@ -14280,6 +14285,7 @@ function sheetMenu(){
         ${item('info:legal','shield','Юридическая информация')}
       </div>
       ${isAdmin() ? `<div class="mnu__sec">${item('admin','set','Админ-панель')}</div>` : ''}
+      <div class="mnu__shw"><button class="mnu__share" data-a="shareSite">${svg('share','ic ic--sm')}Поделиться магазином</button></div>
       ${socialRow()}
     </div>
   </aside>`);
@@ -14299,7 +14305,7 @@ function mngSet(box, open){
    так видно, что бренд там будет, а нажатие честно говорит, что ссылка ещё
    готовится, — вместо мёртвой кнопки или пустого места. */
 /* Знаки соцсетей, каждый в своём квадрате 24x24 и сплошной заливкой.
-   WhatsApp и Instagram — из Simple Icons (CC0), MAX снят с фирменного
+   TikTok и Instagram — из Simple Icons (CC0), MAX снят с фирменного
    favicon.svg на max.ru и пересчитан из сотни в наши 24. У Telegram и
    ВКонтакте официальные файлы идут вместе с подложкой — кругом и плиткой, —
    а нам нужен голый знак на своём кружке, поэтому там наши начертания.
@@ -14311,15 +14317,24 @@ function mngSet(box, open){
    и цветом текста, а здесь сплошная белая заливка на тёмном кружке. Смешать
    их в одном наборе значит однажды обвести самолётик Telegram по контуру. */
 const SOC_MARK = {
-  whatsapp:  'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z',
+  tiktok:    'M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07Z',
   telegram:  'M21.5 4.2 3.7 11.1c-1.2.5-1.2 1.2-.2 1.5l4.6 1.4 1.8 5.4c.2.7.1.9.8.9.5 0 .7-.2 1-.5l2.2-2.3 4.6 3.4c.8.5 1.4.2 1.6-.8L22.9 5.3c.3-1.2-.4-1.7-1.4-1.1Z',
   instagram: 'M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077',
   max:       'M12.196 0.046C18.812 0.046 24 5.413 24 12.032C24 18.652 18.647 23.888 12.259 23.888C9.992 23.888 8.894 23.569 7.124 22.316C7.002 22.23 6.836 22.253 6.733 22.362C5.372 23.814 1.886 24.834 1.727 22.851C1.727 19.395 0 17.15 0 11.967C0 5.162 5.579 0.046 12.196 0.046ZM12.381 5.945C9.242 5.78 6.791 7.96 6.251 11.368C5.803 14.191 6.596 17.632 7.275 17.806C7.563 17.88 8.255 17.349 8.76 16.874C8.854 16.785 8.998 16.769 9.108 16.838C9.894 17.318 10.783 17.679 11.763 17.73C14.986 17.898 17.842 15.376 18.012 12.152C18.18 8.929 15.604 6.111 12.381 5.943L12.381 5.945Z',
   vk:        'M12.9 16.9c-5.1 0-8.3-3.6-8.43-9.5h2.6c.09 4.35 2.06 6.2 3.57 6.57V7.4h2.49v3.8c1.46-.16 2.99-1.86 3.5-3.8h2.45c-.4 2.4-2.06 4.1-3.24 4.8 1.18.56 3.06 2.05 3.8 4.7h-2.7c-.58-1.82-1.98-3.23-3.81-3.42v3.42Z'
 };
 
+/* подсказки в полях админки «Соцсети» */
+const SOC_HINT = {
+  tiktok: 'https://www.tiktok.com/@…',
+  telegram: 'https://t.me/…',
+  instagram: 'https://instagram.com/…',
+  max: 'https://max.ru/…',
+  vk: 'https://vk.com/…'
+};
+
 const SOCIALS = [
-  { k:'whatsapp',  t:'WhatsApp' },
+  { k:'tiktok',    t:'TikTok' },
   { k:'telegram',  t:'Telegram' },
   { k:'instagram', t:'Instagram' },
   { k:'max',       t:'MAX' },
@@ -14327,7 +14342,10 @@ const SOCIALS = [
 ];
 
 function socialUrl(k){
-  const u = String((LINKS.social && LINKS.social[k]) || '').trim();
+  /* сначала ссылка из админки, потом запасная из LINKS */
+  let own = '';
+  try{ own = (CMS.contacts.social || {})[k]; }catch(_){}  /* CMS объявлен ниже по файлу */
+  const u = String(own || (LINKS.social && LINKS.social[k]) || '').trim();
   if(u.startsWith('http')) return u;
   /* У Telegram ссылка уже есть — та же, что ведёт в бота. Дублировать её
      в настройках соцсетей незачем. */
@@ -14537,7 +14555,7 @@ function refreshCardBuys(){
 }
 
 function modalSearch(){
-  const popular = PRODUCTS.filter(p => p.on && !apartCat(p)).slice(0, 6);
+  const popular = sinkLast(PRODUCTS.filter(p => p.on)).slice(0, 6);
   const renderList = (list, lab) => {
     if(!list.length){
       return `<p class="sres-empty">Ничего не нашлось.<br>Попробуйте другое название, артикул или «футболк».</p>`;
@@ -14578,7 +14596,7 @@ function modalSearch(){
     return {
       lab: 'Результаты',
       list: PRODUCTS.filter(p => p.on && score(p) > 0)
-        .sort((a,b) => (score(b) - score(a)) || (soldOut(a) - soldOut(b)))
+        .sort((a,b) => (lastCat(a) - lastCat(b)) || (score(b) - score(a)) || (soldOut(a) - soldOut(b)))
         .slice(0, 12)
     };
   };
@@ -16177,7 +16195,7 @@ let editId = null;
 function defaultCms(){
   return {
     brand:{name:'Luxe Canvas', logo:''},
-    contacts:{telegram:'', email:'', phone:''},
+    contacts:{telegram:'', email:'', phone:'', social:{}},
     legal:{sellerName:'', inn:'', ogrn:'', address:'', email:'', phone:''},
     texts:{
       aboutLead: 'Luxe Canvas — бренд одежды для тех, кто ценит комфорт и стиль.',
@@ -18662,6 +18680,12 @@ function viewContent(){
         <input class="ad__f" id="cmEm" value="${(c.email||'').replace(/"/g,'&quot;')}" placeholder="hello@sas.ru">
         <label class="ad__l">Телефон</label>
         <input class="ad__f" id="cmPh" value="${(c.phone||'').replace(/"/g,'&quot;')}" placeholder="+7 …">
+        <div class="ad__box-t" style="margin-top:18px">Соцсети</div>
+        <p class="ad__m" style="margin-top:0">Значки в меню, в кружке «Написать нам» и внизу сайта.
+          Пустое поле — значок говорит «скоро»${telegramReady() ? ', а Telegram ведёт в бота' : ''}.</p>
+        ${SOCIALS.map(x => `<label class="ad__l">${esc(x.t)}</label>
+        <input class="ad__f" data-soc="${x.k}" value="${esc(((c.social || {})[x.k]) || '')}"
+          placeholder="${esc(SOC_HINT[x.k] || 'https://…')}" inputmode="url" autocomplete="off">`).join('')}
       </div>
       <div class="ad__box">
         <div class="ad__box-t">Реквизиты</div>
@@ -19363,6 +19387,14 @@ function bindAdminView(){
     CMS.contacts.telegram = document.getElementById('cmTg').value.trim();
     CMS.contacts.email = document.getElementById('cmEm').value.trim();
     CMS.contacts.phone = document.getElementById('cmPh').value.trim();
+    /* соцсети: «tiktok.com/@luxe» без https:// тоже принимаем */
+    const soc = {};
+    document.querySelectorAll('[data-soc]').forEach(inp => {
+      let v = inp.value.trim();
+      if(v && !/^https?:\/\//i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
+      if(v) soc[inp.dataset.soc] = v;
+    });
+    CMS.contacts.social = soc;
     CMS.legal.sellerName = document.getElementById('lgName').value.trim();
     CMS.legal.inn = document.getElementById('lgInn').value.trim();
     CMS.legal.ogrn = document.getElementById('lgOgrn').value.trim();
