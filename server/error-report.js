@@ -284,6 +284,9 @@ function installConsoleHook() {
         .join(' ')
         .trim();
       if (!text) return;
+      /* Предупреждения самого Node («(node:1) ExperimentalWarning: …»,
+         DeprecationWarning) — не ошибки: в консоли остаются, владельцу не шлём */
+      if (!first && /^\(node:\d+\) \w*Warning:/.test(text)) return;
       report('server', first || text, {});
     } catch (_) {}
   };

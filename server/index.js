@@ -1,3 +1,13 @@
+/* Node 22 при первом require('node:sqlite') пишет «ExperimentalWarning:
+   SQLite is an experimental feature». Это не ошибка, но перехват
+   console.error (error-report) слал её владельцу в Telegram как «Ошибка на
+   сервере» после каждого обновления. Глушим только её — до любого require. */
+const emitWarning = process.emitWarning;
+process.emitWarning = function (warning, ...rest) {
+  const text = String((warning && warning.message) || warning || '');
+  if (/SQLite is an experimental feature/i.test(text)) return;
+  return emitWarning.call(process, warning, ...rest);
+};
 require('dotenv').config();
 /* Ретранслятор Telegram за границей (server/tg-relay.js): магазина и базы на
    таком сервере нет. */
