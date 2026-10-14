@@ -444,6 +444,10 @@
     async setUserAdmin(email, admin) {
       return (await api('/api/admin/users/role', { method: 'PUT', body: { email, admin } })).user;
     },
+    /** off = true — этому покупателю заставку со знаком не показывать */
+    async setUserIntro(email, off) {
+      return (await api('/api/admin/users/intro', { method: 'PUT', body: { email, off } })).user;
+    },
     async adminOrders() {
       const d = await api('/api/admin/orders');
       return d.orders || [];

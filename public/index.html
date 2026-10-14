@@ -285,6 +285,9 @@ html.lc-leaving .lcc{opacity:0}
     var app = mm('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)') || navigator.standalone === true;
     var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
     var reload = nav.type === 'reload' || (performance.navigation && performance.navigation.type === 1);
+    /* Покупатель, которому заставку выключили (админка → Клиенты → «Без
+       заставки»; метку ставит saveUser), — ни знака, ни чёрного занавеса. */
+    try{ if(localStorage.getItem('lc_no_intro') === '1') return; }catch(_){}
     var play;
     if(handoff) play = false;                          /* продолжение анимации со знакомства (старая ссылка без #about) */
     /* «Назад» из «О бренде», а браузер не сохранил страницу и грузит её
@@ -3548,16 +3551,6 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   font-size:11.5px;color:var(--muted2);line-height:1.5;min-height:0
 }
 .ft__legal:empty{display:none}
-.ft__soc{display:flex;gap:8px;margin-top:4px}
-.ft__soc:empty{display:none}
-.ft__soc-b{
-  width:38px;height:38px;border-radius:var(--r-pill);background:var(--card);
-  border:1.5px solid var(--line2);display:flex;align-items:center;justify-content:center;
-  color:var(--ink-soft);transition:all var(--dur) var(--ease)
-}
-.ft__soc-b:hover{border-color:var(--ink);color:var(--ink)}
-.ft__soc-b svg{width:17px;height:17px;fill:currentColor}
-.ft__soc-b.is-soon{opacity:.4;pointer-events:none}
 
 /* ---- информационные страницы ---- */
 .info{padding:8px var(--pad) 28px;max-width:720px;margin:0 auto}
@@ -7161,8 +7154,9 @@ function legalLineAuto(){
    (product.cat), slug — для адреса (#catalog/u/kofty), syn — чем ещё её ищут
    в поиске, sizeless — размеров не бывает, форма товара их не требует,
    last — товары раздела всегда в самом конце любого списка: во «Все»
-   каталога при любой сортировке, на главной, в поиске, в избранном
-   (владелец, 2026-10-13: «косметичка всегда и везде в самом низу»).
+   каталога при любой сортировке, в поиске, в избранном (владелец,
+   2026-10-13: «косметичка всегда и везде в самом низу»); на главной их
+   нет вовсе (2026-10-14, см. homeShelves).
    Этот же список — кнопки «Категория» в форме товара: своей строки там не
    напечатать. Новый раздел — одна строка здесь, больше нигде. */
 const CATS = [
@@ -7659,6 +7653,14 @@ function applyBucket(d){
 }
 
 function saveUser(){
+  /* Без заставки при входе и обновлении (noIntro с сервера, галочка в
+     карточке клиента). Скрипт заставки в <head> работает раньше, чем
+     магазин узнаёт аккаунт, поэтому читает метку устройства. Вышел из
+     аккаунта — метка остаётся: устройство то же; вошёл другой — снимается. */
+  try{
+    if(S.user && S.user.noIntro) localStorage.setItem('lc_no_intro', '1');
+    else if(S.user) localStorage.removeItem('lc_no_intro');
+  }catch(e){}
   try{
     const id = S.user && S.user.id ? S.user.id : null;
     activeUserId = id;
@@ -11216,17 +11218,17 @@ function pFormOverShop(){
   armBack();
 }
 
-/* Полки главной — все товары в продаже, по разделу на полку, в порядке CATS.
+/* Полки главной — товары в продаже, по разделу на полку, в порядке CATS.
+   Кроме разделов с флагом last (Аксессуары): владелец, 2026-10-14 — «сумка
+   не должна показываться на главной»; в каталоге она есть, в самом конце.
    Владелец, 2026-10-04: «в гл меню должны быть все товары которые есть».
    Раньше тут были «Новинки» — slice(-4), и старые товары на главную не
    попадали. Пол не фильтруем: на главной всё сразу. Внутри полки новые
    первыми, распроданные — в самом конце. */
 function homeShelves(){
-  const on = PRODUCTS.filter(p => p && p.on);
+  const on = PRODUCTS.filter(p => p && p.on && !lastCat(p));
   const catOf = p => p.cat || CAT_NAMES[0];
-  /* полка раздела с флагом last — последней, даже после своих разделов */
-  const order = [...CAT_NAMES, ...new Set(on.map(catOf).filter(c => !CAT_NAMES.includes(c)))]
-    .sort((a, b) => !!(catMeta(a) || {}).last - !!(catMeta(b) || {}).last);
+  const order = [...CAT_NAMES, ...new Set(on.map(catOf).filter(c => !CAT_NAMES.includes(c)))];
   return order.map(c => ({c, list: on.filter(p => catOf(p) === c)
       .sort((a, b) => (soldOut(a) - soldOut(b)) || (b.id - a.id))}))
     .filter(s => s.list.length);
@@ -12067,11 +12069,8 @@ function ftCol(title, linksHtml, open){
   </details>`;
 }
 function siteFooter(){
-  /* те же соцсети, что в шторке (SOCIALS), но только с готовой ссылкой */
-  const soc = SOCIALS.map(x => [x, socialUrl(x.k)]).filter(([, url]) => url)
-    .map(([x, url]) =>
-      `<a class="ft__soc-b" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(x.t)}" title="${esc(x.t)}">${socIcon(x.k)}</a>`
-    ).join('');
+  /* Значков соцсетей в подвале нет (владелец, 2026-10-14: «внизу иконки
+     тг и тт убери») — они живут в шторке и в кружке «Написать нам». */
   return `<footer class="ft">
     <div class="ft__inner">
       <div class="ft__top">
@@ -12115,7 +12114,6 @@ function siteFooter(){
                Реквизиты продавца закон требует показывать, и они остаются
                в «Юридической информации», оферте и политиках (Документы). -->
         </div>
-        <div class="ft__soc">${soc}</div>
       </div>
     </div>
   </footer>`;
@@ -17378,7 +17376,8 @@ function clientDrawer(email){
     <label class="ad__sw"><input type="checkbox" id="cBlock" ${meta.blocked?'checked':''}> Осторожный клиент / пометка</label>
     ${acc ? `<label class="ad__sw"><input type="checkbox" id="cAdmin" ${acc.admin?'checked':''}
       ${self?'disabled':''}> Администратор — полный доступ к админке</label>
-      ${self?'<p class="ad__hint">Свои права менять нельзя — иначе можно случайно остаться без единого админа.</p>':''}`
+      ${self?'<p class="ad__hint">Свои права менять нельзя — иначе можно случайно остаться без единого админа.</p>':''}
+      <label class="ad__sw"><input type="checkbox" id="cIntro" ${acc.noIntro?'checked':''}> Без заставки — знак и название не рисуются при входе и обновлении</label>`
       : '<p class="ad__hint">Аккаунта с такой почтой нет — права выдать не получится. Права даются зарегистрированным, а этот клиент оформлял заказ как гость.</p>'}
     <div class="ad__sec">Заказы</div>
     ${(c.nums||[]).length ? c.nums.map(n => {
@@ -17400,6 +17399,16 @@ function clientDrawer(email){
     saveCms();
     /* Права живут на сервере, а не в CMS: их надо отправить отдельно и
        дождаться ответа, иначе окно закроется с ощущением, что сохранилось. */
+    const intro = w.querySelector('#cIntro');
+    if(intro && acc && intro.checked !== !!acc.noIntro && LC.setUserIntro){
+      try{
+        await LC.setUserIntro(acc.email, intro.checked);
+        await loadAccounts();
+      }catch(err){
+        toast(errText(err, 'Не удалось сохранить заставку'));
+        return;
+      }
+    }
     const box = w.querySelector('#cAdmin');
     if(box && acc && box.checked !== acc.admin){
       try{

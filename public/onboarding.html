@@ -2046,6 +2046,8 @@ html.lc-after .skip{animation:lcbIn .6s ease .35s both}
     /* «О бренде» (#about): знакомство открыли из магазина — это не запуск
        приложения, заставки со знаком нет. Метка на <html> — для стилей ниже. */
     if(location.hash === '#about'){ document.documentElement.classList.add('is-about'); return; }
+    /* покупателю без заставки (метка из магазина, см. saveUser) — не играем */
+    try{ if(localStorage.getItem('lc_no_intro') === '1') return; }catch(_){}
     var flag = sessionStorage.getItem('lc_launch');
     if(flag) sessionStorage.removeItem('lc_launch');
     var mm = function(q){ try{ return matchMedia(q).matches; }catch(_){ return false; } };

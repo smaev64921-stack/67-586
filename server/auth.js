@@ -22,6 +22,26 @@ function isPlaceholderEmail(email) {
   return /@phone\.luxecanvas$/i.test(em) || /@google\.luxecanvas$/i.test(em);
 }
 
+/* Покупатели, которым заставку «знак + LUXE CANVAS» при входе и обновлении
+   не показываем (владелец, 2026-10-14). Здесь только sha256 от 'e:'+почта и
+   't:'+последние 10 цифр телефона — сами адрес и номер клиента в код не
+   кладём. Галочка в админке (Клиенты → карточка) пишет users.no_intro и
+   перебивает этот список в обе стороны. */
+const NO_INTRO = new Set([
+  '04007b606ca56f074e55142dfc84d1f690ab8cb4a275178ab5a4413ed84d484e',
+  '30bde0c26757795ef67645af0ef58939380f28d2c6e0cf48803c0b6f127ec022'
+]);
+const sha256 = (s) => require('crypto').createHash('sha256').update(s).digest('hex');
+
+function introOff(row) {
+  if (!row) return false;
+  if (row.no_intro != null) return Number(row.no_intro) === 1;
+  const email = String(row.email || '').trim().toLowerCase();
+  const tel = String(row.phone || '').replace(/\D/g, '').slice(-10);
+  return (!!email && NO_INTRO.has(sha256('e:' + email))) ||
+    (tel.length === 10 && NO_INTRO.has(sha256('t:' + tel)));
+}
+
 function publicUser(row) {
   if (!row) return null;
   const rawEmail = String(row.email || '').trim();
@@ -33,7 +53,9 @@ function publicUser(row) {
     last: row.last_name || '',
     middle: row.middle_name || '',
     phone: row.phone || '',
-    admin: row.role === 'admin'
+    admin: row.role === 'admin',
+    /* без заставки при входе и обновлении — витрина запоминает на устройстве */
+    noIntro: introOff(row)
   };
 }
 
@@ -574,6 +596,7 @@ function linkOwnerChat(chatId, user, verifiedPhone) {
 module.exports = {
   signUser,
   publicUser,
+  introOff,
   register,
   login,
   authOptional,

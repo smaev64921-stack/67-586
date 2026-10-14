@@ -110,6 +110,9 @@ try { db.exec("ALTER TABLE products ADD COLUMN colors_json TEXT NOT NULL DEFAULT
 try { db.exec("ALTER TABLE products ADD COLUMN genders_json TEXT NOT NULL DEFAULT '[]'"); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN middle_name TEXT NOT NULL DEFAULT \'\''); } catch (_) {}
 try { db.exec('ALTER TABLE users ADD COLUMN google_id TEXT'); } catch (_) {}
+/* заставка «знак + LUXE CANVAS» при входе и обновлении: 1 — не показывать,
+   0 — показывать, NULL — как решит список в auth.js (introOff) */
+try { db.exec('ALTER TABLE users ADD COLUMN no_intro INTEGER'); } catch (_) {}
 /* Подтверждён ли номер. Вписанный руками в профиле номер — просто контакт;
    входить по номеру и получать на него коды можно только с подтверждённым
    (через Telegram). Иначе любой вписывал себе чужой номер и перехватывал

@@ -24,7 +24,7 @@ const { db } = require('./db');
 const {
   register, login, signUser, publicUser,
   authOptional, authRequired, adminRequired,
-  setAuthCookie, clearAuthCookie,
+  setAuthCookie, clearAuthCookie, introOff,
   redeemTgAdminToken, redeemTgPhoneToken, upsertUserByPhone, updateProfile,
   upsertGoogleUser, linkOwnerChat, findByEmail, setUserRole
 } = require('./auth');
@@ -1313,7 +1313,7 @@ app.patch('/api/admin/orders/:num', adminRequired, async (req, res) => {
    вовсе — а именно такому чаще всего и нужно выдать права. */
 app.get('/api/admin/users', adminRequired, (_req, res) => {
   const rows = db.prepare(
-    'SELECT id, email, name, last_name, phone, role FROM users ORDER BY id'
+    'SELECT id, email, name, last_name, phone, role, no_intro FROM users ORDER BY id'
   ).all();
   res.json({
     users: rows.map((r) => ({
@@ -1321,9 +1321,22 @@ app.get('/api/admin/users', adminRequired, (_req, res) => {
       email: r.email,
       name: [r.name, r.last_name].filter(Boolean).join(' ').trim(),
       phone: r.phone || '',
-      admin: r.role === 'admin'
+      admin: r.role === 'admin',
+      noIntro: introOff(r)
     }))
   });
+});
+
+/* Заставка «знак + LUXE CANVAS» для одного покупателя: off — не показывать.
+   Галочка в карточке клиента; покупатель увидит правку при следующем
+   заходе, когда витрина обновит его аккаунт. */
+app.put('/api/admin/users/intro', adminRequired, (req, res) => {
+  const email = String((req.body && req.body.email) || '').trim().toLowerCase();
+  const user = email && findByEmail(email);
+  if (!user) return res.status(404).json({ error: 'Аккаунта с такой почтой нет' });
+  const off = !!(req.body && req.body.off);
+  db.prepare('UPDATE users SET no_intro = ? WHERE id = ?').run(off ? 1 : 0, user.id);
+  res.json({ user: publicUser(findByEmail(email)) });
 });
 
 /* Выдать или снять права администратора. Ищем по почте: в админке под рукой
