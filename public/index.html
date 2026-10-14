@@ -14341,12 +14341,17 @@ const SOCIALS = [
   { k:'vk',        t:'ВКонтакте' }
 ];
 
-function socialUrl(k){
-  /* сначала ссылка из админки, потом запасная из LINKS */
+/* Ссылка, которую владелец вписал сам (админка → «Соцсети»), или запасная
+   из LINKS. Без подстановки бота: по ней отличаем «свой канал» от «нет ссылки». */
+function socialOwnUrl(k){
   let own = '';
   try{ own = (CMS.contacts.social || {})[k]; }catch(_){}  /* CMS объявлен ниже по файлу */
   const u = String(own || (LINKS.social && LINKS.social[k]) || '').trim();
-  if(u.startsWith('http')) return u;
+  return u.startsWith('http') ? u : '';
+}
+function socialUrl(k){
+  const own = socialOwnUrl(k);
+  if(own) return own;
   /* У Telegram ссылка уже есть — та же, что ведёт в бота. Дублировать её
      в настройках соцсетей незачем. */
   if(k === 'telegram' && telegramReady()) return TELEGRAM_BOT_URL;
@@ -14712,7 +14717,9 @@ function fabDial(){
   const rows = SOCIALS.map((s, i) => {
     const inner = `<span class="fdl__l">${esc(s.t)}</span><span class="fdl__b">${socIcon(s.k)}</span>`;
     const st = `style="--i:${n - 1 - i}"`;
-    if(s.k === 'telegram' && telegramReady()){
+    /* Telegram без своей ссылки — диалог поддержки; с ссылкой из админки
+       (канал, аккаунт) — на неё, а не в бота */
+    if(s.k === 'telegram' && telegramReady() && !socialOwnUrl('telegram')){
       return `<button class="fdl__i" type="button" data-a="support_open" aria-label="${esc(s.t)}" ${st}>${inner}</button>`;
     }
     const u = socialUrl(s.k);
