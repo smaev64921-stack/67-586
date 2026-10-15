@@ -1418,8 +1418,9 @@ app.get('/media/v/:file', video.serve);
 /* static */
 const publicDir = path.join(__dirname, '..', 'public');
 const indexHandler = serveTextFile(path.join(publicDir, 'index.html'));
-app.get('/', indexHandler);
-app.get('/index.html', indexHandler);
+/* Главная, /product/<id>-…, /catalog/<раздел> и sitemap.xml — свои адреса и
+   разметка для Яндекса и Google (server/seo.js). До static: те же пути. */
+require('./seo').mount(app, { publicUrl: PUBLIC_URL, getCms });
 app.get('/api-bridge.js', serveTextFile(path.join(publicDir, 'api-bridge.js')));
 /* Знакомство открывается при каждом входе, а express.static отдаёт его без
    сжатия: 78 КБ вместо ~22 в br. Кэш и ETag те же — no-cache с проверкой. */
@@ -1459,22 +1460,15 @@ app.get('/robots.txt', (_req, res) => {
     'Disallow: /api/',
     'Disallow: /media/o/',
     'Disallow: /reset.html',
+    /* Яндексу: эти параметры страницу не меняют (возврат с оплаты, вход из
+       бота, метки рекламы) — не считать такие адреса разными страницами */
+    'Clean-param: paid&tg_admin&utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&fbclid',
     '',
     `Sitemap: ${PUBLIC_URL}/sitemap.xml`,
     ''
   ].join('\n'));
 });
-/* Карта сайта. Магазин одностраничный (экраны — по #якорю), поэтому
-   адрес для поиска один — витрина. */
-app.get('/sitemap.xml', (_req, res) => {
-  const day = new Date().toISOString().slice(0, 10);
-  res.type('application/xml').send(
-    '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-    `  <url><loc>${PUBLIC_URL}/</loc><lastmod>${day}</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>\n` +
-    '</urlset>\n'
-  );
-});
+/* Карта сайта (/sitemap.xml) — в server/seo.js: главная, разделы и товары. */
 
 /* Всё, что похоже на файл (есть расширение), но до сюда долетело — значит
    такого файла нет. Отдаём 404, а не страницу: иначе опечатка в пути или

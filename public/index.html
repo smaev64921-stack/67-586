@@ -20,16 +20,19 @@
 <meta http-equiv="Content-Language" content="ru">
 <!-- Для поисковиков и превью ссылок. Магазин ищут и как «Luxe Canvas» /
      «luxecanvas» (домен, бот), и как «Canvas» (так он подписан на сайте) —
-     оба имени есть в заголовке, описании и данных о магазине ниже. -->
-<title>Luxe Canvas — интернет-магазин базовых футболок</title>
-<meta name="description" content="Luxe Canvas (Canvas) — базовые футболки из плотного хлопка: оверсайз и прямой крой, пять цветов. Доставка СДЭК по всей России, оплата онлайн, лёгкий возврат.">
+     оба имени есть в заголовке, описании и данных о магазине ниже.
+     Между маркерами seo:head сервер (server/seo.js) подставляет свои теги для
+     /product/… и /catalog/…; здесь — главная, она же запасной вариант. -->
+<!--seo:head-->
+<title>Luxe Canvas — базовая одежда: футболки, худи, куртки</title>
+<meta name="description" content="Luxe Canvas (Canvas) — базовая одежда на каждый день: футболки, худи, бомберы, пуховики и аксессуары. Доставка СДЭК по всей России, оплата онлайн, лёгкий возврат.">
 <link rel="canonical" href="https://luxecanvas.ru/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Luxe Canvas">
 <meta property="og:locale" content="ru_RU">
 <meta property="og:url" content="https://luxecanvas.ru/">
-<meta property="og:title" content="Luxe Canvas — базовые футболки">
-<meta property="og:description" content="Футболки из плотного хлопка: оверсайз и прямой крой, пять цветов. Доставка СДЭК по России.">
+<meta property="og:title" content="Luxe Canvas — базовая одежда">
+<meta property="og:description" content="Футболки, худи, бомберы и пуховики. Доставка СДЭК по России, оплата онлайн.">
 <meta property="og:image" content="https://luxecanvas.ru/onboarding/look-14.jpg">
 <meta property="og:image:width" content="1254">
 <meta property="og:image:height" content="1254">
@@ -37,8 +40,26 @@
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
  {"@type":"WebSite","@id":"https://luxecanvas.ru/#site","name":"Luxe Canvas","alternateName":["Canvas","LuxeCanvas","luxecanvas"],"url":"https://luxecanvas.ru/","inLanguage":"ru"},
- {"@type":"OnlineStore","@id":"https://luxecanvas.ru/#store","name":"Luxe Canvas","alternateName":"Canvas","url":"https://luxecanvas.ru/","logo":"https://luxecanvas.ru/icon-512.png","image":"https://luxecanvas.ru/onboarding/look-14.jpg","description":"Интернет-магазин базовых футболок из плотного хлопка: оверсайз и прямой крой, пять цветов. Доставка СДЭК по всей России.","areaServed":"RU","sameAs":["https://t.me/Luxe_Canvas_bot"]}
+ {"@type":"OnlineStore","@id":"https://luxecanvas.ru/#store","name":"Luxe Canvas","alternateName":"Canvas","url":"https://luxecanvas.ru/","logo":"https://luxecanvas.ru/icon-512.png","image":"https://luxecanvas.ru/onboarding/look-14.jpg","description":"Интернет-магазин базовой одежды: футболки из плотного хлопка, худи, бомберы, пуховики и аксессуары. Доставка СДЭК по всей России.","areaServed":"RU","sameAs":["https://t.me/Luxe_Canvas_bot"]}
 ]}
+</script>
+<!--/seo:head-->
+
+<!-- Адрес товара или раздела (/product/136-…, /catalog/kurtki — их видят
+     Яндекс и Google, см. server/seo.js) → привычный #-адрес магазина.
+     Раньше следующего скрипта: тот при пустом хеше подставит #home. -->
+<script>
+(function(){
+  try{
+    var p = location.pathname, h = '';
+    var m = /^\/product\/(\d+)(?:-[^\/]*)?\/?$/.exec(p);
+    var c = /^\/catalog\/([a-z0-9-]+)\/?$/.exec(p);
+    if(m) h = '#p=' + m[1];
+    else if(c) h = '#catalog/' + c[1];
+    else return;
+    history.replaceState(history.state, '', '/' + location.search + (location.hash || h));
+  }catch(e){}
+})();
 </script>
 
 <!-- Вход в магазин — сразу главная (#home), и на сайте, и в приложении.
@@ -4237,14 +4258,16 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 <!-- Для тех, кто открывает страницу без JavaScript, — в первую очередь
      поисковых роботов (Яндекс выполняет скрипты не всегда). Человек с
      обычным браузером этот блок не видит. -->
+<!--seo:body-->
 <noscript>
-  <h1>Luxe Canvas — интернет-магазин базовых футболок</h1>
-  <p>Canvas (Luxe Canvas) — базовые футболки из плотного хлопка (95% хлопок, 5% эластан):
-     оверсайз унисекс и женский прямой крой. Цвета: чёрный, шоколад, красный, голубой, молочный.</p>
+  <h1>Luxe Canvas — интернет-магазин базовой одежды</h1>
+  <p>Luxe Canvas (Canvas) — базовая одежда на каждый день: футболки из плотного хлопка, худи, бомберы,
+     пуховики и аксессуары. Цвета: чёрный, шоколад, красный, голубой, молочный.</p>
   <p>Доставка СДЭК в пункты выдачи и курьером по всей России. Оплата онлайн, лёгкий возврат.</p>
   <p>Для работы магазина включите JavaScript в браузере.
      Связаться с нами: <a href="https://t.me/Luxe_Canvas_bot">Telegram @Luxe_Canvas_bot</a>.</p>
 </noscript>
+<!--/seo:body-->
 
 <div class="app">
   <div id="hdSlot"></div>
@@ -12774,9 +12797,14 @@ function render(keepScroll){
   document.title = ({home:'Главная',catalog:'Каталог',product:'Товар',cart:'Корзина',
     auth:'Вход',orders:'Мои заказы',profile:'Профиль',favs:'Избранное',pay:'Оплата заказа',pdata:'Личные данные',addr:'Адрес доставки',notif:'Уведомления',delivery:'Оформление',done:'Заказ оформлен',tryon:'Примерка',
     info:(INFO_PAGES[S.infoKey] || INFO_PAGES.about).title})[S.screen] + ' • ' + BRAND;
-  /* Главную видят и поисковики: там заголовок из <head> с полным именем
-     магазина, а не «Главная • Canvas» — иначе в выдаче было бы именно оно. */
-  if(S.screen === 'home') document.title = 'Luxe Canvas — интернет-магазин базовых футболок';
+  /* Главную, товар и раздел видят и поисковики (Google берёт заголовок уже
+     после выполнения скриптов): те же слова, что отдаёт сервер (server/seo.js),
+     а не «Товар • Canvas» или «Главная • Canvas». */
+  if(S.screen === 'home') document.title = 'Luxe Canvas — базовая одежда: футболки, худи, куртки';
+  else if(S.screen === 'product'){
+    const tp = byId(S.productId);
+    if(tp) document.title = `${tp.name} — купить за ${String(Math.round(+tp.price || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₽ | ${BRAND}`;
+  }else if(S.screen === 'catalog' && S.cat) document.title = `${S.cat} — купить в интернет-магазине | ${BRAND}`;
   const NO_TABS = ['product','tryon','delivery','pay','done'];
   document.body.classList.toggle('no-tabs', NO_TABS.includes(S.screen));
   document.body.classList.toggle('has-mini', !!S.mini);
@@ -13039,6 +13067,8 @@ function applyRouteHash(raw){
     let own = '';
     try{ own = cat[2] ? decodeURIComponent(cat[2]) : ''; }catch(_){}
     S.cat = cat[2] ? ((CATS.find(c => c.slug === cat[2]) || {}).t || own) : '';
+    /* адрес без пола (/catalog/kurtki из поиска) — в пол, где такие товары есть */
+    if(!cat[1] && S.cat) S.gender = genderFor(S.cat);
     S.screen = 'catalog';
     return true;
   }
@@ -14663,7 +14693,9 @@ function modalSearch(){
 function shareProduct(){
   const p = byId(S.productId);
   if(!p) return;
-  const url = location.href.split('#')[0] + '#p=' + p.id;
+  /* /product/<id> — у адреса есть превью с фото и ценой (server/seo.js), и он
+     открывается у получателя сразу на этом товаре; сервер сам добавит имя */
+  const url = location.origin + '/product/' + p.id;
   const title = p.name + ' · ' + BRAND;
   const text = p.name + (p.price ? ' — ' + money(p.price) : '');
   if(navigator.share){
