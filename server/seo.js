@@ -120,13 +120,23 @@ function imageUrls(origin, p, max = 6) {
     .map((u) => (/^https?:\/\//i.test(u) ? u : origin + (u.startsWith('/') ? '' : '/') + u));
 }
 
+/** Только http(s); в разметку идёт url.href — опасные символы он кодирует сам */
+function safeUrl(u) {
+  try {
+    const url = new URL(String(u || '').trim());
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+  } catch (_) { return ''; }
+}
+
 function socialLinks(getCms) {
   const out = [];
   try {
     const c = (getCms() || {}).contacts || {};
     const soc = c.social && typeof c.social === 'object' ? c.social : {};
-    for (const u of Object.values(soc)) if (/^https?:\/\//i.test(String(u || ''))) out.push(String(u).trim());
-    if (/^https?:\/\//i.test(String(c.telegram || ''))) out.push(String(c.telegram).trim());
+    for (const u of [...Object.values(soc), c.telegram]) {
+      const ok = safeUrl(u);
+      if (ok) out.push(ok);
+    }
   } catch (_) {}
   out.push('https://t.me/Luxe_Canvas_bot');
   return [...new Set(out)];
@@ -320,7 +330,8 @@ function compose({ head, body, sameAs }) {
   let html = baseHtml();
   if (head) html = html.replace(HEAD_RE, () => `<!--seo:head-->\n${head}\n<!--/seo:head-->`);
   if (sameAs) {
-    html = html.replace(/"sameAs":\[[^\]]*\]/, () => `"sameAs":${JSON.stringify(sameAs)}`);
+    /* внутри <script>: «<» экранируем так же, как в остальной разметке (ld) */
+    html = html.replace(/"sameAs":\[[^\]]*\]/, () => `"sameAs":${ld(sameAs)}`);
   }
   if (body) html = html.replace(BODY_RE, () => `<!--seo:body-->\n${body}\n<!--/seo:body-->`);
   return html;
