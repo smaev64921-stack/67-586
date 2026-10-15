@@ -1187,17 +1187,6 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .cvb__play .ic{width:22px;height:22px;margin-left:3px}
 /* У ролика есть товар — нажатие на само видео тоже ведёт в карточку */
 .cvb.is-link{cursor:pointer}
-/* Полоски сверху, как в историях: сколько роликов и сколько осталось до
-   следующего — а с ним и до другого товара под видео. Тень сверху держит
-   белые полоски читаемыми на светлом кадре. Заполнение — только transform. */
-.cvb__seg{
-  position:absolute;left:0;right:0;top:0;z-index:3;display:flex;gap:4px;padding:10px 12px 18px;
-  background:linear-gradient(rgba(0,0,0,.26),rgba(0,0,0,0));pointer-events:none;
-  opacity:0;transition:opacity .6s var(--ease)
-}
-.cvb.has-seg .cvb__seg{opacity:1}
-.cvb__seg i{flex:1;height:2px;border-radius:2px;background:rgba(255,255,255,.38);overflow:hidden}
-.cvb__seg b{display:block;height:100%;background:#fff;transform:scaleX(0);transform-origin:0 50%}
 
 /* ---- Товар под роликом: фото, название, цена и «Перейти» ----
    У каждого ролика свой товар (CMS.vids[].pid, задаётся в админке →
@@ -8765,7 +8754,7 @@ const CV = {
   busy: '', started: false, startT: 0,
   el: null, vs: [], top: 0,   // блок, два <video>, какой из них сейчас на виду
   playing: '', shown: false, vis: false, switching: false, hand: false,
-  bar: null, barU: '', barSig: '', raf: 0   // строка товара: чей товар показан, полоски
+  bar: null, barU: '', barSig: ''   // строка товара: чей товар показан
 };
 
 function catVideos(){
@@ -8804,7 +8793,6 @@ function cvSync(){
   if(CV.bar) CV.bar.style.setProperty('--ar', CV.ar);
   for(const [u, b] of CV.blob) if(!CV.list.includes(u)){ URL.revokeObjectURL(b); CV.blob.delete(u); }
   if(!CV.list.length || (CV.playing && !CV.list.includes(CV.playing))) cvReset();
-  cvSegs();
   cvStep();
 }
 /* Всё с нуля: блок убираем со страницы, следующий показ — снова после загрузки. */
@@ -8827,8 +8815,7 @@ function cvReset(){
    скачать недостающий. Вызывается после каждого события. */
 function cvStep(){
   if(!CV.list.length) return;
-  cvSegs();               // ролик мог только что оказаться битым — его полоски больше нет,
-  cvBarSync();            // а если товар был только у него — и места под строку товара
+  cvBarSync();            // ролик мог только что оказаться битым; если товар был только у него — нет и места под строку товара
   if(!CV.playing){
     const u = CV.list.find(x => !cvDead(x));
     if(u && CV.blob.has(u)) cvShowFirst(u);
@@ -8901,13 +8888,12 @@ function cvEl(){
   el.className = 'cvb';
   el.setAttribute('aria-hidden', 'true');
   const vtag = '<video class="cvb__v" muted playsinline webkit-playsinline disablepictureinpicture disableremoteplayback preload="auto"></video>';
-  el.innerHTML = vtag + vtag + `<div class="cvb__seg"></div><button class="cvb__play" type="button" tabindex="-1" aria-label="Смотреть видео">${svg('play','ic')}</button>`;
+  el.innerHTML = vtag + vtag + `<button class="cvb__play" type="button" tabindex="-1" aria-label="Смотреть видео">${svg('play','ic')}</button>`;
   el.style.setProperty('--ar', CV.ar);
   CV.vs = [...el.querySelectorAll('video')];
   CV.vs.forEach(v => {
     v.muted = true; v.defaultMuted = true; v.playsInline = true;
     v.addEventListener('timeupdate', () => cvTick(v));
-    v.addEventListener('play', cvSegLoop);
     v.addEventListener('ended', () => {
       /* доиграл, а следующего ещё нет — крутим этот же */
       if(v === CV.vs[CV.top] && !CV.switching){ try{ v.currentTime = 0; }catch(_){} cvPlay(); }
@@ -8993,7 +8979,6 @@ function cvTick(v){
   /* товар под видео меняется в тот же миг, что и сам ролик */
   CV.barU = b.dataset.u;
   cvBarSync();
-  cvSegPaint();
   setTimeout(() => {
     v.classList.remove('is-on');
     try{ v.pause(); }catch(_){}
@@ -9097,45 +9082,8 @@ function cvHold(){
   if(!CV.bar || !a || !CV.bar.contains(a)) return false;
   try{ return a.matches(':focus-visible'); }catch(_){ return true; }
 }
-/* Полоски сверху: по одной на каждый живой ролик (битые пропускаются и
-   в показе, и здесь). Один ролик — полосок нет. */
+/* Живые ролики: битые пропускаются и в показе, и в строке товара. */
 function cvLive(){ return CV.list.filter(u => !cvDead(u)); }
-function cvSegs(){
-  if(!CV.el) return;
-  const box = CV.el.querySelector('.cvb__seg');
-  const n = cvLive().length;
-  if(box.childElementCount !== n) box.innerHTML = '<i><b></b></i>'.repeat(n);
-  CV.el.classList.toggle('has-seg', n > 1);
-  cvSegPaint();
-}
-function cvSegPaint(){
-  if(!CV.el || !CV.el.classList.contains('has-seg')) return;
-  const live = cvLive(), i = live.indexOf(CV.barU);
-  const prog = u => {
-    const v = u ? CV.vs.find(x => x.dataset.u === u) : null;
-    return v && v.duration ? Math.min(1, v.currentTime / v.duration) : 0;
-  };
-  /* пока ролики перетекают, уходящий доигрывает последнюю секунду — его
-     полоска дотягивается до конца, а не прыгает с 80 % сразу на 100 % */
-  const out = CV.switching && CV.playing !== CV.barU ? live.indexOf(CV.playing) : -1;
-  CV.el.querySelectorAll('.cvb__seg b').forEach((b, k) => {
-    const t = k === i ? prog(CV.barU) : k === out ? Math.max(prog(CV.playing), .001) : k < i ? 1 : 0;
-    b.style.transform = `scaleX(${t.toFixed(4)})`;
-  });
-}
-/* Пока ролик играет и блок на экране — полоска идёт каждый кадр (timeupdate
-   приходит 4 раза в секунду, полоска шла бы рывками). Встал ролик — стоп. */
-function cvSegLoop(){
-  if(CV.raf) return;
-  const f = () => {
-    CV.raf = 0;
-    if(!CV.el || !CV.el.isConnected || document.hidden || !CV.vis) return;
-    cvSegPaint();
-    const v = CV.vs.find(x => x.dataset.u === CV.barU);
-    if(v && !v.paused) CV.raf = requestAnimationFrame(f);
-  };
-  CV.raf = requestAnimationFrame(f);
-}
 /* Каталог нарисован заново — возвращаем живой блок в его слот. first —
    ролик только что скачался: тогда блок раскрывается плавно (если каталог
    на экране), а не появляется сразу. */
@@ -9150,7 +9098,6 @@ function cvMount(first){
   const bar = cvBarEl();
   if(bar.parentNode !== box || bar.previousElementSibling !== CV.el) box.appendChild(bar);
   cvBarSync();
-  cvSegs();
   if(!slot.classList.contains('is-open')){
     const above = slot.getBoundingClientRect().top < 0;
     if(!first || above){
