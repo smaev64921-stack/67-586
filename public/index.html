@@ -6155,12 +6155,11 @@ function mountCourierMap(){
       ready();
       /* Ключ не приняли — 2ГИС не падает, а рисует в контейнере свою
          чёрную плашку. Тогда, как и у пунктов, уходим на OpenStreetMap. */
-      setTimeout(() => {
-        if(!alive() || !cmap || cmap.kind !== 'gis' || !gisBroken(box)) return;
+      gisWatchBroken(box, () => alive() && !!cmap && cmap.kind === 'gis', () => {
         try{ cmap.destroy(); }catch(e){}
         cmap = null;
         osm();
-      }, 1500);
+      });
     }, osm);
   }).catch(fail);
 }
@@ -6916,11 +6915,22 @@ function dropGisMap(){
 }
 
 /* Годен ли ключ. У 2ГИС для этого есть свой адрес — тот самый, куда
-   ходит их библиотека: 200 — ключ живой, 404 — такого нет, 400 —
-   вписали не ключ. Спрашиваем один раз на ключ и запоминаем: без этой
-   проверки покупатель увидит наши метки на пустом поле вместо карты. */
+   ходит их библиотека: 404 — такого нет, 400 — вписали не ключ.
+   Но 200 ещё не значит «живой»: у выключенного ключа (кончился демо-срок,
+   нет подписки) ответ тоже 200, а внутри is_active:false — и библиотека
+   вместо карты рисует плашку «Your MapGL key is invalid». Так и было
+   с демо-ключом: 8 октября его выключили, а оформление показывало плашку.
+   Спрашиваем один раз на ключ и запоминаем. */
 const GIS_KEY_CHECK = 'https://keys.api.2gis.com/public/v1/keys/';
 let gisKeySeen = {key:null, ok:null, wait:null};
+function gisKeyAlive(j){
+  const r = j && j.result;
+  if(!r || r.is_active === false) return false;
+  const svc = r.service || {};
+  if(svc.is_active === false) return false;
+  if(svc.status && svc.status.code && svc.status.code !== 'ok') return false;
+  return true;
+}
 function gisKeyReady(key){
   if(gisKeySeen.key === key){
     if(gisKeySeen.ok !== null) return Promise.resolve(gisKeySeen.ok);
@@ -6931,21 +6941,23 @@ function gisKeyReady(key){
      Без срока ожидания карта не появилась бы НИКАКАЯ: мы бы вечно
      ждали вердикта и не рисовали даже запасную. Две с половиной
      секунды — и уходим на OpenStreetMap. */
-  const withTimeout = new Promise(res => setTimeout(() => res(false), 2500));
+  /* null — ответа не дождались; false — 2ГИС сам сказал «ключ не годен» */
+  const withTimeout = new Promise(res => setTimeout(() => res(null), 2500));
   gisKeySeen.wait = Promise.race([
     fetch(GIS_KEY_CHECK + encodeURIComponent(key) + '/services/mapgl-js-api')
-      .then(r => r.ok)
-      .catch(() => false),
+      .then(r => r.ok ? r.json().then(gisKeyAlive, () => false) : false)
+      .catch(() => null),
     withTimeout
   ])
     .then(ok => {
-      if(gisKeySeen.key !== key) return ok;
-      /* Отрицательный ответ не запоминаем навсегда: он мог быть просто
-         не дождавшимся таймаутом, а сеть через минуту оживёт. */
-      gisKeySeen.ok = ok ? true : null;
+      if(gisKeySeen.key !== key) return !!ok;
+      /* Ответ самого 2ГИС запоминаем: спрашивать второй раз незачем.
+         Не дождались — не запоминаем, сеть через минуту может ожить. */
+      gisKeySeen.ok = ok === null ? null : ok;
       gisKeySeen.wait = null;
-      if(!ok) console.warn('2ГИС не ответил вовремя — карта рисуется на OpenStreetMap');
-      return ok;
+      if(ok === null) console.warn('2ГИС не ответил вовремя — карта рисуется на OpenStreetMap');
+      else if(!ok) console.warn('Ключ 2ГИС выключен или не найден — карта рисуется на OpenStreetMap');
+      return !!ok;
     });
   return gisKeySeen.wait;
 }
@@ -7018,14 +7030,11 @@ function drawGisMap(box, plan, opts){
 
     if(!(opts && opts.keepView)) gisFit(plan);
 
-    /* Плашка появляется не сразу — даём карте отрисоваться и проверяем. */
-    setTimeout(() => {
-      if(!gisMap || gisBox !== box || !gisBroken(box)) return;
-      console.warn('Ключ 2ГИС не принят — карта рисуется на OpenStreetMap');
+    gisWatchBroken(box, () => !!gisMap && gisBox === box, () => {
       dropGisMap();
       box.innerHTML = '';
       drawOsmMap(box, plan, opts);
-    }, 1500);
+    });
   }).catch(() => {
     /* Ключ не подошёл, лимит выбран или библиотека не догрузилась —
        рисуем на OpenStreetMap, чтобы человек всё равно выбрал пункт. */
@@ -7043,6 +7052,35 @@ function drawGisMap(box, plan, opts){
 function gisBroken(box){
   const t = String((box && box.innerText) || '');
   return /mapgl key|key is invalid|api@2gis/i.test(t);
+}
+/* Плашка появляется не сразу: библиотека сначала сама спрашивает 2ГИС про
+   ключ, а на телефоне через VPN это и пять секунд. Одной проверки через
+   полторы секунды было мало — плашка вылезала позже и оставалась. Следим
+   за контейнером двенадцать секунд; увидели — уводим на OpenStreetMap и
+   запоминаем, чтобы следующая перерисовка сразу шла туда. */
+function gisWatchBroken(box, isCurrent, onBroken){
+  let mo = null, ticks = [], done = false;
+  const stop = () => {
+    done = true;
+    if(mo){ mo.disconnect(); mo = null; }
+    ticks.forEach(clearTimeout); ticks = [];
+  };
+  const check = () => {
+    if(done) return;
+    if(!isCurrent()){ stop(); return; }
+    if(!gisBroken(box)) return;
+    stop();
+    if(gisKeySeen.key === dgisKey()){ gisKeySeen.ok = false; gisKeySeen.wait = null; }
+    console.warn('Ключ 2ГИС не принят — карта рисуется на OpenStreetMap');
+    onBroken();
+  };
+  if('MutationObserver' in window){
+    mo = new MutationObserver(check);
+    mo.observe(box, {childList:true, subtree:true, characterData:true});
+  }
+  ticks = [800, 1500, 3000, 5000, 8000, 12000].map(t => setTimeout(check, t));
+  ticks.push(setTimeout(stop, 12500));
+  return stop;
 }
 
 function gisFit(plan){
@@ -18806,9 +18844,8 @@ function viewContent(){
       <p class="ad__m" style="margin-top:10px">С ключом карта в оформлении рисуется на 2ГИС.
         Без ключа — на OpenStreetMap: пункты и выбор работают одинаково, отличается только сама карта.
         Ключ берётся бесплатно на platform.2gis.ru → «Создать демо-ключ», нужен доступ к Map Tiles API.</p>
-      <p class="ad__m">Сейчас работает демо-ключ, он блокируется 09.10.2026.
-        После этого нужна подписка на platform.2gis.ru — либо карта сама вернётся
-        на OpenStreetMap, оформление заказа от этого не сломается.</p>
+      <p class="ad__m" id="mapKeySt" aria-live="polite">${(CMS.maps && CMS.maps.dgis)
+        ? 'Проверяем ключ у 2ГИС…' : 'Ключа нет — карта рисуется на OpenStreetMap.'}</p>
     </div>
 
     <div class="ad__box" style="margin-top:12px">
@@ -19255,6 +19292,30 @@ function paintAdmin(){
 }
 
 function bindAdminView(){
+  /* Ключ 2ГИС: живой ли он прямо сейчас — спрашиваем у самого 2ГИС.
+     Демо-ключ живёт месяц и выключается молча; без этой строки владелец
+     узнавал об этом только по жалобе «карта не работает». */
+  const mapSt = document.getElementById('mapKeySt');
+  const mapKeyIn = document.getElementById('mapKey');
+  if(mapSt && mapKeyIn){
+    const paintKey = () => {
+      const k = mapKeyIn.value.trim();
+      mapSt.style.color = '';
+      if(!k){ mapSt.textContent = 'Ключа нет — карта рисуется на OpenStreetMap.'; return; }
+      mapSt.textContent = 'Проверяем ключ у 2ГИС…';
+      gisKeyReady(k).then(ok => {
+        if(document.getElementById('mapKey') !== mapKeyIn || mapKeyIn.value.trim() !== k) return;
+        mapSt.innerHTML = ok
+          ? '<b>Ключ работает</b> — карта в оформлении рисуется на 2ГИС.'
+          : '<b>Ключ не работает</b> — 2ГИС его выключил или не ответил (у демо-ключа срок — месяц). ' +
+            'Пока карта рисуется на OpenStreetMap, оформление заказа не ломается. ' +
+            'Новый ключ — на platform.2gis.ru → «Ключи API», с доступом к MapGL JS API.';
+        mapSt.style.color = ok ? 'var(--ok)' : 'var(--danger)';
+      });
+    };
+    paintKey();
+    mapKeyIn.addEventListener('change', paintKey);
+  }
   /* таблицы размеров */
   const szNew = document.getElementById('aSzNew');
   if(szNew) szNew.onclick = () => szForm(null);
