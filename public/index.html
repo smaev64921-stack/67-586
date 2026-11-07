@@ -1363,20 +1363,20 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
   min-width:52px;height:44px;padding:0 14px;border:1.5px solid var(--line2);border-radius:6px;
   font-size:14px;font-weight:600;background:var(--card);transition:all var(--dur) var(--ease)
 }
-/* выбор цвета в карточке товара */
-.cols{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
+/* выбор цвета в карточке товара: крупные кружки, под ними названия */
+.cols{display:flex;flex-wrap:wrap;gap:14px 20px}
 .col{
-  width:38px;height:38px;border-radius:var(--r-pill);padding:3px;
-  border:1.5px solid var(--line2);background:var(--card);
-  display:flex;align-items:center;justify-content:center;
-  transition:border-color var(--dur) var(--ease), transform .14s var(--ease)
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:0;border:0;background:none;min-width:48px;
+  transition:transform .14s var(--ease)
 }
-.col i{display:block;width:100%;height:100%;border-radius:var(--r-pill);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
-.col:hover{border-color:var(--muted)}
+.col i{
+  display:block;width:44px;height:44px;border-radius:var(--r-pill);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);
+  transition:box-shadow .22s var(--ease)
+}
+.col:hover i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.1), 0 0 0 3px var(--card), 0 0 0 4.5px var(--line2)}
 .col:active{transform:scale(.94)}
-.col{transition:border-color var(--dur) var(--ease), border-width .18s var(--ease),
-  padding .18s var(--ease), transform .16s var(--ease)}
-.col[aria-pressed="true"]{border-color:var(--ink);border-width:2px;padding:2px}
 /* Смена цвета = другой товар. Если браузер не умеет перетекать сам,
    карточка проявляется этой анимацией — вместо рывка на всю страницу. */
 .pd.is-swap .pd__hero,.pd.is-swap .pd__body{animation:swapIn .34s var(--ease) both}
@@ -1386,6 +1386,9 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 @media (prefers-reduced-motion:no-preference){
   ::view-transition-old(root),::view-transition-new(root){animation-duration:.3s}
 }
+.col[aria-pressed="true"] i{box-shadow:inset 0 0 0 1px rgba(0,0,0,.1), 0 0 0 3px var(--card), 0 0 0 5px var(--ink)}
+.col__n{font-size:13px;color:var(--muted);line-height:1.2;max-width:76px;text-align:center}
+.col[aria-pressed="true"] .col__n{color:var(--ink);font-weight:500}
 
 .qsize__b:hover{border-color:var(--ink)}
 .qsize__b:active{transform:scale(.96)}
@@ -1406,29 +1409,23 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .empty__acts .ghb{display:flex;align-items:center;justify-content:center;gap:7px}
 
 /* ===================== КАРТОЧКА ТОВАРА =====================
-   Ключевое: экран — колонка на всю высоту вьюпорта.
-   Фото забирает остаток места, остальное прижато и всегда видно. */
+   Белая карточка: крупное фото со скруглением, под ним точки галереи,
+   название, цена, цвет и размер. Кнопка «В корзину» вынесена в панель,
+   прижатую к низу экрана (.pd__bar), — она видна при любой прокрутке. */
 .pd{
-  display:flex;flex-direction:column;
-  /* svh, а не dvh: при скрытии адресной строки dvh «дышит»,
-     блок прыгает и прокрутка ведёт себя непредсказуемо */
-  /* Была жёсткая высота в экран, чтобы страница не прокручивалась, а фото
-     ужималось под остаток места. С фото во весь кадр так нельзя: на телефоне
-     остатка выходило 242 px, и от модели оставались одни плечи. Пусть лучше
-     страница чуть прокручивается, зато вещь видно. */
-  min-height:calc(100svh - var(--hd-off) - 12px);
-  margin:10px 12px 0;
-  background:var(--card);
-  border-radius:var(--r-lg)
+  margin:10px 10px 0;padding:8px 8px 6px;
+  background:var(--card);border-radius:28px
 }
-/* Портретное окно под пропорцию съёмки — как в каталоге. */
-/* Размер окна задан явно, а не aspect-ratio + max-height: Safari на iPhone
-   при таком сочетании сужал само окно до 2:3 от высоты (справа белая полоса),
-   а фото внутри раздувалось и резалось по бёдра. Android держал полную
-   ширину и 62svh — так теперь везде: ширина экрана минус поля .pd (2×12),
-   высота — 1,5 ширины, но не больше 62svh. */
-.pd__hero{position:relative;flex:none;width:100%;height:min(calc(150vw - 36px),62svh);background:#fff;
-  overflow:hidden;border-radius:var(--r-lg) var(--r-lg) 0 0}
+/* Портретное окно под пропорцию съёмки — как в каталоге.
+   Размер задан явно, а не aspect-ratio + max-height: Safari на iPhone при таком
+   сочетании сужал само окно (справа белая полоса), а фото внутри раздувалось.
+   Ширина — экран минус поля карточки (2×10 + 2×8), высота — 1,5 ширины,
+   но не больше 62svh: кнопка «В корзину» всё равно всегда видна в панели снизу. */
+.pd__hero{
+  position:relative;overflow:hidden;flex:none;
+  width:100%;height:min(calc(150vw - 54px), 62svh);
+  border-radius:22px;background:var(--chip)
+}
 /* лента — по окну целиком, без процентов от высоты, вычисленной по пропорции */
 .pd__track{
   position:absolute;inset:0;
@@ -1438,7 +1435,7 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 }
 .pd__track::-webkit-scrollbar{display:none}
 .pd__slide{
-  flex:0 0 100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always;background:#fff
+  flex:0 0 100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always;background:var(--chip)
 }
 .pd__zoom{
   display:block;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:zoom-in
@@ -1447,26 +1444,29 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
    на широком экране до 200 px с каждой стороны. Точка привязки чуть выше
    центра, потому что головы у моделей вверху кадра. */
 .pd__main{width:100%;height:100%;object-fit:cover;object-position:50% 15%;pointer-events:none;display:block}
-.pd__side{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:9px;z-index:3}
+.pd__side{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:9px;z-index:3}
 .pd__rb{
-  width:38px;height:38px;border-radius:var(--r-pill);background:#fff;box-shadow:var(--sh-1);
+  width:44px;height:44px;border-radius:var(--r-pill);background:#fff;
+  box-shadow:0 2px 10px rgba(0,0,0,.1);
   display:flex;align-items:center;justify-content:center;transition:transform var(--dur) var(--ease)
 }
-.pd__rb:hover{transform:scale(1.08)}
-.pd__rb .ic{width:18px;height:18px}
+.pd__rb:hover{transform:scale(1.06)}
+.pd__rb .ic{width:20px;height:20px}
 .pd__rb[aria-pressed="true"] .ic{fill:var(--ink)}
 
-.thumbs{
-  flex:none;display:flex;gap:6px;overflow-x:auto;
-  padding:8px var(--pad);scrollbar-width:none;background:var(--card)
+/* точки галереи: текущее фото — вытянутая «таблетка» */
+.pd__dots{display:flex;justify-content:center;align-items:center;gap:2px;padding:10px 0 2px}
+.pd__dot{
+  display:flex;align-items:center;justify-content:center;
+  width:16px;height:18px;padding:0;border:0;background:none;
+  transition:width .3s var(--ease)
 }
-.thumbs::-webkit-scrollbar{display:none}
-.thumb{
-  width:46px;height:58px;border-radius:var(--r-sm);overflow:hidden;flex:none;
-  border:1.5px solid transparent;background:var(--photo);transition:border-color var(--dur) var(--ease)
+.pd__dot::before{
+  content:'';display:block;width:6px;height:6px;border-radius:999px;background:#cfcfcf;
+  transition:width .3s var(--ease), background .3s var(--ease)
 }
-.thumb[aria-current="true"]{border-color:var(--ink)}
-.thumb img{width:100%;height:100%;object-fit:cover;object-position:50% 15%}
+.pd__dot[aria-current="true"]{width:30px}
+.pd__dot[aria-current="true"]::before{width:22px;background:var(--ink)}
 
 /* ---------- выноски на фото товара ----------
    Как на втором слайде знакомства: точка на детали, линия к ряду над или
@@ -1523,23 +1523,27 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .card__ed:hover{transform:scale(1.1)}
 .card__ed .ic{width:16px;height:16px}
 
-.pd__body{flex:none;padding:4px var(--pad) 16px}
-.pd__t{font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:.01em;line-height:1.25}
-.pd__sku{
-  display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
-  margin-top:4px;padding:4px 8px 4px 0;border-radius:var(--r-sm);
-  transition:color var(--dur) var(--ease)
+.pd__body{padding:14px 12px 16px}
+.pd__head{display:flex;align-items:flex-start;gap:12px}
+.pd__t{
+  flex:1;min-width:0;font-size:25px;font-weight:700;line-height:1.15;
+  letter-spacing:-.02em;text-wrap:balance
 }
-.pd__sku b{font-weight:600;color:var(--ink-soft)}
-.pd__sku:hover{color:var(--ink)}
-.pd__sku .ic{opacity:.55}
-.ic--xs{width:13px;height:13px}
-.pd__price{font-size:21px;font-weight:700;margin-top:10px}
-.pd__price s{font-size:14px;font-weight:400;margin-left:6px}
-.pd__lab{font-size:12.5px;font-weight:600;color:var(--muted);margin:14px 0 8px}
-/* «Размер» и справа кнопка «Таблица размеров» (шторка снизу) */
-.pd__szh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 8px}
-.pd__szh .pd__lab{margin:0}
+.pd__share{
+  flex:none;width:40px;height:40px;margin:-4px -4px 0 0;border-radius:var(--r-pill);
+  display:flex;align-items:center;justify-content:center;color:var(--ink);
+  transition:background var(--dur) var(--ease)
+}
+.pd__share:hover{background:var(--chip)}
+.pd__share .ic{width:19px;height:19px}
+.pd__sub{font-size:15px;color:var(--muted);margin-top:6px;line-height:1.35}
+.pd__price{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:14px}
+.pd__price b{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.pd__price s{font-size:17px;color:var(--muted2);line-height:1}
+.pd__off{
+  display:inline-flex;align-items:center;height:28px;padding:0 11px;border-radius:999px;
+  background:rgba(214,69,69,.1);color:#c62f2f;font-size:14px;font-weight:600
+}
 .pd__szb{
   display:inline-flex;align-items:center;gap:6px;min-height:32px;margin:-6px -8px -6px 0;padding:6px 8px;
   border-radius:var(--r-sm);font-size:12.5px;font-weight:600;color:var(--ink);letter-spacing:.01em;
@@ -1552,13 +1556,25 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .pd__szb:active{background:var(--chip)}
 .pd__szb--solo{margin:14px 0 0 -8px}
 
-.sizes{display:flex;flex-wrap:wrap;gap:8px}
-.size{
-  min-width:46px;padding:10px 14px;border:1.5px solid var(--line2);border-radius:var(--r-sm);
-  background:var(--card);font-size:14px;font-weight:600;text-align:center;
-  transition:all var(--dur) var(--ease)
+/* шапка раздела: «Цвет  Молочная» слева, «Таблица размеров» справа */
+.pd__row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:26px 0 14px}
+.pd__lab{font-size:16px;font-weight:700;color:var(--ink)}
+.pd__lab span{font-weight:400;color:var(--muted);margin-left:8px}
+.pd__guide{
+  font-size:14px;color:var(--muted);text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--line2);transition:color var(--dur) var(--ease)
 }
-.size:hover{border-color:var(--muted)}
+.pd__guide:hover{color:var(--ink)}
+.pd__guide:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:6px}
+
+/* сетка размеров: до 5 в ряд, столбцов не меньше 4 — одна кнопка не растянется на всю ширину */
+.sizes{display:grid;grid-template-columns:repeat(var(--n, 4), minmax(0, 1fr));gap:8px}
+.size{
+  height:52px;padding:0 8px;border:1px solid var(--line2);border-radius:14px;
+  background:var(--card);font-size:16px;font-weight:500;text-align:center;
+  transition:background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease)
+}
+.size:hover{border-color:var(--muted2)}
 .size[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:#fff}
 /* размера нет на складе — видно сразу, нажать нельзя */
 .size--out{
@@ -1576,31 +1592,56 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .pd__stock--out{color:var(--danger)}
 .pd__stock--out::before{background:var(--danger)}
 
-.pd__cta{display:flex;margin-top:16px}
-.pd__cta .btn{flex:1;padding:15px}
+/* Панель снизу: сумма слева, «В корзину» справа. Липкая — едет вместе
+   с экраном и остаётся у нижнего края, пока открыт товар. */
+.pd__bar{
+  position:sticky;bottom:0;z-index:30;
+  display:flex;align-items:center;gap:16px;
+  margin-top:14px;
+  padding:12px max(var(--pad), calc((100% - 760px) / 2)) calc(12px + env(safe-area-inset-bottom));
+  background:rgba(255,255,255,.92);
+  -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+  border-top:1px solid var(--line)
+}
+.pd__sum{display:flex;flex-direction:column;gap:3px;flex:none;min-width:0;max-width:44%}
+.pd__sum b{font-size:22px;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.pd__sum span{font-size:13px;color:var(--muted);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pd__cta{display:flex;flex:1;min-width:0}
+.pd__cta .btn{flex:1;height:56px;padding:0 18px;border-radius:18px;font-size:16px;font-weight:600}
+.pd__cta .btn > span{display:inline-flex;align-items:center;gap:10px}
+.pd__cta .btn .ic{width:20px;height:20px}
+.pd__cta .btn--rm{font-size:15px}
 /* Сердечко рядом с «В корзину» спрятано, пока видно сердечко на фото.
    Как только фото уходит за край экрана — выезжает, раздвигая кнопку. */
 .pd__hb{
-  width:54px;flex:none;border:1.5px solid var(--line2);border-radius:var(--r-md);
+  width:56px;height:56px;flex:none;border:1px solid var(--line2);border-radius:18px;background:var(--card);
   display:flex;align-items:center;justify-content:center;
   max-width:0;opacity:0;margin-left:0;border-width:0;overflow:hidden;
   transition:max-width .42s var(--ease), opacity .28s var(--ease),
              margin-left .42s var(--ease), border-width .18s var(--ease),
              border-color var(--dur) var(--ease)
 }
-.pd__cta.on .pd__hb{max-width:54px;opacity:1;margin-left:9px;border-width:1.5px}
+.pd__cta.on .pd__hb{max-width:56px;opacity:1;margin-left:8px;border-width:1px}
 .pd__hb:hover{border-color:var(--ink)}
 .pd__hb[aria-pressed="true"] .ic{fill:var(--ink)}
+/* на экране товара нижний отступ даёт сама панель; на коротком экране
+   она всё равно стоит у нижнего края, а не посреди пустоты */
+html body .scr[data-screen="product"]{padding-bottom:0;display:flex;flex-direction:column}
+.scr[data-screen="product"] > .pd__bar{margin-top:auto}
+.scr[data-screen="product"] > :nth-last-child(2){margin-bottom:14px}
+/* свёрнутое оформление поднимаем над панелью, чтобы не закрывало кнопку */
+body:has(.pd__bar) .mini{bottom:calc(92px + env(safe-area-inset-bottom))}
+body:has(.pd__bar) .toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 
 .pd__try{
-  width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;
-  padding:13px 16px;border-radius:var(--r-md);border:1.5px solid var(--ink);
-  background:transparent;color:var(--ink);font-size:13.5px;font-weight:600;
-  transition:background .2s var(--ease), color .2s var(--ease), transform .12s var(--ease)
+  width:100%;margin-top:20px;display:flex;align-items:center;justify-content:center;gap:9px;
+  height:52px;padding:0 16px;border-radius:16px;border:0;
+  background:var(--chip);color:var(--ink);font-size:15px;font-weight:600;
+  transition:background .2s var(--ease), transform .12s var(--ease)
 }
-.pd__try:hover{background:var(--ink);color:#fff}
+.pd__try:hover{background:#ececec}
 .pd__try:active{transform:scale(.985)}
-.pd__try .ic{width:18px;height:18px}
+.pd__try .ic{width:19px;height:19px}
 
 /* ===================== ПРИМЕРКА ===================== */
 .try{padding:8px var(--pad) 28px;max-width:520px;margin:0 auto}
@@ -1705,7 +1746,7 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .pd__cta .btn{transition:background .28s var(--ease), color .28s var(--ease), border-color .28s var(--ease)}
 .pd__cta .btn:active{transform:none}
 @keyframes lblIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.pd__cta .btn > span{display:inline-block;animation:lblIn .3s var(--ease) both}
+.pd__cta .btn > span{display:inline-flex;align-items:center;gap:10px;animation:lblIn .3s var(--ease) both}
 
 /* кружок, летящий между кнопкой и корзиной */
 .fly{
@@ -1726,10 +1767,24 @@ img[data-broken]{opacity:0 !important}   /* важное: иначе побед�
 .hd__n.is-new,.tab__n.is-new{animation:countPop .4s cubic-bezier(.34,1.15,.5,1)}
 
 /* описание — ниже сгиба, не мешает основному экрану */
-.pd__extra{background:var(--card);margin-top:8px;padding:18px var(--pad) 26px}
-.pd__el{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.pd__extra{background:var(--card);margin:10px 10px 0;padding:20px 20px 22px;border-radius:24px}
+.pd__el{font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:10px}
 /* pre-line: описание из админки приходит абзацами, без этого они слипались бы в одну строку */
-.pd__ed{font-size:13.5px;color:var(--ink-soft);line-height:1.7;white-space:pre-line}
+.pd__ed{font-size:14.5px;color:var(--ink-soft);line-height:1.65;white-space:pre-line}
+/* «Артикул» — строкой внизу блока «О товаре», по тапу копируется */
+.pd__meta{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)
+}
+.pd__ed + .pd__meta{margin-top:16px}
+.pd__el + .pd__meta{margin-top:0;padding-top:0;border-top:0}
+.pd__sku{
+  display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:600;color:var(--ink-soft);
+  padding:4px 0 4px 8px;border-radius:var(--r-sm);transition:color var(--dur) var(--ease)
+}
+.pd__sku:hover{color:var(--ink)}
+.pd__sku .ic{opacity:.5}
+.ic--xs{width:13px;height:13px}
 
 /* на экране товара нижняя панель прячется — места больше */
 body.no-tabs .tabs{
@@ -1826,10 +1881,14 @@ html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--
 .qty--lg button{width:38px;height:38px;font-size:20px;background:var(--card)}
 .qty--lg span{min-width:38px;font-size:16px}
 /* «Количество» на карточке товара — своя строка под размерами */
-.pd__qty{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0 4px}
+.pd__qty{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:22px 0 0}
 .pd__qty[hidden]{display:none}
-.pd__qty-l{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.pd__qty-n{font-size:12.5px;color:var(--muted2)}
+.pd__qty-l{font-size:16px;font-weight:700;color:var(--ink);margin-right:auto}
+.pd__qty-n{font-size:13px;color:var(--muted2);order:-1;flex-basis:100%;text-align:right;margin-bottom:-4px}
+.pd__qty .qty--lg{padding:3px;border-radius:999px;background:var(--chip)}
+.pd__qty .qty--lg button{width:40px;height:40px;border-radius:999px;background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.pd__qty .qty--lg button:disabled{background:transparent;box-shadow:none}
+.pd__qty .qty--lg span{min-width:40px;font-weight:600}
 /* 34px, а не 28: на телефоне в мелкую кнопку количества трудно попасть */
 .qty button{width:34px;height:34px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;transition:background var(--dur) var(--ease)}
 .qty button:hover{background:#e6e6e6}
@@ -3220,7 +3279,6 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   margin-top:14px;padding:14px;border:1.5px solid var(--line);border-radius:8px;background:var(--card)
 }
 .ad__chart-box .ad__box-t{margin-bottom:6px}
-.pd__chart{padding:0 var(--pad) 18px}
 .pd__chart img{
   width:100%;max-height:420px;object-fit:contain;object-position:center;
   border-radius:var(--r-md);background:var(--photo);display:block
@@ -3668,22 +3726,22 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   font-variant-numeric:tabular-nums;line-height:1
 }
 
+/* «★ 4.8 · 12 отзывов» под ценой */
 .pd__rate{
-  display:inline-flex;align-items:center;gap:8px;margin-top:10px;
-  font-size:13px;color:var(--muted);transition:opacity var(--dur) var(--ease)
+  display:inline-flex;align-items:center;gap:6px;margin-top:12px;
+  font-size:15px;color:var(--muted);transition:opacity var(--dur) var(--ease)
 }
 .pd__rate:hover{opacity:.7}
-.pd__rate b{color:var(--ink);font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
-.pd__rate u{text-decoration:none;color:var(--muted2)}
-.pd__rate-n{
-  display:inline-flex;align-items:center;height:22px;padding:0 9px;
-  border-radius:999px;background:var(--chip);
-  font-size:11.5px;font-weight:650;color:var(--muted)
-}
+.pd__rate .pd__star{width:18px;height:18px;fill:var(--star);stroke:var(--star);stroke-width:1.2;stroke-linejoin:round}
+.pd__rate b{color:var(--ink);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.pd__rate u{text-decoration:none}
+.pd__rate--none .pd__star{fill:none;stroke:var(--muted2);stroke-width:1.6}
+.pd__rate-n{font-size:15px;color:var(--muted)}
+#rvBlock{scroll-margin-top:calc(var(--hd-off) + 12px)}
 
-.rv{background:var(--card);margin-top:8px;padding:18px var(--pad) 24px}
+.rv{background:var(--card);margin:10px 10px 0;padding:20px 20px 24px;border-radius:24px}
 .rv__h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:14px}
-.rv__ttl{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.rv__ttl{font-size:17px;font-weight:700;letter-spacing:-.01em}
 .rv__cnt{font-size:12.5px;color:var(--muted)}
 
 .rv__sum{display:flex;gap:20px;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--line)}
@@ -3903,7 +3961,7 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   font-size:12px;color:var(--ink-soft);line-height:1.5}
 
 @media (min-width:900px){
-  .rv{max-width:760px;margin:8px auto 0;border-radius:var(--r-lg)}
+  .rv{max-width:760px;margin:10px auto 0;border-radius:24px;width:100%}
 }
 
 /* ===================== ПУНКТЫ ВЫДАЧИ ===================== */
@@ -4165,19 +4223,18 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
   .sec,.ord,.plist,.pcard,.form,.stabs{max-width:760px;margin-left:auto;margin-right:auto}
   /* На широком экране — две колонки: кадр слева, описание справа.
      В один столбец portrait-кадр не помещался: max-height перебивал пропорцию,
-     блок становился 760x516, и фото во весь кадр обрезалось до полоски фона
-     над головой модели. Так и ширина используется по делу, и снимок остаётся
-     вертикальным — как его снимали. */
+     и фото во весь кадр обрезалось. Так и ширина используется по делу, и
+     снимок остаётся вертикальным — как его снимали. */
   .pd{
-    display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);
-    column-gap:26px;row-gap:12px;align-items:start;
-    max-width:760px;margin:10px auto 0;padding:14px;height:auto;min-height:0
+    display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);
+    column-gap:28px;align-items:start;
+    max-width:760px;margin:14px auto 0;padding:12px;width:100%
   }
-  .pd__hero{grid-column:1;grid-row:1;aspect-ratio:2/3;height:auto;max-height:none;flex:none;border-radius:var(--r-lg);margin-top:0}
-  .pd .thumbs{grid-column:1;grid-row:2;padding:0}
-  /* Описание занимает правую колонку целиком — и когда миниатюр нет тоже. */
-  .pd__body{grid-column:2;grid-row:1 / span 2;max-width:none}
-  .pd__extra{max-width:760px;margin:8px auto 0;border-radius:var(--r-lg)}
+  .pd__hero{grid-column:1;grid-row:1;aspect-ratio:2/3;height:auto}
+  .pd__dots{grid-column:1;grid-row:2}
+  /* Описание занимает правую колонку целиком — и когда точек нет тоже. */
+  .pd__body{grid-column:2;grid-row:1 / span 2;padding:8px 8px 8px 0}
+  .pd__extra,.rv{max-width:760px;margin:10px auto 0;width:100%}
   .sheet{max-width:560px;border-radius:var(--r-lg);bottom:auto;top:50%;transform:translateY(-50%);animation:fadeIn .24s var(--ease)}
   .fab,.fdl{right:32px}
   .ad__g2{grid-template-columns:1fr 1fr}
@@ -5046,10 +5103,10 @@ function rvInlineHTML(p){
   const st = rvStats(p.id);
   if(!st.n){
     return `<button class="pd__rate pd__rate--none" data-a="rvnew:${p.id}">
-      ${rvStars(0,'xs')}<u>Оставить первый отзыв</u></button>`;
+      ${svg('star','pd__star')}<u>Оставить первый отзыв</u></button>`;
   }
-  return `<button class="pd__rate" data-a="rvto">${rvStars(st.avg,'xs')}<b>${rvNum(st.avg)}</b>
-    <span class="pd__rate-n">${st.n} ${plural(st.n,['отзыв','отзыва','отзывов'])}</span></button>`;
+  return `<button class="pd__rate" data-a="rvto">${svg('star','pd__star')}<b>${rvNum(st.avg)}</b>
+    <span class="pd__rate-n">· ${st.n} ${plural(st.n,['отзыв','отзыва','отзывов'])}</span></button>`;
 }
 
 function rvItemHTML(r, opts = {}){
@@ -9148,6 +9205,32 @@ function paintQty(){
   if(!hide) box.innerHTML = qtyRowHTML(p);
 }
 
+/* Подпись под названием: «Новинка · Футболки · Женское» */
+const PD_BADGE = {new:'Новинка', hit:'Хит продаж', sale:'Распродажа'};
+function pdSubline(p){
+  /* товар бывает в нескольких разделах: и мужской, и женский — это «Унисекс» */
+  const gs = gendersOf(p);
+  const g = gs.includes('u') || (gs.includes('m') && gs.includes('w')) ? GENDER_LAB.u : (GENDER_LAB[gs[0]] || '');
+  return [PD_BADGE[p.badge], p.cat, g].filter(Boolean).map(esc).join(' · ');
+}
+/* Строка под суммой в нижней панели: доставка или «2 шт × 2 390 ₽» */
+function pdShipLine(total){
+  const r = shipRates();
+  const pickup = +r.pickup || 0, free = +r.freeFrom || 0;
+  if(!pickup || (free && total >= free)) return 'Доставка бесплатно';
+  return 'Доставка от ' + money(pickup);
+}
+function pdSumHTML(p){
+  const q = inCart(p) ? 1 : Math.max(1, +S.qty || 1);
+  return `<b>${money(p.price * q)}</b><span>${q > 1
+    ? `${q} шт × ${money(p.price)}` : pdShipLine(p.price * q)}</span>`;
+}
+function pdCtaLabel(p, out){
+  if(out) return '<span>Нет в наличии</span>';
+  if(inCart(p)) return '<span>Удалить из корзины</span>';
+  return `<span>${svg('bag')}В корзину</span>`;
+}
+
 /* ===== ЦВЕТ ТОВАРА ОДНОЙ СТРОКОЙ =====
    Кружки цвета самой вещи и кружки её собратьев других цветов стоят вместе:
    для покупателя это один выбор, а двумя блоками он занимал пол-экрана.
@@ -9197,14 +9280,17 @@ function colorRowHTML(p){
   const all = own.concat(mates).sort((a, b) => toneIdx(a.name) - toneIdx(b.name));
   if(!all.length) return '';
   const cur = own.find(c => c.cur) || own[0];
-  return `<p class="pd__lab">Цвет${cur ? ` · <b>${esc(cur.name)}</b>` : ''}</p>
+  /* подписи под кружками — когда есть из чего выбирать; у одного цвета
+     подпись лишь повторяла бы заголовок «Цвет  Голубой» */
+  const nm = c => all.length > 1 ? `<span class="col__n">${esc(c.name)}</span>` : '';
+  return `<div class="pd__row"><p class="pd__lab">Цвет${cur ? `<span>${esc(cur.name)}</span>` : ''}</p></div>
     <div class="cols">${all.map(c => c.own
       ? `<button class="col" data-a="color:${encodeURIComponent(c.hex)}"
           aria-pressed="${!!c.cur}" aria-label="${esc(c.name)}" title="${esc(c.name)}">
-          <i style="background:${esc(c.hex)}"></i></button>`
+          <i style="background:${esc(c.hex)}"></i>${nm(c)}</button>`
       : `<button class="col" data-a="pcolor:${c.id}"
           aria-pressed="false" aria-label="${esc(c.name)} — ${esc(c.prod)}" title="${esc(c.name)}">
-          <i style="background:${esc(c.hex)}"></i></button>`).join('')}</div>`;
+          <i style="background:${esc(c.hex)}"></i>${nm(c)}</button>`).join('')}</div>`;
 }
 
 /* ==========================================================
@@ -9298,7 +9384,7 @@ async function openSizeSheet(p){
   const go = sh.querySelector('#szGo'), wrap = sh.querySelector('#szWrap');
   /* закрыли — фокус обратно на «Таблица размеров», а не в начало страницы */
   onOvClose(() => {
-    const back = opener && opener.isConnected && opener !== document.body ? opener : document.querySelector('#scr .pd__szb');
+    const back = opener && opener.isConnected && opener !== document.body ? opener : document.querySelector('#scr .pd__guide, #scr .pd__szb');
     if(back) try{ back.focus({preventScroll: true}); }catch(_){}
   });
   /* колонка выбранного размера — целиком на виду: не под закреплённой
@@ -9431,9 +9517,8 @@ function szGhost(){
 }
 
 function szHeadHTML(p){
-  if(!chartOf(p)) return `<p class="pd__lab">Размер</p>`;
-  return `<div class="pd__szh"><p class="pd__lab">Размер</p>
-    <button class="pd__szb" type="button" data-a="szchart" aria-haspopup="dialog">${svg('ruler','ic')}<span>Таблица размеров</span></button></div>`;
+  return `<div class="pd__row"><p class="pd__lab">Размер</p>${chartOf(p)
+    ? `<button class="pd__guide" type="button" data-a="szchart" aria-haspopup="dialog">Таблица размеров</button>` : ''}</div>`;
 }
 
 function scrProduct(){
@@ -9451,6 +9536,11 @@ function scrProduct(){
   if(!colors.length) S.color = '';
   const cur = colors.find(c => c.hex === S.color) || null;
   const out = soldOut(p) || (!sizes.length && (p.sizes || []).length > 0);
+  /* «−25 %» считаем сами, как в каталоге: сравнивать цены глазами не нужно */
+  const off = (!out && p.old && p.old > p.price) ? Math.round((1 - p.price / p.old) * 100) : 0;
+  const sub = pdSubline(p);
+  /* у одного цвета подпись под кружком повторяла бы заголовок */
+  const named = colors.length > 1;
   return `
   <div class="pd">
     <div class="pd__hero">
@@ -9466,44 +9556,52 @@ function scrProduct(){
       <div class="pd__side">
         ${isAdmin() ? `<button class="pd__rb pd__rb--ed" data-a="pedit:${p.id}" aria-label="Редактировать товар" title="Редактировать">${svg('pencil')}</button>` : ''}
         <button class="pd__rb" data-a="fav:${p.id}" aria-pressed="${fav}" aria-label="В избранное">${svg('heart')}</button>
-        <button class="pd__rb" data-a="share" aria-label="Поделиться">${svg('share')}</button>
       </div>
     </div>
-
-    ${gal.length > 1 ? `<div class="thumbs">${gal.map((g,i) => `
-      <button class="thumb" data-a="gal:${i}" aria-current="${i === S.galIdx}" aria-label="Фото ${i+1}">
-        <img src="${g}" alt="" loading="lazy" decoding="async"></button>`).join('')}</div>` : ''}
+    ${gal.length > 1 ? `<div class="pd__dots">${gal.map((_,i) => `
+      <button class="pd__dot" data-a="gal:${i}" aria-current="${i === S.galIdx}" aria-label="Фото ${i+1}"></button>`).join('')}</div>` : ''}
 
     <div class="pd__body">
-      <h1 class="pd__t">${p.name}</h1>
-      ${p.sku ? `<button class="pd__sku" data-a="copysku:${p.sku}">
-        Артикул: <b>${p.sku}</b>${svg('copy','ic ic--xs')}</button>` : ''}
-      <p class="pd__price">${money(p.price)}${p.old ? ` <s>${money(p.old)}</s>` : ''}</p>
+      <div class="pd__head">
+        <h1 class="pd__t">${p.name}</h1>
+        <button class="pd__share" data-a="share" aria-label="Поделиться">${svg('share')}</button>
+      </div>
+      ${sub ? `<p class="pd__sub">${sub}</p>` : ''}
+      <div class="pd__price">
+        <b>${money(p.price)}</b>${p.old && p.old > p.price ? `<s>${money(p.old)}</s>` : ''}${
+        off ? `<span class="pd__off">−${off}%</span>` : ''}
+      </div>
       ${rvInlineHTML(p)}
 
       ${colorRowHTML(p)}
 
       ${sizes.length ? `${szHeadHTML(p)}
-      <div class="sizes">${sizes.map(s => `<button class="size" data-a="size:${s}"
+      <div class="sizes" style="--n:${Math.min(5, Math.max(4, sizes.length <= 5 ? sizes.length : Math.ceil(sizes.length / 2)))}">${sizes.map(s => `<button class="size" data-a="size:${s}"
           aria-pressed="${S.size === s}">${s}</button>`).join('')}</div>` : ''}
       ${!sizes.length && chartOf(p) ? `<button class="pd__szb pd__szb--solo" type="button" data-a="szchart" aria-haspopup="dialog">${svg('ruler','ic')}<span>Таблица размеров</span></button>` : ''}
       <div id="pdStock">${stockNote(p)}</div>
       ${out ? '' : `<div class="pd__qty" id="pdQty"${inCart(p) ? ' hidden' : ''}>${qtyRowHTML(p)}</div>`}
 
       ${tryonEnabledFor(p) ? `<button class="pd__try" data-a="tryon">${svg('camera','ic')} Примерить на фото</button>` : ''}
-      <div class="pd__cta">
-        <button class="btn${inCart(p) ? ' btn--rm' : ''}"${out ? ' disabled' : ` data-a="${inCart(p) ? 'rmline' : 'add'}"`}><span>${out ? 'Нет в наличии' : (inCart(p) ? 'Удалить из корзины' : 'В корзину')}</span></button>
-        <button class="pd__hb" data-a="fav:${p.id}" aria-pressed="${fav}" aria-label="В избранное">${svg('heart')}</button>
-      </div>
     </div>
   </div>
 
-  ${p.desc ? `<div class="pd__extra">
-    <h2 class="pd__el">Описание</h2>
-    <p class="pd__ed">${esc(p.desc)}</p>
+  ${p.desc || p.sku ? `<div class="pd__extra">
+    <h2 class="pd__el">О товаре</h2>
+    ${p.desc ? `<p class="pd__ed">${esc(p.desc)}</p>` : ''}
+    ${p.sku ? `<div class="pd__meta"><span>Артикул</span>
+      <button class="pd__sku" data-a="copysku:${p.sku}" aria-label="Скопировать артикул">${p.sku}${svg('copy','ic ic--xs')}</button></div>` : ''}
   </div>` : ''}
 
-  ${rvBlockHTML(p)}`;
+  ${rvBlockHTML(p)}
+
+  <div class="pd__bar">
+    <div class="pd__sum" id="pdSum">${pdSumHTML(p)}</div>
+    <div class="pd__cta">
+      <button class="btn${inCart(p) ? ' btn--rm' : ''}"${out ? ' disabled' : ` data-a="${inCart(p) ? 'rmline' : 'add'}"`}>${pdCtaLabel(p, out)}</button>
+      <button class="pd__hb" data-a="fav:${p.id}" aria-pressed="${fav}" aria-label="В избранное">${svg('heart')}</button>
+    </div>
+  </div>`;
 }
 
 /* ==========================================================
@@ -10970,7 +11068,7 @@ function bindGalleries(){
     bindGalleryTrack(pd, {
       onIndex: i => {
         S.galIdx = i;
-        document.querySelectorAll('.thumb').forEach((t, n) => {
+        document.querySelectorAll('.pd__dot').forEach((t, n) => {
           t.setAttribute('aria-current', n === i ? 'true' : 'false');
         });
       }
@@ -13722,11 +13820,13 @@ function refreshCTA(){
   const btn = document.querySelector('.pd__cta .btn');
   if(!p || !btn) return;
   const on = inCart(p);
-  const q = Math.max(1, +S.qty || 1);
-  btn.innerHTML = `<span>${on ? 'Удалить из корзины' : (q > 1 ? `В корзину · ${q} шт` : 'В корзину')}</span>`;
+  btn.innerHTML = pdCtaLabel(p, !on && soldOut(p));
   btn.dataset.a = on ? 'rmline' : 'add';
   btn.classList.toggle('btn--rm', on);
   btn.disabled = !on && soldOut(p);
+  /* сумма в нижней панели: цена × количество */
+  const sum = document.getElementById('pdSum');
+  if(sum) sum.innerHTML = pdSumHTML(p);
   const note = document.getElementById('pdStock');
   if(note) note.innerHTML = stockNote(p);
   paintQty();
@@ -15523,7 +15623,7 @@ document.addEventListener('click', e => {
         const main = document.querySelector('.pd__main');
         if(main) main.src = gal[S.galIdx] || p.img;
       }
-      document.querySelectorAll('.thumb').forEach((t, i) => {
+      document.querySelectorAll('.pd__dot').forEach((t, i) => {
         t.setAttribute('aria-current', i === S.galIdx ? 'true' : 'false');
       });
       break;
