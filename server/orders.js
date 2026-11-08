@@ -456,11 +456,33 @@ const PUSH_TITLES = {
   'В обработке': 'Заказ принят',
   'Едет': 'Заказ в пути',
   'Доставка': 'Заказ в пути',
-  'Доставлен': 'Заказ доставлен',
+  'Доставлен': 'Заказ у вас',
   'Отменён': 'Заказ отменён',
   'Возврат': 'Оформлен возврат',
   'Ожидает оплаты': 'Ждём оплату'
 };
+
+/** «2 390 ₽» с неразрывным пробелом — как на сайте и в Telegram. */
+const rub = (n) => `${Math.round(+n || 0).toLocaleString('ru-RU')} ₽`;
+
+/** Страница СДЭК с треком — та же, что у кнопки в Telegram. */
+function cdekTrackUrl(track) {
+  const t = String(track || '').trim();
+  return t ? 'https://www.cdek.ru/ru/tracking?order_id=' + encodeURIComponent(t) : '';
+}
+
+/* Что статус значит для человека — одной короткой фразой после номера:
+   в шторке видно строки две, и они должны отвечать на «что с заказом». */
+function pushStatusLine(order, st) {
+  const paid = String(order.payStatus || order.pay_status || '') === 'paid';
+  const courier = String(order.shipMode || order.ship_mode || '') === 'courier';
+  if (st === 'В обработке') return 'собираем посылку';
+  if (st === 'Едет' || st === 'Доставка') return courier ? 'курьер везёт к вам' : 'едет в пункт выдачи';
+  if (st === 'Доставлен') return 'спасибо, что выбрали Luxe Canvas';
+  if (st === 'Отменён') return paid ? 'деньги вернутся на карту в течение дня' : '';
+  if (st === 'Возврат') return 'деньги вернутся на ту же карту';
+  return '';
+}
 
 /** Короткий состав заказа: «Косметичка-чехол и ещё 2». */
 function orderItemsLine(order) {
@@ -497,11 +519,12 @@ function pushOrderToAdmins(order) {
   const who = order.customerName || order.name || 'Покупатель';
   const what = orderItemsLine(order);
   pushSafe((push) => push.sendToAdmins({
-    title: 'Новый заказ · ' + (order.price || 0) + ' ₽',
+    title: 'Новый заказ · ' + rub(order.price),
     body: ['№' + order.num, who, what].filter(Boolean).join(' · '),
     image: orderImage(order),
     tag: 'lc-new-' + order.num,
-    url: '/#admin'
+    url: '/#admin',
+    actions: [{ action: 'open', title: 'Открыть заказ' }]
   }));
 }
 
@@ -510,12 +533,17 @@ function pushOrderToBuyer(order, status) {
   if (!order || order.userId == null) return;
   const st = String(status || order.status || '');
   const what = orderItemsLine(order);
+  /* «Отследить» — сразу на страницу СДЭК с этим треком, первой кнопкой */
+  const track = cdekTrackUrl(order.tracking);
+  const actions = [{ action: 'open', title: 'Открыть заказ' }];
+  if (track && (st === 'Едет' || st === 'Доставка')) actions.unshift({ action: 'track', title: 'Отследить', url: track });
   pushSafe((push) => push.sendToUser(order.userId, {
     title: PUSH_TITLES[st] || ('Заказ · ' + st),
-    body: ['№' + order.num, what].filter(Boolean).join(' · '),
+    body: ['№' + order.num, what, pushStatusLine(order, st)].filter(Boolean).join(' · '),
     image: orderImage(order),
     tag: 'lc-order-' + order.num,
-    url: '/#orders'
+    url: '/#orders',
+    actions
   }));
 }
 
@@ -547,13 +575,15 @@ async function pushPaymentAnomaly(what, payment, order) {
     const { sendText } = require('./telegram-bot');
     const { getOwnerChatIds } = require('./tg-owner');
     const paid = payment && payment.amount ? `${payment.amount.value} ${payment.amount.currency}` : '?';
+    /* Бот шлёт с HTML-разметкой: всё пришедшее извне экранируем, иначе
+       «<» в тексте платежа молча уронил бы саму тревогу. */
+    const h = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const text = [
-      '⚠️ Оплата пришла, но заказ не сошёлся',
-      '',
-      what,
-      `Платёж: ${(payment && payment.id) || '?'}`,
-      `Сумма: ${paid}`,
-      order ? `Заказ в базе: №${order.num} на ${order.price} ₽` : 'Заказ в базе не найден',
+      '⚠️ <b>Оплата пришла, но заказ не сошёлся</b>',
+      `<blockquote>${h(what)}</blockquote>`,
+      `Платёж: <code>${h((payment && payment.id) || '?')}</code>`,
+      `Сумма: <b>${h(paid)}</b>`,
+      order ? `Заказ в базе: <code>№${h(order.num)}</code> на ${h(rub(order.price))}` : 'Заказ в базе не найден',
       '',
       'Проверьте платёж в кабинете ЮKassa и заказ в админке.'
     ].join('\n');

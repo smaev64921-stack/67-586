@@ -25,7 +25,7 @@
    Работает это только потому, что сервер отдаёт /sw.js с no-cache.
    ========================================================================== */
 
-const VERSION = 'canvas-v5';
+const VERSION = 'canvas-v6';
 /* Сколько ждём сеть на переходе, прежде чем показать сохранённую копию.
    Меньше — чаще будет мелькать вчерашняя версия; больше — дольше висит
    заставка на плохой связи. Три с половиной секунды — заметно, но терпимо. */
@@ -134,7 +134,15 @@ self.addEventListener('push', (e) => {
   /* Фото товара — Android разворачивает его крупно, когда шторку тянут
      вниз. Ставим только если пришло: пустая строка ломает показ. */
   if (d.image) opts.image = d.image;
-  opts.actions = [{ action: 'open', title: 'Открыть' }];
+  /* Кнопки присылает сервер: «Открыть заказ», а у заказа в пути — ещё
+     «Отследить» со ссылкой на страницу СДЭК. Не прислал — одна «Открыть». */
+  const acts = Array.isArray(d.actions) && d.actions.length
+    ? d.actions.slice(0, 2)
+    : [{ action: 'open', title: 'Открыть' }];
+  opts.actions = acts.map((a) => ({ action: String(a.action || 'open'), title: String(a.title || 'Открыть') }));
+  opts.data.urls = {};
+  acts.forEach((a) => { if (a && a.url) opts.data.urls[String(a.action || 'open')] = String(a.url); });
+  opts.timestamp = Date.now();
   e.waitUntil(self.registration.showNotification(d.title || 'Luxe Canvas', opts));
 });
 
@@ -142,8 +150,15 @@ self.addEventListener('push', (e) => {
    нужный экран, а не открываем вторую копию магазина рядом. */
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || '/';
+  const data = e.notification.data || {};
+  const url = (e.action && data.urls && data.urls[e.action]) || data.url || '/';
   e.waitUntil((async () => {
+    /* Чужой адрес (страница СДЭК с треком) — открываем отдельно, вкладку
+       магазина не уводим. */
+    if (new URL(url, self.location.origin).origin !== self.location.origin) {
+      await self.clients.openWindow(url);
+      return;
+    }
     const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of open) {
       if (new URL(c.url).origin !== self.location.origin) continue;

@@ -736,6 +736,86 @@ function statusEmoji(status) {
   return '📦';
 }
 
+/* ---------- оформление уведомлений о заказе ----------
+   Один голос во всех сообщениях магазина: заголовок — суть одной строкой,
+   под ним человеческое пояснение, путь заказа, состав цитатой и итог.
+   Один знак в заголовке, дальше — типографика: жирный, цитата, трек
+   моноширинным (по нажатию копируется). Уведомление читают в шторке
+   телефона, поэтому строки короткие, а суть — в первых словах. */
+const ORDER_PATH = ['Оплачен', 'Собираем', 'В пути', 'Получен'];
+/* 🎉 поверх сообщения. Telegram показывает эффекты только в личных чатах;
+   не принял — sendWithMarkupFallback отправит то же самое без эффекта. */
+const EFFECT_PARTY = '5046509860389126442';
+
+function orderStage(status) {
+  const s = String(status || '');
+  if (/доставлен/i.test(s)) return 3;
+  if (/едет|доставк/i.test(s)) return 2;
+  if (/обработ/i.test(s)) return 1;
+  return 0;
+}
+
+/** Путь заказа столбиком: пройдено — ✓, сейчас — ● жирным, впереди — ○. */
+function orderPathText(status) {
+  const k = orderStage(status);
+  return ORDER_PATH.map((t, i) => {
+    if (i < k) return `✓ ${t}`;
+    if (i === k) return k === ORDER_PATH.length - 1 ? `✓ <b>${t}</b>` : `● <b>${t}</b>`;
+    return `○ ${t}`;
+  }).join('\n');
+}
+
+/** Состав цитатой: название жирным, под ним размер, цвет, количество и цена. */
+function itemsQuote(order, { prices = true, max = 8 } = {}) {
+  const all = Array.isArray(order && order.items) ? order.items : [];
+  if (!all.length) return '';
+  const rows = all.slice(0, max).map((i) => {
+    const q = Math.max(1, +i.qty || 1);
+    const meta = [i.size, i.colorName].filter(Boolean).map(escHtml).join(' · ');
+    const tail = [q > 1 ? `${q} шт` : '', prices && +i.price ? money((+i.price || 0) * q) : '']
+      .filter(Boolean).join(' — ');
+    const second = [meta, tail].filter(Boolean).join(' · ');
+    return `<b>${escHtml(i.name || 'Товар')}</b>` + (second ? `\n${second}` : '');
+  });
+  if (all.length > max) rows.push(`…и ещё ${all.length - max}`);
+  return `<blockquote>${rows.join('\n')}</blockquote>`;
+}
+
+/** Страница СДЭК с этим треком — открывается сразу, без ввода номера. */
+function cdekTrackUrl(track) {
+  const t = String(track || '').trim();
+  return t ? 'https://www.cdek.ru/ru/tracking?order_id=' + encodeURIComponent(t) : '';
+}
+
+/** Куда едет заказ — для покупателя: способ и адрес. */
+function deliveryLines(order) {
+  const where = formatOwnerWhere(order);
+  const head = where.label === 'Курьером' ? '🚪 Курьер СДЭК до двери' : '📍 Пункт выдачи СДЭК';
+  return [head, where.text && where.text !== '—' ? escHtml(where.text) : ''].filter(Boolean).join('\n');
+}
+
+/** Заголовок и пояснение для покупателя: [знак, заголовок, строка под ним]. */
+function customerHeadline(order) {
+  const s = String(order.status || '');
+  const n = escHtml(order.num);
+  const paid = String(order.payStatus || order.pay_status || '') === 'paid';
+  const courier = formatOwnerWhere(order).label === 'Курьером';
+  if (/доставлен/i.test(s)) return ['🖤', `Заказ №${n} у вас`, 'Спасибо, что выбрали Luxe Canvas. Носите с удовольствием.'];
+  if (/едет|доставк/i.test(s)) {
+    return ['🚚', `Заказ №${n} в пути`, courier
+      ? 'Посылка едет к вам с курьером СДЭК.'
+      : 'Посылка едет в пункт выдачи — отследить её можно по номеру ниже.'];
+  }
+  if (/отмен/i.test(s)) {
+    return ['✖️', `Заказ №${n} отменён`, paid
+      ? 'Деньги вернутся на ту же карту в течение дня.'
+      : 'Если это ошибка — оформите заказ заново, вещи ждут вас на сайте.'];
+  }
+  if (/возврат/i.test(s)) return ['↩️', `Возврат по заказу №${n}`, 'Деньги вернутся на ту же карту — срок зависит от банка.'];
+  if (/обработ/i.test(s)) return ['📦', `Заказ №${n} принят`, 'Оплата прошла. Собираем посылку и скоро передадим её в СДЭК.'];
+  return ['📦', `Заказ №${n}`, s ? `Статус: ${escHtml(s)}` : ''];
+}
+
 function ordersForChat(chatId) {
   try {
     const { getLink } = require('./tg-users');
@@ -1413,45 +1493,38 @@ function connectedText() {
   ].join('\n');
 }
 
+/** Карточка заказа у покупателя — одна на заказ, правится при каждой смене статуса. */
 function formatCustomerOrder(order) {
-  const items = (order.items || []).map((i) =>
-    `· <b>${escHtml(i.name || 'Товар')}</b>${i.size ? ' · ' + escHtml(i.size) : ''} × ${i.qty || 1}`
-  );
-  const track = String(order.tracking || '').trim();
+  const [icon, title, line] = customerHeadline(order);
   const status = String(order.status || '').trim();
-  const paid = String(order.payStatus || order.pay_status || '') === 'paid';
-  const cancelled = /отмен/i.test(status);
-  const stIcon = statusEmoji(status);
-  return [
-    `${stIcon} <b>Ваш заказ №${escHtml(order.num)}</b>`,
-    status ? `Статус: ${escHtml(status)}` : '',
-    '',
-    items.length ? items.join('\n') : '· Заказ',
-    '',
-    `💰 Сумма: <b>${money(order.price)}</b>`,
-    cancelled ? '' : `⏱ Срок: ${escHtml(etaText())}`,
-    track ? `📍 Трек: <code>${escHtml(track)}</code>` : '',
-    cancelled
-      ? (paid
-        ? '\nВернём ваши деньги в течение дня на ту же карту.'
-        : '\nЗаказ отменён.')
-      : ''
-  ].filter((x) => x !== '').join('\n');
+  const closed = /отмен|возврат/i.test(status);
+  const track = String(order.tracking || '').trim();
+  const blocks = [[`${icon} <b>${title}</b>`, line].filter(Boolean).join('\n')];
+  if (!closed) blocks.push(orderPathText(status));
+  blocks.push([itemsQuote(order), `Итого <b>${money(order.price)}</b>`].filter(Boolean).join('\n'));
+  if (!closed) {
+    const info = [deliveryLines(order)];
+    if (track) info.push(`Трек-номер: <code>${escHtml(track)}</code>`);
+    else if (orderStage(status) < 3) info.push(`Срок: ${escHtml(etaText())}`);
+    blocks.push(info.filter(Boolean).join('\n'));
+  }
+  return blocks.join('\n\n');
 }
 
 function customerOrderMarkup(order, chatId) {
   const rows = [];
+  const track = cdekTrackUrl(order.tracking);
+  if (track && !/отмен|возврат/i.test(String(order.status || ''))) {
+    rows.push([urlBtn('📦 Отследить посылку', track)]);
+  }
   const url = siteUrl(chatId, { hash: 'orders' });
-  if (url) rows.push([urlBtn('🌐 Открыть на сайте', url)]);
+  if (url) rows.push([urlBtn('🌐 Открыть заказ', url)]);
   return { inline_keyboard: rows };
 }
 
 function customerOrderDetailMarkup(order, chatId) {
-  const rows = [];
-  const url = siteUrl(chatId, { hash: 'orders' });
-  if (url) rows.push([urlBtn('🌐 Открыть на сайте', url)]);
-  rows.push([cbBtn('⬅️ К заказам', 'my_orders')]);
-  rows.push([cbBtn('🏠 Домой', 'home')]);
+  const rows = customerOrderMarkup(order, chatId).inline_keyboard;
+  rows.push([cbBtn('⬅️ К заказам', 'my_orders'), cbBtn('🏠 Домой', 'home')]);
   return { inline_keyboard: rows };
 }
 
@@ -1461,23 +1534,33 @@ function statusAccent(_status) {
 
 function ownerOrderTitle(order) {
   const status = String(order.status || '');
-  if (/доставлен/i.test(status)) return '✅ <b>Заказ доставлен</b>';
-  if (/возврат/i.test(status)) return '↩️ <b>Возврат</b>';
-  if (/отмен/i.test(status)) return '❌ <b>Заказ отменён</b>';
-  if (wasOwnerNotified(order.num)) return '📦 <b>Заказ</b>';
-  return '🆕 <b>Новый заказ</b>';
+  const sum = money(order.price);
+  if (/доставлен/i.test(status)) return `✅ <b>Заказ получен · ${sum}</b>`;
+  if (/возврат/i.test(status)) return `↩️ <b>Возврат · ${sum}</b>`;
+  if (/отмен/i.test(status)) return `❌ <b>Заказ отменён · ${sum}</b>`;
+  if (/едет|доставк/i.test(status)) return `🚚 <b>Заказ в пути · ${sum}</b>`;
+  if (wasOwnerNotified(order.num)) return `📦 <b>Заказ в работе · ${sum}</b>`;
+  return `🛍 <b>Новый заказ · ${sum}</b>`;
 }
 
-function formatOwnerGoods(order) {
-  const items = order.items || [];
-  if (!items.length) return '—';
-  const lines = items.slice(0, 12).map((i) => {
-    const name = escHtml(i.name || 'Товар');
-    const size = i.size ? ` · ${escHtml(i.size)}` : '';
-    return `${name}${size} × ${i.qty || 1}`;
-  });
-  if (items.length > 12) lines.push(`…ещё ${items.length - 12}`);
-  return lines.join('\n');
+/** «Банковская карта · оплачен» — чем и в каком состоянии оплата. */
+function ownerPayLine(order) {
+  const pay = String(order.payStatus || order.pay_status || '');
+  const how = String(order.payName || '').trim();
+  const state = pay === 'paid' ? 'оплачен' : (pay === 'manual' ? 'без онлайн-оплаты' : 'ждёт оплаты');
+  return [how ? escHtml(how) : '', state].filter(Boolean).join(' · ');
+}
+
+/** «Товары 2 090 ₽ · доставка 190 ₽ · скидка −200 ₽ (PROMO)». */
+function ownerMoneyLine(order) {
+  const parts = [];
+  if (+order.goods) parts.push(`товары ${money(order.goods)}`);
+  if (order.ship != null && order.ship !== '') parts.push(+order.ship ? `доставка ${money(order.ship)}` : 'доставка бесплатно');
+  if (+order.discount) {
+    parts.push(`скидка −${money(Math.abs(+order.discount))}${order.promoCode ? ` (${escHtml(order.promoCode)})` : ''}`);
+  }
+  const s = parts.join(' · ');
+  return s ? s[0].toUpperCase() + s.slice(1) : '';
 }
 
 /* Куда везти. Способов два, и подпись обязана их различать: владелец,
@@ -1495,33 +1578,28 @@ function formatOwnerWhere(order) {
   return { label, text: text || '—' };
 }
 
+/** Карточка заказа у админа: суть и деньги сверху, состав, покупатель, куда везти, статус. */
 function formatOwnerOrder(order) {
-  const guest = order.guest || {};
+  const guest = (order.guest && typeof order.guest === 'object') ? order.guest : {};
   const who = order.customerName || guest.name || '—';
-  const phone = order.phone || guest.phone || '—';
-  const email = order.email || guest.email || '—';
+  const phone = order.phone || guest.phone || '';
+  /* служебные адреса вида …@phone.luxecanvas — не почта, показывать незачем */
+  const rawEmail = String(order.email || guest.email || '');
+  const email = /@(phone|google)\.luxecanvas$/i.test(rawEmail) ? '' : rawEmail;
   const track = String(order.tracking || '').trim();
   const status = order.status || '—';
-  const goods = formatOwnerGoods(order);
   const where = formatOwnerWhere(order);
-  const goodsHtml = goods === '—' ? '—' : goods;
-  const goodsLine = goodsHtml.includes('\n')
-    ? `<b>Товары:</b>\n${goodsHtml}`
-    : `<b>Товары:</b> ${goodsHtml}`;
-
-  return [
-    `${ownerOrderTitle(order)} · <code>№${escHtml(order.num)}</code>`,
-    '',
-    `<b>Сумма:</b> ${money(order.price)}`,
-    `<b>Клиент:</b> ${escHtml(who)}`,
-    `<b>Телефон:</b> ${escHtml(phone)}`,
-    `<b>Email:</b> ${escHtml(email)}`,
-    '',
-    goodsLine,
-    `<b>${where.label}:</b> ${escHtml(where.text)}`,
-    `<b>Статус:</b> ${statusEmoji(status)} ${escHtml(status)}`,
-    `<b>Трек:</b> ${track ? `<code>${escHtml(track)}</code>` : '—'}`
+  const head = [
+    ownerOrderTitle(order),
+    [`<code>№${escHtml(order.num)}</code>`, ownerPayLine(order), order.date ? escHtml(order.date) : '']
+      .filter(Boolean).join(' · ')
   ].join('\n');
+  const goods = [itemsQuote(order, { max: 12 }), ownerMoneyLine(order)].filter(Boolean).join('\n');
+  const buyer = ['<b>Покупатель</b>', escHtml(who), phone ? escHtml(displayPhone(phone)) : '', email ? escHtml(email) : '']
+    .filter(Boolean).join('\n');
+  const dest = [`<b>${where.label === 'Курьером' ? 'Курьер до двери' : 'Пункт выдачи СДЭК'}</b>`, escHtml(where.text)].join('\n');
+  const state = `${statusEmoji(status)} ${escHtml(status)} · трек ${track ? `<code>${escHtml(track)}</code>` : '—'}`;
+  return [head, goods, buyer, dest, state].filter(Boolean).join('\n\n');
 }
 
 function ownerOrderMarkup(order, chatId) {
@@ -1541,8 +1619,10 @@ function ownerOrderMarkup(order, chatId) {
     ]);
   }
 
+  const trackUrl = cdekTrackUrl(order.tracking);
+  if (trackUrl && !cancelled) rows.push([urlBtn('📦 Отследить посылку', trackUrl)]);
   const url = siteUrl(chatId, { go: 'admin' });
-  if (url) rows.push([urlBtn('🌐 Открыть на сайте', url)]);
+  if (url) rows.push([urlBtn('🛠 Открыть в админке', url)]);
   return { inline_keyboard: rows };
 }
 
@@ -1568,22 +1648,49 @@ function ownerStatusPickMarkup(order) {
   return { inline_keyboard: rows };
 }
 
+/** Отдельное сообщение «заказ у вас» — с 🎉 и просьбой об отзыве. */
 function formatDeliveredPush(order) {
   const items = (order.items || []).slice(0, 6).map((i) =>
-    `· ${escHtml(i.name || 'Товар')}${i.size ? ' · ' + escHtml(i.size) : ''}`
+    `${escHtml(i.name || 'Товар')}${i.size ? ' · ' + escHtml(i.size) : ''}`
   );
   return [
-    '🎉 <b>Заказ доставлен</b>',
-    `№${escHtml(order.num)} · ${money(order.price)}`,
-    items.length ? '' : null,
-    items.join('\n'),
-    '',
-    'Спасибо, что выбрали Luxe Canvas 🖤'
-  ].filter((x) => x != null && x !== undefined).join('\n');
+    `🖤 <b>Заказ №${escHtml(order.num)} у вас</b>`,
+    'Спасибо, что выбрали Luxe Canvas. Носите с удовольствием.',
+    items.length ? `\n<blockquote>${items.join('\n')}</blockquote>` : '',
+    '\nЧто-то не подошло по размеру — напишите нам, поможем с обменом или возвратом.'
+  ].filter(Boolean).join('\n');
+}
+
+function deliveredMarkup(order, chatId) {
+  const rows = [];
+  const first = (order.items || []).find((i) => i && i.id);
+  const review = first ? siteUrl(chatId, { hash: 'p=' + first.id }) : '';
+  if (review) rows.push([urlBtn('⭐ Оставить отзыв', review)]);
+  rows.push([cbBtn('💬 Написать нам', 'support')]);
+  return { inline_keyboard: rows };
 }
 
 /* ---- edit helpers: сначала новое/edit, старое удаляем только после успеха ---- */
-async function sendWithMarkupFallback(chatId, { text, reply_markup, silent }) {
+async function sendWithMarkupFallback(chatId, { text, reply_markup, silent, effect }) {
+  /* Эффект (🎉 поверх сообщения) Telegram принимает не везде: только в личных
+     чатах и не на всех версиях. Не принял — шлём то же самое без эффекта,
+     а не теряем сообщение. На другие ошибки не повторяем, чтобы не задвоить. */
+  if (effect) {
+    try {
+      return await api('sendMessage', {
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        disable_notification: !!silent,
+        reply_markup,
+        message_effect_id: effect
+      });
+    } catch (e0) {
+      if (!/effect/i.test(String(e0.message || ''))) throw e0;
+      console.warn('TG effect skipped:', e0.message);
+    }
+  }
   try {
     return await api('sendMessage', {
       chat_id: chatId,
@@ -1611,7 +1718,7 @@ async function sendWithMarkupFallback(chatId, { text, reply_markup, silent }) {
   }
 }
 
-async function editOrReplace(chatId, messageId, { text, reply_markup, silent }) {
+async function editOrReplace(chatId, messageId, { text, reply_markup, silent, effect }) {
   if (messageId) {
     try {
       await api('editMessageText', {
@@ -1630,7 +1737,7 @@ async function editOrReplace(chatId, messageId, { text, reply_markup, silent }) 
   }
 
   try {
-    const sent = await sendWithMarkupFallback(chatId, { text, reply_markup, silent });
+    const sent = await sendWithMarkupFallback(chatId, { text, reply_markup, silent, effect });
     const id = sent && sent.message_id;
     /* старое убираем только когда новое уже в чате */
     if (id && messageId && +id !== +messageId) {
@@ -1771,7 +1878,7 @@ async function upsertCustomerOrderCard(order) {
 }
 
 /** Карточка владельца с кнопками управления (один чат). */
-async function upsertOwnerOrderCardForChat(chatId, order, { replaceMain = false, bump = false } = {}) {
+async function upsertOwnerOrderCardForChat(chatId, order, { replaceMain = false, bump = false, effect = null } = {}) {
   if (!order || !TOKEN() || !chatId) return;
 
   const text = formatOwnerOrder(order);
@@ -1780,7 +1887,9 @@ async function upsertOwnerOrderCardForChat(chatId, order, { replaceMain = false,
   const id = await editOrReplace(chatId, bump ? null : prev, {
     text,
     reply_markup: markup,
-    silent: !bump && !!prev
+    silent: !bump && !!prev,
+    /* эффект — только у первого сообщения о заказе, не на каждую правку */
+    effect: prev ? null : effect
   });
   if (id) setOwnerOrderMsgId(chatId, order.num, id);
   if (bump && prev && id && +prev !== +id) {
@@ -1824,17 +1933,11 @@ async function notifyCustomerOrder(order) {
     return;
   }
 
-  const url = siteUrl(chatId, { hash: 'orders' });
-  const markup = url
-    ? { inline_keyboard: [[urlBtn('🌐 На сайт', url)]] }
-    : undefined;
   try {
-    await api('sendMessage', {
-      chat_id: chatId,
+    await sendWithMarkupFallback(chatId, {
       text: formatDeliveredPush(order),
-      parse_mode: 'HTML',
-      disable_web_page_preview: true,
-      reply_markup: markup
+      reply_markup: deliveredMarkup(order, chatId),
+      effect: EFFECT_PARTY
     });
     markDeliveredPushed(order.num);
   } catch (e) {
@@ -1859,7 +1962,7 @@ async function notifyOwnerNewOrder(order) {
   const firstTime = !wasOwnerNotified(order.num);
   for (const chat of chats) {
     try {
-      await upsertOwnerOrderCardForChat(chat, order, { replaceMain: false });
+      await upsertOwnerOrderCardForChat(chat, order, { replaceMain: false, effect: firstTime ? EFFECT_PARTY : null });
     } catch (e) {
       console.error('TG owner notify', chat, e.message);
     }
@@ -1875,14 +1978,14 @@ async function notifyOwnerCancelled(order) {
   await upsertOwnerOrderCard(order);
   const paid = String(order.payStatus || order.pay_status || '') === 'paid';
   const who = escHtml(order.customerName || 'Покупатель');
-  const phone = order.phone ? escHtml(order.phone) : '';
+  const phone = order.phone ? escHtml(displayPhone(order.phone)) : '';
   const text = [
-    '❌ <b>Покупатель отменил заказ</b>',
-    `№${escHtml(String(order.num))} · ${money(order.price)}`,
+    '⚠️ <b>Покупатель отменил заказ</b>',
+    `<code>№${escHtml(String(order.num))}</code> · ${money(order.price)} · ${paid ? 'оплачен' : 'не оплачен'}`,
     '',
-    who,
-    phone,
-    paid ? '\nВерните деньги в течение дня.' : ''
+    [who, phone].filter(Boolean).join(' · '),
+    itemsQuote(order, { prices: false, max: 6 }),
+    paid ? '<b>Верните деньги в течение дня</b> — в кабинете ЮKassa.' : ''
   ].filter((line) => line !== '').join('\n');
   for (const chat of chats) {
     try {
@@ -3301,5 +3404,12 @@ module.exports = {
   shopHttps,
   sendText,
   siteUrl,
-  adminLinkCode
+  adminLinkCode,
+  /* оформление уведомлений — для предпросмотра и проверок */
+  formatCustomerOrder,
+  formatOwnerOrder,
+  formatDeliveredPush,
+  customerOrderMarkup,
+  ownerOrderMarkup,
+  deliveredMarkup
 };
