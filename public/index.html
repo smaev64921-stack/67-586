@@ -5836,6 +5836,42 @@ function ensureGis(){
   return gisLib;
 }
 
+/* ---------- Яндекс Карты: второй движок ----------
+   Бесплатная версия JavaScript API — до 500 загрузок карты в сутки, без
+   оплаты. Условия Яндекса: сайт открыт всем, логотип и кнопку «Открыть
+   в Картах» не прячем и не перекрываем (их рисует сам API, мы их не
+   трогаем). Порядок движков: 2ГИС, если его ключ живой → Яндекс, если
+   вписан ключ и API поднялся → OpenStreetMap. Не поднялся Яндекс (ключ не
+   тот, не вписан домен, кончился суточный лимит, нет сети) — молча
+   уходим на OpenStreetMap: пустая карта в оформлении дороже любой красоты. */
+const YMAPS_JS = 'https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey=';
+let ymapsLib = null, ymapsLoadedKey = '';
+function ymapsKey(){
+  try{ return String((CMS.maps && CMS.maps.yandex) || '').trim(); }catch(e){ return ''; }
+}
+function ensureYmaps(){
+  const key = ymapsKey();
+  if(!key) return Promise.reject(new Error('no-key'));
+  if(ymapsLib) return ymapsLib;
+  ymapsLib = new Promise((res, rej) => {
+    const ready = () => {
+      const ym = window.ymaps;
+      if(!ym || typeof ym.ready !== 'function') return rej(new Error('no-lib'));
+      ym.ready(() => res(ym), e => rej(e || new Error('ymaps')));
+    };
+    if(window.ymaps) return ready();
+    const js = document.createElement('script');
+    js.src = YMAPS_JS + encodeURIComponent(key);
+    ymapsLoadedKey = key;
+    js.onload = ready;
+    js.onerror = () => rej(new Error('offline'));
+    document.head.appendChild(js);
+    setTimeout(() => rej(new Error('timeout')), 9000);
+  });
+  ymapsLib.catch(() => { ymapsLib = null; });
+  return ymapsLib;
+}
+
 const MAP_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const MAP_JS  = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 let mapLib = null;
@@ -6053,8 +6089,9 @@ function cmapGo(lat, lng, z){
 }
 
 /* Карта курьера — тот же движок, что у пунктов выдачи: 2ГИС, если ключ
-   живой, иначе OpenStreetMap. Снаружи оба одинаковые — центр, перелёт,
-   «начали двигать» и «остановились», — остальной код не знает, какой. */
+   живой, потом Яндекс, если вписан его ключ, иначе OpenStreetMap. Снаружи
+   все одинаковые — центр, перелёт, «начали двигать» и «остановились», —
+   остальной код не знает, какой. */
 function cmapOsm(L, box, st, on){
   const m = L.map(box, {zoomControl:true, attributionControl:true});
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -6094,6 +6131,30 @@ function cmapGis(gl, box, st, on){
     zoom: () => m.getZoom(),
     go: (lat, lng, z) => { m.setCenter([lng, lat], {duration:350}); if(z) m.setZoom(z, {duration:350}); },
     resize: () => { try{ m.invalidateSize(); }catch(e){} },
+    destroy: () => m.destroy()
+  };
+}
+
+function cmapYm(ym, box, st, on){
+  const m = new ym.Map(box, {
+    center: [st.lat, st.lng],
+    zoom: st.z,
+    controls: ['zoomControl']
+  }, {
+    /* человек ищет свой дом, а не кафе рядом: карточки организаций
+       по нажатию только уводили бы со страницы */
+    yandexMapDisablePoiInteractivity: true
+  });
+  /* «Остановились» — boundschange: приходит и после перетаскивания, и
+     после нашего же перелёта; свой перелёт отсекает cmapGoal. */
+  m.events.add('actionbegin', on.start);
+  m.events.add('boundschange', on.end);
+  return {
+    kind: 'ym',
+    center: () => { const c = m.getCenter(); return {lat:c[0], lng:c[1]}; },
+    zoom: () => m.getZoom(),
+    go: (lat, lng, z) => m.setCenter([lat, lng], z || m.getZoom(), {duration:300}),
+    resize: () => { try{ m.container.fitToViewport(); }catch(e){} },
     destroy: () => m.destroy()
   };
 }
@@ -6144,23 +6205,37 @@ function mountCourierMap(){
     cmap = cmapOsm(L, box, st, on);
     ready();
   }).catch(fail);
+  /* после 2ГИС — Яндекс, если вписан его ключ; не поднялся — OpenStreetMap */
+  const ymOrOsm = () => {
+    if(!alive()) return;
+    if(!ymapsKey()) return osm();
+    return ensureYmaps().then(ym => {
+      if(!alive()) return;
+      box.innerHTML = '';
+      cmap = cmapYm(ym, box, st, on);
+      ready();
+    }, () => {
+      console.warn('Яндекс Карты не поднялись — карта адреса рисуется на OpenStreetMap');
+      osm();
+    });
+  };
   const key = dgisKey();
   (key ? gisKeyReady(key) : Promise.resolve(false)).then(ok => {
     if(!alive()) return;
-    if(!ok) return osm();
+    if(!ok) return ymOrOsm();
     return ensureGis().then(gl => {
       if(!alive()) return;
       box.innerHTML = '';
       cmap = cmapGis(gl, box, st, on);
       ready();
       /* Ключ не приняли — 2ГИС не падает, а рисует в контейнере свою
-         чёрную плашку. Тогда, как и у пунктов, уходим на OpenStreetMap. */
+         чёрную плашку. Тогда, как и у пунктов, уходим на следующую карту. */
       gisWatchBroken(box, () => alive() && !!cmap && cmap.kind === 'gis', () => {
         try{ cmap.destroy(); }catch(e){}
         cmap = null;
-        osm();
+        ymOrOsm();
       });
-    }, osm);
+    }, ymOrOsm);
   }).catch(fail);
 }
 
@@ -6490,10 +6565,10 @@ function mountDeliveryMap(){
   if(!document.getElementById('pvzMap')) return;
   /* Владелец мог только что вписать или стереть ключ — тогда карту
      надо строить другим движком, а не подновлять старую. */
-  const key = dgisKey();
+  const key = dgisKey() + '|' + ymapsKey();
   if(mountedWithKey !== key){
     mountedWithKey = key;
-    dropGisMap(); dropOsmMap();
+    dropGisMap(); dropYmapMap(); dropOsmMap();
   }
   pvzPaint();
   if(pvzView.points.length){ pvzDrawMap(); return; }
@@ -6575,6 +6650,8 @@ let pvzView = {
 };
 let pvzMap = null, pvzLayer = null;          // Leaflet
 let gisMap = null, gisMarks = [], gisBox = null;   // 2ГИС
+let ymMap = null, ymBox = null;                     // Яндекс
+const ymLayouts = new Map();                        // разметка меток Яндекса по HTML
 let mountedWithKey = null;
 let pvzSearchTimer = null;
 
@@ -6913,6 +6990,10 @@ function dropGisMap(){
   if(gisMap){ try{ gisMap.destroy(); }catch(e){} }
   gisMap = null; gisBox = null;
 }
+function dropYmapMap(){
+  if(ymMap){ try{ ymMap.destroy(); }catch(e){} }
+  ymMap = null; ymBox = null;
+}
 
 /* Годен ли ключ. У 2ГИС для этого есть свой адрес — тот самый, куда
    ходит их библиотека: 404 — такого нет, 400 — вписали не ключ.
@@ -6969,17 +7050,23 @@ function pvzDrawMap(opts){
   if(!list.length){ box.innerHTML = '<span class="pvz__map-s">Нет точек для показа</span>'; return; }
   const plan = pvzPinPlan(list);
   const key = dgisKey();
-  if(!key) return drawOsmMap(box, plan, opts);
+  if(!key) return pvzFallbackDraw(box, plan, opts);
   gisKeyReady(key).then(ok => {
     if(document.getElementById('pvzMap') !== box) return;
     if(ok) drawGisMap(box, plan, opts);
-    else drawOsmMap(box, plan, opts);
+    else pvzFallbackDraw(box, plan, opts);
   });
+}
+
+/** Следующая карта после 2ГИС: Яндекс, если вписан его ключ, иначе OpenStreetMap. */
+function pvzFallbackDraw(box, plan, opts){
+  if(ymapsKey()) drawYmapMap(box, plan, opts);
+  else drawOsmMap(box, plan, opts);
 }
 
 /* ---------- 2ГИС ---------- */
 function drawGisMap(box, plan, opts){
-  dropOsmMap();
+  dropOsmMap(); dropYmapMap();
   ensureGis().then(gl => {
     if(document.getElementById('pvzMap') !== box) return;
     /* render() подменяет весь экран, и прежний контейнер уходит из
@@ -7033,15 +7120,15 @@ function drawGisMap(box, plan, opts){
     gisWatchBroken(box, () => !!gisMap && gisBox === box, () => {
       dropGisMap();
       box.innerHTML = '';
-      drawOsmMap(box, plan, opts);
+      pvzFallbackDraw(box, plan, opts);
     });
   }).catch(() => {
     /* Ключ не подошёл, лимит выбран или библиотека не догрузилась —
-       рисуем на OpenStreetMap, чтобы человек всё равно выбрал пункт. */
-    console.warn('2ГИС не поднялся — рисуем на OpenStreetMap');
+       рисуем следующую карту, чтобы человек всё равно выбрал пункт. */
+    console.warn('2ГИС не поднялся — рисуем запасную карту');
     dropGisMap();
     const b = document.getElementById('pvzMap');
-    if(b) drawOsmMap(b, plan, opts);
+    if(b) pvzFallbackDraw(b, plan, opts);
   });
 }
 
@@ -7099,8 +7186,82 @@ function gisFit(plan){
 }
 
 /* ---------- OpenStreetMap, запасной ---------- */
+/* ---------- Яндекс ---------- */
+/* Метка Яндекса — та же разметка, что у Leaflet и 2ГИС (pvzPinHTML), чтобы
+   карта не менялась в лице. Класс разметки создаём один раз на HTML. */
+/* Шаблоны Яндекса понимают свои вставки $[…] и {{ … }} / {% … %}. В адресе
+   пункта таких знаков быть не должно, но если окажутся — показываем их как
+   текст: «$» и «{» меняем на HTML-сущности, браузер нарисует их как обычно. */
+const ymSafe = html => String(html).replace(/\$/g, () => '&#36;').replace(/\{/g, () => '&#123;');
+function ymPinLayout(ym, html, half){
+  const k = half + '|' + html;
+  if(!ymLayouts.has(k)){
+    ymLayouts.set(k, ym.templateLayoutFactory.createClass(
+      `<div class="pvz__pin-w" style="position:absolute;left:-${half}px;top:-${half}px;` +
+      `width:${half * 2}px;height:${half * 2}px">${ymSafe(html)}</div>`));
+  }
+  return ymLayouts.get(k);
+}
+function ymFit(plan){
+  const pts = plan.frame;
+  if(!pts.length || !ymMap) return;
+  const maxZ = pvzView.me ? 15 : 16;
+  if(pts.length === 1){
+    ymMap.setCenter([pts[0].lat, pts[0].lng], 15);
+    return;
+  }
+  const lats = pts.map(p => p.lat), lngs = pts.map(p => p.lng);
+  const m = ymMap;
+  m.setBounds([[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+    {checkZoomRange:true, zoomMargin:36})
+    .then(() => { if(ymMap === m && m.getZoom() > maxZ) m.setZoom(maxZ); }, () => {});
+}
+function drawYmapMap(box, plan, opts){
+  dropGisMap(); dropOsmMap();
+  ensureYmaps().then(ym => {
+    if(document.getElementById('pvzMap') !== box) return;
+    /* render() подменяет весь экран, и прежний контейнер уходит из
+       документа вместе с картой. Сравниваем узлы, а не флаги. */
+    if(ymMap && (ymBox !== box || !document.body.contains(box))) dropYmapMap();
+    if(!ymMap){
+      box.innerHTML = '';
+      const c = plan.frame[0] || plan.items[0].p;
+      ymMap = new ym.Map(box, {center:[c.lat, c.lng], zoom:12, controls:['zoomControl']},
+        {yandexMapDisablePoiInteractivity:true});
+      ymBox = box;
+    }
+    ymMap.geoObjects.removeAll();
+    plan.items.forEach(it => {
+      const half = it.big ? 13 : 6;
+      const pm = new ym.Placemark([it.p.lat, it.p.lng], {hintContent: it.p.addr}, {
+        iconLayout: ymPinLayout(ym, pvzPinHTML(it), half),
+        iconShape: {type:'Circle', coordinates:[0, 0], radius: half + 4},
+        zIndex: it.big ? 400 : 0,
+        zIndexHover: 500
+      });
+      pm.events.add('click', () => pvzPick(it.p.code));
+      ymMap.geoObjects.add(pm);
+    });
+    if(pvzView.me){
+      ymMap.geoObjects.add(new ym.Placemark([pvzView.me.lat, pvzView.me.lng], {hintContent:'Вы здесь'}, {
+        iconLayout: ymPinLayout(ym, '<span class="pvz__me" aria-label="Вы здесь"></span>', 8),
+        iconShape: {type:'Circle', coordinates:[0, 0], radius: 8},
+        zIndex: 600
+      }));
+    }
+    if(!(opts && opts.keepView)) ymFit(plan);
+  }).catch(() => {
+    /* Ключ не тот, домен не вписан в ключ, кончился суточный лимит или
+       нет сети — человек всё равно выбирает пункт, на OpenStreetMap. */
+    console.warn('Яндекс Карты не поднялись — рисуем на OpenStreetMap');
+    dropYmapMap();
+    const b = document.getElementById('pvzMap');
+    if(b) drawOsmMap(b, plan, opts);
+  });
+}
+
 function drawOsmMap(box, plan, opts){
-  dropGisMap();
+  dropGisMap(); dropYmapMap();
   ensureMap().then(L => {
     if(document.getElementById('pvzMap') !== box) return;
     if(pvzMap && !document.body.contains(pvzMap.getContainer())) dropOsmMap();
@@ -18841,11 +19002,20 @@ function viewContent(){
       <label class="ad__l">Ключ 2ГИС</label>
       <input class="ad__f" id="mapKey" value="${esc((CMS.maps && CMS.maps.dgis) || '')}"
         placeholder="вставьте ключ с platform.2gis.ru" autocomplete="off">
-      <p class="ad__m" style="margin-top:10px">С ключом карта в оформлении рисуется на 2ГИС.
-        Без ключа — на OpenStreetMap: пункты и выбор работают одинаково, отличается только сама карта.
-        Ключ берётся бесплатно на platform.2gis.ru → «Создать демо-ключ», нужен доступ к Map Tiles API.</p>
+      <p class="ad__m" style="margin-top:10px">С живым ключом карта в оформлении рисуется на 2ГИС.
+        Ключ 2ГИС — только по платной подписке на platform.2gis.ru (Map Tiles API), бесплатный
+        демо-ключ живёт 30 дней и второй раз не выдаётся.</p>
       <p class="ad__m" id="mapKeySt" aria-live="polite">${(CMS.maps && CMS.maps.dgis)
         ? 'Проверяем ключ у 2ГИС…' : 'Ключа нет — карта рисуется на OpenStreetMap.'}</p>
+      <label class="ad__l" style="margin-top:16px">Ключ Яндекс Карт</label>
+      <input class="ad__f" id="mapKeyY" value="${esc((CMS.maps && CMS.maps.yandex) || '')}"
+        placeholder="ключ JavaScript API из кабинета Яндекса" autocomplete="off">
+      <p class="ad__m" style="margin-top:10px">Бесплатная версия Яндекс Карт — до 500 загрузок карты в сутки.
+        Ключ: кабинет API Яндекс Карт → JavaScript API → бесплатная версия. В настройках ключа
+        в «Ограничение по HTTP Referer» впишите luxecanvas.ru — без этого Яндекс ключ не примет.
+        Порядок карт в оформлении: 2ГИС (если его ключ работает) → Яндекс → OpenStreetMap.</p>
+      <p class="ad__m" id="mapKeyYSt" aria-live="polite">${(CMS.maps && CMS.maps.yandex)
+        ? 'Проверяем ключ Яндекса…' : 'Ключа нет — после 2ГИС карта рисуется на OpenStreetMap.'}</p>
     </div>
 
     <div class="ad__box" style="margin-top:12px">
@@ -19316,6 +19486,39 @@ function bindAdminView(){
     paintKey();
     mapKeyIn.addEventListener('change', paintKey);
   }
+  /* Ключ Яндекса проверяем по-настоящему: поднимаем сам API. Отдельного
+     адреса проверки, как у 2ГИС, у Яндекса нет. Скрипт на страницу встаёт
+     один раз, поэтому новый ключ проверится после сохранения и обновления. */
+  const ymSt = document.getElementById('mapKeyYSt');
+  const ymIn = document.getElementById('mapKeyY');
+  if(ymSt && ymIn){
+    const idle = () => {
+      ymSt.style.color = '';
+      ymSt.textContent = ymIn.value.trim()
+        ? 'Сохраните контент — ключ проверим после сохранения.'
+        : 'Ключа нет — после 2ГИС карта рисуется на OpenStreetMap.';
+    };
+    const k = ymIn.value.trim();
+    if(!k || k !== ymapsKey()) idle();
+    else if(window.ymaps && ymapsLoadedKey && ymapsLoadedKey !== k){
+      ymSt.style.color = '';
+      ymSt.textContent = 'Ключ сохранён. Обновите страницу, чтобы его проверить.';
+    } else {
+      ymSt.style.color = '';
+      ymSt.textContent = 'Проверяем ключ Яндекса…';
+      ensureYmaps().then(() => {
+        if(document.getElementById('mapKeyY') !== ymIn) return;
+        ymSt.innerHTML = '<b>Ключ работает</b> — Яндекс Карты загружаются.';
+        ymSt.style.color = 'var(--ok)';
+      }, () => {
+        if(document.getElementById('mapKeyY') !== ymIn) return;
+        ymSt.innerHTML = '<b>Яндекс не принял ключ</b> или не ответил. Проверьте, что в настройках ключа ' +
+          'в «Ограничение по HTTP Referer» есть luxecanvas.ru. Пока карта рисуется на OpenStreetMap.';
+        ymSt.style.color = 'var(--danger)';
+      });
+    }
+    ymIn.addEventListener('input', idle);
+  }
   /* таблицы размеров */
   const szNew = document.getElementById('aSzNew');
   if(szNew) szNew.onclick = () => szForm(null);
@@ -19572,6 +19775,8 @@ function bindAdminView(){
        поэтому здесь пустая строка перезаписывает, а не сохраняет старое. */
     if(!CMS.maps) CMS.maps = {};
     CMS.maps.dgis = document.getElementById('mapKey').value.trim();
+    const ymKeyIn = document.getElementById('mapKeyY');
+    if(ymKeyIn) CMS.maps.yandex = ymKeyIn.value.trim();
     CMS.shipping.pickup   = num('shP', CMS.shipping.pickup);
     CMS.shipping.courier  = num('shC', CMS.shipping.courier);
     CMS.shipping.freeFrom = num('shF', CMS.shipping.freeFrom);
