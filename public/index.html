@@ -13245,6 +13245,26 @@ function render(keepScroll){
    следующий заход начинается заново. */
 let dlvOpen = false;
 const HIST = [];
+/* Где человек был на каждом экране, с которого ушёл вперёд: «Назад»
+   возвращает туда же, а не в самый верх. Раньше история знала только
+   название экрана, и каталог после карточки товара каждый раз открывался
+   с первой строки — листай заново. */
+const SCROLL_MEM = {};
+/* Прокруткой управляет само приложение: render(), «Назад» и восстановление
+   места после перезагрузки (persistPlace). Браузер же при переходе по
+   истории — а «Назад» съедает нашу запасную запись — ставил свою прокрутку,
+   записанную в истории, то есть ноль, уже ПОСЛЕ нашей. Отсюда «каталог
+   перекидывает в самый верх». Говорим браузеру не вмешиваться. */
+try{ if('scrollRestoration' in history) history.scrollRestoration = 'manual'; }catch(e){}
+function restoreScrollY(y){
+  if(!(y > 0)) return;
+  window.scrollTo(0, y);
+  /* карточки держат размер сами (рамка фото с пропорцией), высота страницы
+     известна сразу; на следующем кадре проверяем ещё раз — после шрифтов */
+  requestAnimationFrame(() => {
+    if(Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y);
+  });
+}
 /* Пока сердечко на фото в кадре — второе не нужно.
    Ушло из кадра — показываем то, что рядом с «В корзину». */
 let favObserver = null;
@@ -13424,7 +13444,10 @@ function go(screen){
     authModal(S.authMode === 'reg' ? 'reg' : 'log');
     return;
   }
-  if(screen !== S.screen) HIST.push(S.screen);
+  if(screen !== S.screen){
+    SCROLL_MEM[S.screen] = window.scrollY || 0;
+    HIST.push(S.screen);
+  }
   S.screen = screen;
   if(S.mini === screen) S.mini = null;
   _restoreScroll = 0;
@@ -13579,7 +13602,10 @@ function back(){
   S.screen = HIST.pop() || 'catalog';
   _restoreScroll = 0;
   _restoreGal = 0;
+  const y = SCROLL_MEM[S.screen] || 0;
   render();
+  /* туда же, где был: render() ставит экран в начало, возвращаем место */
+  restoreScrollY(y);
   persistPlace();
   if(S.screen === 'orders') refreshMyOrders(true);
   if(S.screen === 'profile') refreshMyOrders(true);
