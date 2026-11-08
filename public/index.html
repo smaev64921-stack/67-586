@@ -5849,25 +5849,42 @@ let ymapsLib = null, ymapsLoadedKey = '';
 function ymapsKey(){
   try{ return String((CMS.maps && CMS.maps.yandex) || '').trim(); }catch(e){ return ''; }
 }
+/* Перед загрузкой спрашиваем сервер, не выбран ли сегодняшний лимит:
+   бесплатный тариф — 100 загрузок API в сутки, за регулярное превышение
+   Яндекс блокирует ключ навсегда (счёт ведёт server/ymaps-quota.js).
+   Нет такого адреса (сервер старее страницы) — не мешаем загрузке. */
+async function ymapsSlot(){
+  try{
+    const r = await fetch('/api/maps/yandex-slot', {method:'POST', cache:'no-store'});
+    if(r.status === 404) return true;
+    if(!r.ok) return false;
+    const j = await r.json();
+    return !!(j && j.ok);
+  }catch(e){ return false; }
+}
 function ensureYmaps(){
   const key = ymapsKey();
   if(!key) return Promise.reject(new Error('no-key'));
   if(ymapsLib) return ymapsLib;
-  ymapsLib = new Promise((res, rej) => {
-    const ready = () => {
-      const ym = window.ymaps;
-      if(!ym || typeof ym.ready !== 'function') return rej(new Error('no-lib'));
-      ym.ready(() => res(ym), e => rej(e || new Error('ymaps')));
-    };
-    if(window.ymaps) return ready();
-    const js = document.createElement('script');
-    js.src = YMAPS_JS + encodeURIComponent(key);
-    ymapsLoadedKey = key;
-    js.onload = ready;
-    js.onerror = () => rej(new Error('offline'));
-    document.head.appendChild(js);
-    setTimeout(() => rej(new Error('timeout')), 9000);
-  });
+  ymapsLib = (async () => {
+    /* API уже на странице — новой загрузки не будет, квоту не тратим */
+    if(!window.ymaps && !(await ymapsSlot())) throw new Error('quota');
+    return new Promise((res, rej) => {
+      const ready = () => {
+        const ym = window.ymaps;
+        if(!ym || typeof ym.ready !== 'function') return rej(new Error('no-lib'));
+        ym.ready(() => res(ym), e => rej(e || new Error('ymaps')));
+      };
+      if(window.ymaps) return ready();
+      const js = document.createElement('script');
+      js.src = YMAPS_JS + encodeURIComponent(key);
+      ymapsLoadedKey = key;
+      js.onload = ready;
+      js.onerror = () => rej(new Error('offline'));
+      document.head.appendChild(js);
+      setTimeout(() => rej(new Error('timeout')), 9000);
+    });
+  })();
   ymapsLib.catch(() => { ymapsLib = null; });
   return ymapsLib;
 }
@@ -19010,7 +19027,9 @@ function viewContent(){
       <label class="ad__l" style="margin-top:16px">Ключ Яндекс Карт</label>
       <input class="ad__f" id="mapKeyY" value="${esc((CMS.maps && CMS.maps.yandex) || '')}"
         placeholder="ключ JavaScript API из кабинета Яндекса" autocomplete="off">
-      <p class="ad__m" style="margin-top:10px">Бесплатная версия Яндекс Карт — до 500 загрузок карты в сутки.
+      <p class="ad__m" style="margin-top:10px">Бесплатный тариф Яндекс Карт — 100 загрузок карты в сутки. Сайт сам
+        считает загрузки и после 90 до полуночи рисует OpenStreetMap: за регулярное превышение Яндекс
+        блокирует ключ навсегда.
         Ключ: кабинет API Яндекс Карт → JavaScript API → бесплатная версия. В настройках ключа
         в «Ограничение по HTTP Referer» впишите luxecanvas.ru — без этого Яндекс ключ не примет.
         Порядок карт в оформлении: 2ГИС (если его ключ работает) → Яндекс → OpenStreetMap.</p>
@@ -19510,8 +19529,14 @@ function bindAdminView(){
         if(document.getElementById('mapKeyY') !== ymIn) return;
         ymSt.innerHTML = '<b>Ключ работает</b> — Яндекс Карты загружаются.';
         ymSt.style.color = 'var(--ok)';
-      }, () => {
+      }, e => {
         if(document.getElementById('mapKeyY') !== ymIn) return;
+        if(e && e.message === 'quota'){
+          ymSt.innerHTML = '<b>Сегодняшний лимит Яндекса выбран</b> — бесплатно 100 загрузок карты в сутки. ' +
+            'До полуночи по Москве карта рисуется на OpenStreetMap, завтра Яндекс вернётся сам.';
+          ymSt.style.color = 'var(--muted)';
+          return;
+        }
         ymSt.innerHTML = '<b>Яндекс не принял ключ</b> или не ответил. Проверьте, что в настройках ключа ' +
           'в «Ограничение по HTTP Referer» есть luxecanvas.ru. Пока карта рисуется на OpenStreetMap.';
         ymSt.style.color = 'var(--danger)';

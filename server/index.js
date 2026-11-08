@@ -376,6 +376,20 @@ app.get('/api/health', (_req, res) => {
   res.json(healthPayload());
 });
 
+/* Яндекс Карты: можно ли поднять их API ещё раз сегодня. Бесплатный тариф —
+   100 загрузок в сутки, за регулярное превышение ключ блокируют навсегда;
+   счёт и лимит — в ymaps-quota.js. «Нет» — витрина рисует OpenStreetMap. */
+app.post('/api/maps/yandex-slot', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  let ok = false;
+  try {
+    ok = require('./ymaps-quota').take().ok;
+  } catch (_) {
+    ok = false;
+  }
+  res.json({ ok });
+});
+
 /* -------- отпечаток данных для «живого» опроса --------
    Витрина раньше раз в секунду качала весь каталог и раз в пять — всю CMS
    вместе с фото, просто чтобы сравнить и почти всегда ничего не менять.
