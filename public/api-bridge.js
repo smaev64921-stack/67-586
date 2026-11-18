@@ -423,10 +423,11 @@
     orderToken(num) {
       try { return sessionStorage.getItem('lc_ord_t_' + num) || localStorage.getItem('lc_ord_t_' + num) || ''; } catch (e) { return ''; }
     },
-    async payOrder(num, accessToken) {
+    async payOrder(num, accessToken, payMethod) {
       const d = await api('/api/orders/' + encodeURIComponent(num) + '/pay', {
         method: 'POST',
-        body: { accessToken: accessToken || '' }
+        /* payMethod — способ, выбранный на шаге оплаты; '' — как было */
+        body: { accessToken: accessToken || '', payMethod: payMethod || '' }
       });
       if (d && d.orderAccessToken) this.rememberOrderToken(num, d.orderAccessToken);
       return d;

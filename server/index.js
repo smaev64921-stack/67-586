@@ -383,7 +383,7 @@ app.get('/api/health', (_req, res) => {
 
 /* Яндекс Карты: можно ли поднять их API ещё раз сегодня. Бесплатный тариф —
    100 загрузок в сутки, за регулярное превышение ключ блокируют навсегда;
-   счёт и лимит — в ymaps-quota.js. «Нет» — витрина рисует OpenStreetMap. */
+   счёт и лимит — в ymaps-quota.js. «Нет» — карты нет, пункты списком. */
 app.post('/api/maps/yandex-slot', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   let ok = false;
@@ -1244,7 +1244,9 @@ app.post('/api/orders/:num/pay', authOptional, async (req, res) => {
       req.params.num,
       req.user,
       accessToken,
-      shopUrlFromRequest(req)
+      shopUrlFromRequest(req),
+      /* способ, выбранный на шаге оплаты заказа; пусто — как было */
+      req.body && req.body.payMethod
     );
     res.json(result && result.order ? Object.assign({}, result, { order: media.orderToPublic(result.order) }) : result);
   } catch (e) {

@@ -1071,6 +1071,17 @@ function amountsMatch(payment, order) {
 
 function markPaid(order, paymentId, payment) {
   if (!order) return order;
+  /* Заказ уже оплачен ДРУГИМ платежом. Так бывает, если покупатель сменил
+     способ оплаты, а прежний платёж всё-таки прошёл: денег пришло вдвое.
+     Заказ второй раз не трогаем, а владельцу — тревога: лишнее вернуть. */
+  if (paymentId) {
+    const cur = db.prepare('SELECT pay_status, yookassa_id FROM orders WHERE id = ?').get(order.id);
+    if (cur && cur.pay_status === 'paid' && cur.yookassa_id && cur.yookassa_id !== paymentId) {
+      pushPaymentAnomaly('Заказ уже оплачен другим платежом — этот лишний. Верните деньги покупателю в кабинете ЮKassa.',
+        payment || { id: paymentId }, order);
+      return rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id)) || order;
+    }
+  }
   /* Чем заплатили на самом деле («Карта Мир •• 4242», «СБП») — покупателю
      на экранах заказа и владельцу в Telegram. Выбор на сайте тут не в
      счёт: на странице ЮKassa человек мог взять другой способ. */
@@ -1224,7 +1235,10 @@ async function syncPaymentStatus(num) {
  * Актуальная ссылка на оплату: живой pending — та же,
  * истекший/отменённый платёж — новый, succeeded — помечаем оплаченным.
  */
-async function ensurePayment(num, user, accessToken, publicUrl) {
+async function ensurePayment(num, user, accessToken, publicUrl, method) {
+  /* Способ, который покупатель выбрал на шаге оплаты готового заказа.
+     Пусто — не выбирал (старая кнопка «Оплатить»): годится любой. */
+  const want = payMethodType(method);
   await settleOverdueOrder(num);
   const row = db.prepare('SELECT * FROM orders WHERE num = ?').get(String(num || ''));
   if (!row) throw Object.assign(new Error('Заказ не найден'), { status: 404 });
@@ -1260,7 +1274,11 @@ async function ensurePayment(num, user, accessToken, publicUrl) {
     }
     const liveUrl = payment && payment.status === 'pending'
       && payment.confirmation && payment.confirmation.confirmation_url;
-    if (liveUrl) {
+    /* Вернулся со страницы ЮKassa и выбрал другой способ — прежняя ссылка
+       открыла бы старый способ. Тогда создаём новый платёж (ниже), а
+       прежний ЮKassa закроет сама, когда истечёт его срок. */
+    const sameWay = !want || want === ((payment && payment.payment_method && payment.payment_method.type) || '');
+    if (liveUrl && sameWay) {
       if (liveUrl !== row.confirmation_url) {
         db.prepare(`
           UPDATE orders SET confirmation_url = ?, updated_at = datetime('now') WHERE id = ?
@@ -1290,7 +1308,8 @@ async function ensurePayment(num, user, accessToken, publicUrl) {
     phone: row.phone,
     items,
     discount: row.discount,
-    ship: row.ship
+    ship: row.ship,
+    method: want
   }));
   const confUrl = payment.confirmation && payment.confirmation.confirmation_url;
   if (!confUrl) {
