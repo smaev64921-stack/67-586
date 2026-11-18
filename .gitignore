@@ -23,6 +23,7 @@ data/errors.log
 data/errors.log.1
 data/backups/
 data/otp-providers.json
+data/ymaps-quota.json
 .env
 .DS_Store
 *.log

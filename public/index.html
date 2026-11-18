@@ -4536,6 +4536,14 @@ textarea.ad__f{resize:vertical;min-height:88px;line-height:1.5}
 .cmap__sug span{font-size:12px;color:var(--muted);line-height:1.35}
 .cmap__sug p{margin:0;padding:12px 14px;font-size:12.5px;color:var(--muted)}
 .pvz__map-s{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;padding:0 20px}
+/* «Карта не загрузилась» / «Загружаем карту…» — поверх пустой карты,
+   выше булавки курьерской карты */
+.mapfail{position:absolute;inset:0;z-index:700;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;background:var(--photo);animation:fadeIn .3s var(--ease) both}
+.mapfail__b{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:var(--r-pill);
+  background:var(--ink);color:#fff;font-size:13px;font-weight:600;transition:transform var(--dur) var(--ease)}
+.mapfail__b .ic{width:15px;height:15px}
+.mapfail__b:active{transform:scale(.96)}
 /* Поиск города — поле во всю ширину со значком внутри. Кнопка «Найти»
    рядом отъедала треть строки на телефоне, и название города не влезало;
    ищем по вводу и по Enter, нажимать нечего. */
@@ -6283,19 +6291,35 @@ function ensureYmaps(){
     /* API уже на странице — новой загрузки не будет, квоту не тратим */
     if(!window.ymaps && !(await ymapsSlot())) throw new Error('quota');
     return new Promise((res, rej) => {
+      let done = false, tries = 0;
+      const ok = ym => { if(!done){ done = true; res(ym); } };
+      const no = e => { if(!done){ done = true; rej(e); } };
       const ready = () => {
         const ym = window.ymaps;
-        if(!ym || typeof ym.ready !== 'function') return rej(new Error('no-lib'));
-        ym.ready(() => res(ym), e => rej(e || new Error('ymaps')));
+        if(!ym || typeof ym.ready !== 'function') return no(new Error('no-lib'));
+        ym.ready(() => ok(ym), e => no(e || new Error('ymaps')));
       };
       if(window.ymaps) return ready();
-      const js = document.createElement('script');
-      js.src = YMAPS_JS + encodeURIComponent(key);
       ymapsLoadedKey = key;
-      js.onload = ready;
-      js.onerror = () => rej(new Error('offline'));
-      document.head.appendChild(js);
-      setTimeout(() => rej(new Error('timeout')), 9000);
+      /* Сеть мигнула (с VPN и на мобильном интернете бывает) — ещё одна
+         попытка через 2 секунды. Загрузку из квоты на неё не берём:
+         оборвавшийся запрос до Яндекса, как правило, не доходит, а редкий
+         дошедший покрывает запас: стоп на 90 из 100 разрешённых. */
+      const load = () => {
+        tries++;
+        const js = document.createElement('script');
+        js.src = YMAPS_JS + encodeURIComponent(key);
+        js.onload = ready;
+        js.onerror = () => {
+          js.remove();
+          if(done) return;
+          if(tries < 2) setTimeout(load, 2000);
+          else no(new Error('offline'));
+        };
+        document.head.appendChild(js);
+      };
+      load();
+      setTimeout(() => no(new Error('timeout')), 14000);
     });
   })();
   ymapsLib.catch(() => { ymapsLib = null; });
@@ -6556,8 +6580,8 @@ function mountCourierMap(){
   const ready = () => {
     if(st.me && !String(S.checkout.courier.street || '').trim()) cmapLookup(st.lat, st.lng);
   };
-  const fail = () => {
-    if(alive()) box.innerHTML = '<span class="pvz__map-s">Карта не загрузилась — впишите адрес в поля ниже.</span>';
+  const fail = err => {
+    if(alive()) box.innerHTML = mapFailHTML('Карта не загрузилась — впишите адрес в поля ниже.', err);
   };
   /* Только Яндекс: не поднялся — карты нет, адрес вписывают в поля */
   if(!ymapsKey()){ fail(); return; }
@@ -7304,9 +7328,22 @@ function pvzPinHTML(it){
     : `<button type="button" class="pvz__pin pvz__pin--dot" aria-label="${esc(it.p.addr)}"></button>`;
 }
 
-function pvzMapFail(text){
+/* «Карта не загрузилась» поверх пустой карты. Кнопка «Повторить» — когда
+   повтор может помочь: ключ есть и суточный лимит не выбран (тогда дело
+   в сети). Вернулась сеть — карта поднимается сама, без нажатия. */
+function mapFailHTML(text, err){
+  const again = !!ymapsKey() && !(err && err.message === 'quota');
+  return `<div class="mapfail"><span class="pvz__map-s">${esc(text)}</span>${again
+    ? `<button type="button" class="mapfail__b" data-a="ymretry">${svg('refresh','ic ic--sm')} Повторить</button>` : ''}</div>`;
+}
+const MAP_LOADING = '<div class="mapfail"><span class="pvz__map-s">Загружаем карту…</span></div>';
+window.addEventListener('online', () => {
+  const b = document.querySelector('.mapfail__b');
+  if(b) b.click();
+});
+function pvzMapFail(text, err){
   const b = document.getElementById('pvzMap');
-  if(b) b.innerHTML = `<span class="pvz__map-s">${esc(text)}</span>`;
+  if(b) b.innerHTML = mapFailHTML(text, err);
 }
 
 /** Снести карту, если она осталась с прошлого раза. */
@@ -7390,12 +7427,12 @@ function drawYmapMap(box, plan, opts){
       }));
     }
     if(!(opts && opts.keepView)) ymFit(plan);
-  }).catch(() => {
+  }).catch(err => {
     /* Ключ не тот, домен не вписан в ключ, кончился суточный лимит или
        нет сети — карты нет, пункт выбирают списком под ней. */
-    console.warn('Яндекс Карты не поднялись — пункты выдачи только списком');
+    console.warn('Яндекс Карты не поднялись — пункты выдачи только списком', err && err.message);
     dropYmapMap();
-    if(document.getElementById('pvzMap') === box) pvzMapFail(PVZ_NO_MAP);
+    if(document.getElementById('pvzMap') === box) pvzMapFail(PVZ_NO_MAP, err);
   });
 }
 
@@ -17175,6 +17212,23 @@ document.addEventListener('click', e => {
     case 'track':
       openTrack(a);
       break;
+    /* «Повторить» под «Карта не загрузилась»: заново поднимаем ту карту, где нажали */
+    case 'ymretry': {
+      const pv = document.getElementById('pvzMap');
+      if(pv && pv.contains(el)){
+        dropYmapMap();
+        pv.innerHTML = MAP_LOADING;
+        pvzDrawMap();
+        break;
+      }
+      const co = document.getElementById('coMap');
+      if(co && co.contains(el)){
+        dropCourierMap();
+        co.innerHTML = MAP_LOADING;
+        mountCourierMap();
+      }
+      break;
+    }
     case 'trkcopy': {
       let code = '';
       try{ code = decodeURIComponent(a || ''); }catch(_){ code = a || ''; }
