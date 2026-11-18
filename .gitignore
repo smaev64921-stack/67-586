@@ -17,6 +17,7 @@ data/seeded.json
 data/vapid.json
 data/server-secret
 data/pvz-cdek.json
+data/ru-nets.json
 data/auth.log
 data/errors.log
 data/errors.log.1

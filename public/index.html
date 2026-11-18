@@ -714,7 +714,22 @@ s{color:var(--muted2)}
 .scr.quiet .pm,
 .scr.quiet .home__mark,
 .scr.quiet .hs,
-.scr.quiet .ft{animation:none !important}
+.scr.quiet .ft,
+.scr.quiet .ckx__card,
+.scr.quiet .thx__t,
+.scr.quiet .thx__num,
+.scr.quiet .thx__s,
+.scr.quiet .thx__card,
+.scr.quiet .thx__bg,
+.scr.quiet .thx__ck,
+.scr.quiet .thx__ring,
+.scr.quiet .thx__dot,
+.scr.quiet .trk__st .trk__dot,
+.scr.quiet .trk__ln i,
+.scr.quiet .trk__ev,
+.scr.quiet .trk__ev .trk__m::after{animation:none !important}
+/* живое обновление экрана «Готово» не рисует галочку заново — она уже стоит */
+.scr.quiet .thx__ck{stroke-dashoffset:0}
 .scr.quiet .ft__col[open] .ft__a,
 .scr.quiet .ft__col[open] .ft__tg{animation:none !important}
 
@@ -2211,48 +2226,410 @@ html.has-ckb body.has-mini .scr{padding-bottom:calc(var(--tab-h) + 96px + var(--
 .pay__addr .ic{flex:none;margin-top:2px}
 .pay__addr span{min-width:0;flex:1;line-height:1.45;overflow-wrap:anywhere;word-break:break-word}
 
-/* шаг оплаты — всё на одном экране */
-.pay-scr .sbar{padding:12px var(--pad) 12px}
-.pay-scr .sbar__s{gap:7px}
-.pay-scr .sbar__c{width:26px;height:26px;font-size:11px}
-.pay-scr .sbar__c .ic{width:12px;height:12px}
-.pay-scr .sbar__line{margin-top:13px}
-.pay-scr .sec,.pay-scr .cosec{margin:6px var(--pad);padding:12px 14px 14px}
-.pay-scr .cosec__t{margin-bottom:10px}
-.pay-scr .pay__ht{font-size:15px;margin:0 0 2px}
-.pay-scr .pay__h{margin-bottom:0}
-.pay-scr .ci{padding:8px 0;gap:10px;align-items:center}
-.pay-scr .ci__i{width:48px;height:60px}
-.pay-scr .ci__n{font-size:13px}
-.pay-scr .ci__m{margin-top:1px;font-size:12px}
-.pay-scr .pay__ip{margin:0;font-size:14px;text-align:right;flex:none;white-space:nowrap;font-variant-numeric:tabular-nums}
-.pay-scr .pay__addr{padding:7px 0 0;margin-top:4px;font-size:12.5px;gap:7px}
-.pay-scr .cart-sum{margin:6px var(--pad);padding:0 14px 8px}
-.pay-scr .row{padding:6px 0}
-.pay-scr .row--total{margin-top:2px;padding-top:10px}
-.pay-scr .row--total .row__l,.pay-scr .row--total .row__v{font-size:15px}
-.pay-scr .pmlist{padding:4px var(--pad) 0;gap:0}
-.pay-scr .pm{padding:10px 12px}
-.pay-scr .yk{gap:10px}
-.pay-scr .yk__m{width:34px;height:34px}
-.pay-scr .yk__w{font-size:14px}
-.pay-scr .pm__d{font-size:11px}
-.pay-scr .pay-scr__cta{padding:8px var(--pad) 0}
-.pay-scr .pay-scr__cta .btn{padding:14px}
-.pay-scr .safe{margin-top:8px;font-size:12px}
-
-/* --- экран «готово» --- */
-.done{text-align:center;padding:26px var(--pad) 20px}
-.done__ic{
-  width:74px;height:74px;border-radius:var(--r-pill);background:var(--ink);color:#fff;
-  display:inline-flex;align-items:center;justify-content:center;margin-bottom:18px;
-  animation:doneIn .6s cubic-bezier(.34,1.4,.5,1) both
+/* ===================== ПОСЛЕ АДРЕСА: ОПЛАТА · ГОТОВО · ОТСЛЕЖИВАНИЕ =====================
+   Шаги после адреса — в духе новой карточки товара: мягкие белые карточки
+   с крупными скруглениями и липкая «стеклянная» панель снизу — сумма и
+   кнопка всегда под пальцем. Текущий этап заказа — оранжевый, как тон
+   «Едет»: пройденное чёрное, впереди серое. */
+:root{
+  --now:#ef8a1f;
+  --now-fg:#b45f0c;
+  --now-soft:rgba(239,138,31,.14);
+  --wait:#e8a33d;
+  --wait-fg:#a3650b;
+  --wait-soft:rgba(232,163,61,.15);
+  --r-card:20px;
 }
-.done__ic .ic{width:38px;height:38px;stroke-width:2.6}
-@keyframes doneIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
-.done__t{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.01em}
-.done__s{font-size:14px;color:var(--muted);line-height:1.65;margin-top:10px}
-.done__s b{color:var(--ink)}
+/* липкая панель стоит у нижнего края даже на коротком экране */
+html body .scr[data-screen="pay"],
+html body .scr[data-screen="done"],
+html body .scr[data-screen="track"]{padding-bottom:0;display:flex;flex-direction:column}
+
+.ckx{display:flex;flex-direction:column;gap:12px;padding:12px 12px 20px}
+.ckx__card{
+  background:var(--card);border-radius:var(--r-card);padding:18px 18px 16px;
+  animation:riseIn .42s var(--ease) both
+}
+.ckx__card:nth-child(2){animation-delay:.05s}
+.ckx__card:nth-child(3){animation-delay:.1s}
+.ckx__card:nth-child(4){animation-delay:.15s}
+.ckx__card:nth-child(n+5){animation-delay:.2s}
+.ckx__h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ckx__t{font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+.ckx__a{
+  flex:none;font-size:13px;font-weight:600;color:var(--muted);padding:4px 0;
+  text-decoration:underline;text-underline-offset:3px
+}
+@media(hover:hover){ .ckx__a:hover{color:var(--ink)} }
+
+/* «Ваш заказ»: шапка сворачивает список вещей */
+.ckx__sumh{display:flex;align-items:center;gap:10px;width:100%;text-align:left}
+.ckx__sumh .ckx__t{flex:1}
+.ckx__sumv{font-size:13px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ckx__sumh .ic{flex:none;width:18px;height:18px;color:var(--muted);transition:transform .3s var(--ease)}
+.ckx__card.is-shut .ckx__sumh .ic{transform:rotate(-90deg)}
+.ckx__fold{display:grid;grid-template-rows:1fr;transition:grid-template-rows .32s var(--ease)}
+.ckx__card.is-shut .ckx__fold{grid-template-rows:0fr}
+.ckx__fold > div{min-height:0;overflow:hidden}
+.ckx__items{padding-top:8px}
+.ckx__it{display:flex;align-items:center;gap:12px;padding:7px 0}
+.ckx__pic{position:relative;flex:none;width:52px;height:64px;border-radius:12px;background:var(--chip)}
+.ckx__pic img{width:100%;height:100%;object-fit:cover;border-radius:12px;display:block}
+.ckx__q{
+  position:absolute;top:-6px;right:-6px;min-width:21px;height:21px;padding:0 6px;
+  border-radius:var(--r-pill);background:var(--ink);color:#fff;border:2px solid var(--card);
+  font-size:11px;font-weight:700;display:grid;place-items:center;line-height:1
+}
+.ckx__in{flex:1;min-width:0}
+.ckx__n{font-size:14px;font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ckx__m{font-size:12.5px;color:var(--muted);margin-top:3px}
+.ckx__p{flex:none;font-size:14px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ckx__it--gone .ckx__pic,.ckx__it--gone .ckx__n{opacity:.45}
+.ckx__card .cart-sum{background:none;margin:10px 0 0;padding:4px 0 0;border-radius:0;border-top:1px solid var(--line)}
+.ckx__card .row{padding:7px 0}
+.ckx__card .row--total{margin-top:4px;padding-top:12px}
+
+/* получение и получатель */
+.ckx__row{display:flex;align-items:flex-start;gap:12px;padding:10px 0}
+.ckx__row + .ckx__row{border-top:1px solid var(--line)}
+.ckx__ic{
+  flex:none;width:38px;height:38px;border-radius:12px;background:var(--chip);
+  display:grid;place-items:center;color:var(--ink)
+}
+.ckx__ic .ic{width:18px;height:18px}
+.ckx__rb{flex:1;min-width:0;padding-top:1px}
+.ckx__rt{font-size:12px;color:var(--muted);line-height:1.3;margin-bottom:3px}
+.ckx__rv{font-size:14px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.ckx__rs{font-size:12.5px;color:var(--muted);line-height:1.45;margin-top:2px;overflow-wrap:anywhere}
+/* подписи внутри строк — span, а должны идти друг под другом */
+.ckx__n,.ckx__m,.ckx__rt,.ckx__rv,.ckx__rs,.trk__et,.trk__ed{display:block}
+
+/* способы оплаты */
+.pmx{display:flex;flex-direction:column;gap:10px}
+.pmx__o{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:12px 14px;border-radius:16px;border:1.5px solid var(--line2);background:var(--card);
+  transition:border-color .22s var(--ease), box-shadow .22s var(--ease), transform .12s var(--ease)
+}
+.pmx__o:active{transform:scale(.985)}
+.pmx__o[aria-checked="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 .5px var(--ink)}
+.pmx__lg{
+  flex:none;width:46px;height:46px;border-radius:13px;display:grid;place-items:center;
+  background:var(--chip);overflow:hidden
+}
+.pmx__lg svg{display:block}
+.pmx__b{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.pmx__n{font-size:15px;font-weight:600;line-height:1.2}
+.pmx__d{font-size:12.5px;color:var(--muted);line-height:1.3;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pmx__r{
+  flex:none;width:22px;height:22px;border-radius:var(--r-pill);border:2px solid var(--line2);
+  position:relative;transition:border-color .22s var(--ease), background .22s var(--ease)
+}
+.pmx__o[aria-checked="true"] .pmx__r{border-color:var(--ink);background:var(--ink)}
+.pmx__o[aria-checked="true"] .pmx__r::after{
+  content:'';position:absolute;inset:5px;border-radius:var(--r-pill);background:#fff;
+  animation:popIn .22s var(--ease) both
+}
+/* подсказка под выбранным способом раскрывается, у прежнего — сворачивается */
+.pmx__i{display:flex;flex-direction:column}
+.pmx__fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .34s var(--ease)}
+.pmx__fold > div{min-height:0;overflow:hidden}
+.pmx__o[aria-checked="true"] + .pmx__fold{grid-template-rows:1fr}
+.pmx__note{
+  display:flex;align-items:flex-start;gap:10px;margin-top:8px;padding:12px 14px;border-radius:14px;
+  background:var(--chip);font-size:12.5px;line-height:1.5;color:var(--ink-soft);
+  opacity:0;transform:translateY(-6px);transition:opacity .22s var(--ease), transform .34s var(--ease)
+}
+.pmx__o[aria-checked="true"] + .pmx__fold .pmx__note{opacity:1;transform:none;transition-delay:.08s}
+.pmx__o[aria-checked="true"] .pmx__lg{animation:pmxPick .42s var(--ease)}
+@keyframes pmxPick{40%{transform:scale(.88)}100%{transform:none}}
+.pmx__note .ic{flex:none;width:16px;height:16px;margin-top:1px;color:var(--muted)}
+.brands{display:inline-flex;align-items:center;gap:5px}
+.brands svg{display:block;height:14px;width:auto}
+.ckx__yk{
+  display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;
+  border-top:1px solid var(--line);font-size:12.5px;line-height:1.45;color:var(--muted)
+}
+.ckx__yk .yk__m{width:30px;height:30px;flex:none}
+.ckx__yk .lg img{width:100%;height:100%}
+.ckx__off{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;line-height:1.5;color:var(--ink-soft)}
+.ckx__off .ic{flex:none;margin-top:2px;color:var(--muted)}
+.ckx__terms{font-size:12px;line-height:1.55;color:var(--muted);text-align:center;padding:2px 14px 0}
+.ckx__terms button{font:inherit;color:var(--ink-soft);padding:0;text-decoration:underline;text-underline-offset:2px}
+.ckx__block{
+  display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:14px;
+  background:var(--tone-danger-bg);color:var(--tone-danger-fg);font-size:13px;line-height:1.5
+}
+.ckx__block .ic{flex:none;margin-top:2px}
+
+/* липкая панель: сумма слева, кнопка справа (или две кнопки) */
+.ckbar{
+  position:sticky;bottom:0;z-index:30;margin-top:auto;
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+  background:rgba(255,255,255,.9);
+  -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+  border-top:1px solid var(--line)
+}
+html.has-ckb .ckbar{bottom:var(--ckb-h,0px)}
+.ckbar__sum{display:flex;flex-direction:column;gap:2px;flex:none;min-width:0;max-width:44%}
+.ckbar__sum span{font-size:12.5px;color:var(--muted);line-height:1.2;white-space:nowrap}
+.ckbar__sum b{
+  font-size:21px;font-weight:700;letter-spacing:-.02em;line-height:1.15;
+  font-variant-numeric:tabular-nums;white-space:nowrap
+}
+.ckbar__go,.ckbar__alt{
+  flex:1;min-width:0;height:54px;padding:0 16px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  font-size:15px;font-weight:600;white-space:nowrap;
+  transition:transform .16s var(--ease), opacity var(--dur) var(--ease), background .2s var(--ease)
+}
+.ckbar__go{background:var(--ink);color:#fff}
+.ckbar__alt{background:var(--card);color:var(--ink);border:1.5px solid var(--line2)}
+.ckbar__go:active,.ckbar__alt:active{transform:scale(.97)}
+.ckbar__go:disabled{opacity:.35;cursor:not-allowed}
+.ckbar__go .ic{width:18px;height:18px;flex:none}
+@media(hover:hover){
+  .ckbar__go:hover{opacity:.88}
+  .ckbar__alt:hover{border-color:var(--ink)}
+}
+@media(max-width:360px){
+  .ckbar__go,.ckbar__alt{font-size:14px;padding:0 10px}
+  .ckbar__sum b{font-size:18px}
+}
+
+/* «Оформляем заказ»: страница уходит в размытие, по центру — спиннер */
+.plo{
+  position:fixed;inset:0;z-index:400;display:grid;place-items:center;
+  background:rgba(244,244,244,.55);
+  -webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1);
+  opacity:0;transition:opacity .28s var(--ease)
+}
+.plo.is-on{opacity:1}
+.plo__in{
+  display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
+  max-width:300px;padding:24px;transform:translateY(8px);transition:transform .4s var(--ease)
+}
+.plo.is-on .plo__in{transform:none}
+.plo__sp{position:relative;width:48px;height:48px;margin-bottom:14px;animation:ploSpin 1s steps(12) infinite}
+.plo__sp i{
+  position:absolute;left:50%;top:0;width:4px;height:13px;margin-left:-2px;border-radius:2px;
+  background:var(--ink);transform-origin:2px 24px
+}
+@keyframes ploSpin{to{transform:rotate(360deg)}}
+.plo__t{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.plo__s{font-size:13.5px;color:var(--muted);line-height:1.45}
+body.plo-on{overflow:hidden}
+
+/* «Спасибо за заказ!» */
+.thx{display:flex;flex-direction:column;align-items:center;text-align:center;padding:34px 16px 8px}
+.thx__mark{position:relative;width:108px;height:108px;margin-bottom:24px}
+.thx__mark svg{position:relative;z-index:1;width:100%;height:100%;display:block;overflow:visible}
+.thx__bg{fill:var(--ok);transform-origin:54px 54px;animation:thxPop .6s cubic-bezier(.34,1.56,.5,1) both}
+.thx__ck{
+  fill:none;stroke:#fff;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:80;stroke-dashoffset:80;animation:thxDraw .5s .4s cubic-bezier(.65,0,.35,1) forwards
+}
+.thx__mark--wait .thx__bg{fill:var(--wait)}
+.thx__ring{
+  position:absolute;inset:0;border-radius:50%;border:2px solid var(--ok);opacity:0;
+  animation:thxRing 1.5s .55s var(--ease) both
+}
+.thx__ring + .thx__ring{animation-delay:.85s}
+.thx__mark--wait .thx__ring{border-color:var(--wait);animation-iteration-count:infinite;animation-duration:2.2s}
+.thx__dot{
+  position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;
+  opacity:0;animation:thxBurst .95s .5s cubic-bezier(.2,.7,.3,1) both
+}
+@keyframes thxPop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes thxDraw{to{stroke-dashoffset:0}}
+@keyframes thxRing{0%{transform:scale(.92);opacity:.55}100%{transform:scale(1.6);opacity:0}}
+@keyframes thxBurst{
+  0%{transform:rotate(var(--a)) translateY(-30px) scale(.4);opacity:1}
+  100%{transform:rotate(var(--a)) translateY(-84px) scale(1);opacity:0}
+}
+.thx__t{font-size:25px;font-weight:700;letter-spacing:-.02em;line-height:1.2;animation:riseIn .45s .22s var(--ease) both}
+.thx__num{margin-top:8px;font-size:14.5px;color:var(--muted);animation:riseIn .45s .28s var(--ease) both}
+.thx__num b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.thx__s{
+  margin-top:6px;font-size:14px;line-height:1.55;color:var(--muted);max-width:330px;
+  animation:riseIn .45s .32s var(--ease) both
+}
+.thx__s b{color:var(--ink)}
+.thx__card{
+  width:100%;margin-top:24px;background:var(--card);border-radius:var(--r-card);
+  padding:16px 18px 6px;text-align:left;animation:riseIn .5s .36s var(--ease) both
+}
+.thx__pics{display:flex;gap:10px;padding:6px 0 16px;overflow-x:auto;scrollbar-width:none}
+.thx__pics::-webkit-scrollbar{display:none}
+.thx__pic{position:relative;flex:none;width:62px;height:78px;border-radius:12px;background:var(--chip)}
+.thx__pic img{width:100%;height:100%;object-fit:cover;border-radius:12px;display:block}
+.thx__more{
+  flex:none;width:62px;height:78px;border-radius:12px;background:var(--chip);
+  display:grid;place-items:center;font-size:14px;font-weight:700;color:var(--ink-soft)
+}
+.thx .pcard{width:100%;text-align:left;border-radius:var(--r-card)}
+.thx__note{margin-top:14px;font-size:13px;line-height:1.55;color:var(--muted);max-width:340px}
+.thx__note button{font:inherit;font-weight:600;color:var(--ink);text-decoration:underline;padding:0}
+
+/* строки «ключ — значение» на экранах заказа */
+.kv{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:12px 0;font-size:14px}
+.kv + .kv,.thx__pics + .kv{border-top:1px solid var(--line)}
+.kv__k{flex:none;color:var(--muted);line-height:1.45}
+.kv__v{min-width:0;font-weight:600;text-align:right;line-height:1.45;overflow-wrap:anywhere}
+.kv__v small{display:block;margin-top:2px;font-size:12.5px;font-weight:400;color:var(--muted)}
+.kv--total .kv__k{color:var(--ink);font-weight:700}
+.kv--total .kv__v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.kv__ok{color:var(--tone-ok-fg)}
+
+/* отслеживание заказа */
+.trk__top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.trk__no{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.trk__pill{
+  flex:none;display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 9px;
+  border-radius:var(--r-pill);font-size:12px;font-weight:700;line-height:1.2;
+  background:var(--now-soft);color:var(--now-fg)
+}
+.trk__pill::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+.trk__pill--ok{background:var(--tone-ok-bg);color:var(--tone-ok-fg)}
+.trk__pill--bad{background:var(--tone-danger-bg);color:var(--tone-danger-fg)}
+.trk__pill--wait{background:var(--wait-soft);color:var(--wait-fg)}
+.trk__t{font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.2;margin-top:14px}
+.trk__s{font-size:14px;line-height:1.5;color:var(--muted);margin-top:6px}
+
+.trk__bar{display:flex;align-items:flex-start;margin:22px -4px 0}
+.trk__st{flex:none;width:64px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.trk__dot{
+  position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
+  background:var(--card);border:2px solid var(--line2);color:var(--muted2)
+}
+.trk__dot .ic{width:15px;height:15px}
+/* этапы загораются по очереди: --i — номер этапа */
+.trk__st.is-done .trk__dot{background:var(--ink);border-color:var(--ink);color:#fff;animation:popIn .32s calc(var(--i,0) * .14s) var(--ease) both}
+.trk__st.is-now .trk__dot{background:var(--now);border-color:var(--now);color:#fff;animation:trkPop .5s calc(var(--i,0) * .14s + .1s) var(--ease) both}
+.trk__st.is-now .trk__dot::after{
+  content:'';position:absolute;inset:-7px;border-radius:50%;border:2px solid var(--now);opacity:0;
+  animation:trkPulse 1.8s calc(var(--i,0) * .14s + .6s) ease-out infinite
+}
+.trk__st.is-wait .trk__dot{background:var(--wait);border-color:var(--wait);color:#fff}
+.trk__st.is-wait .trk__dot::after{border-color:var(--wait)}
+.trk__st.is-fin .trk__dot{background:var(--ok);border-color:var(--ok);color:#fff;animation:trkPop .5s calc(var(--i,0) * .14s + .1s) var(--ease) both}
+@keyframes trkPop{0%{opacity:0;transform:scale(.5)}60%{opacity:1;transform:scale(1.12)}100%{transform:none}}
+@keyframes trkPulse{0%{transform:scale(.8);opacity:.6}100%{transform:scale(1.3);opacity:0}}
+.trk__lb{font-size:11.5px;font-weight:600;line-height:1.25;color:var(--muted2)}
+.trk__st.is-done .trk__lb{color:var(--ink-soft)}
+.trk__st.is-now .trk__lb{color:var(--now-fg)}
+.trk__st.is-wait .trk__lb{color:var(--wait-fg)}
+.trk__st.is-fin .trk__lb{color:var(--tone-ok-fg)}
+.trk__ln{flex:1;position:relative;height:3px;margin-top:15px;border-radius:3px;background:var(--line);overflow:hidden}
+.trk__ln i{
+  position:absolute;inset:0;border-radius:inherit;background:var(--ink);
+  transform-origin:left center;transform:scaleX(0);transition:transform .6s var(--ease)
+}
+.trk__ln.is-on i{transform:scaleX(1);animation:trkFill .45s calc(var(--i,0) * .14s + .08s) var(--ease) both}
+/* линия к текущему этапу перетекает в его цвет */
+.trk__ln.is-to i{background:linear-gradient(90deg,var(--ink),var(--now))}
+@keyframes trkFill{from{transform:scaleX(0)}}
+
+.trk__pay{
+  display:flex;align-items:center;gap:12px;margin-top:18px;padding:12px 14px;border-radius:14px;
+  background:var(--wait-soft)
+}
+.trk__pay p{flex:1;margin:0;font-size:13px;line-height:1.45;color:var(--ink-soft)}
+.trk__pay .pay-timer{font-size:17px;font-weight:700;color:var(--wait-fg);font-variant-numeric:tabular-nums}
+
+.trk__tl{list-style:none;margin:4px 0 0;padding:0}
+.trk__ev{position:relative;display:flex;gap:14px;padding:0 0 18px;animation:riseIn .4s calc(var(--i,0) * .07s + .12s) var(--ease) both}
+.trk__ev:last-child{padding-bottom:2px}
+.trk__ev::before{content:'';position:absolute;left:11px;top:26px;bottom:2px;width:2px;border-radius:2px;background:var(--line)}
+.trk__ev:last-child::before{display:none}
+.trk__ev.is-done::before{background:var(--ink)}
+.trk__m{
+  position:relative;z-index:1;flex:none;width:24px;height:24px;border-radius:50%;
+  display:grid;place-items:center;background:var(--card);border:2px solid var(--line2);color:#fff
+}
+.trk__m .ic{width:12px;height:12px;stroke-width:3}
+.trk__ev.is-done .trk__m{background:var(--ink);border-color:var(--ink)}
+.trk__ev.is-now .trk__m{border-color:var(--now)}
+.trk__ev.is-now .trk__m::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--now);animation:popIn .3s var(--ease) both}
+.trk__ev.is-wait .trk__m{border-color:var(--wait)}
+.trk__ev.is-wait .trk__m::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--wait)}
+/* текущий шаг «дышит», как и кружок наверху */
+.trk__ev.is-now .trk__m::before,.trk__ev.is-wait .trk__m::before{
+  content:'';position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--now);opacity:0;
+  animation:trkPulse 1.8s .8s ease-out infinite
+}
+.trk__ev.is-wait .trk__m::before{border-color:var(--wait)}
+.trk__ev.is-bad .trk__m{background:var(--danger);border-color:var(--danger)}
+.trk__ev.is-fin .trk__m{background:var(--ok);border-color:var(--ok)}
+.trk__eb{min-width:0;padding-top:2px}
+.trk__et{font-size:14.5px;font-weight:600;line-height:1.3}
+.trk__ev.is-off .trk__et{color:var(--muted2);font-weight:500}
+.trk__ev.is-now .trk__et{color:var(--now-fg)}
+.trk__ev.is-wait .trk__et{color:var(--wait-fg)}
+.trk__ev.is-bad .trk__et{color:var(--danger)}
+.trk__ed{font-size:12.5px;line-height:1.45;color:var(--muted);margin-top:3px}
+
+.trk__code{
+  display:flex;align-items:center;gap:10px;margin-top:4px;padding:12px 14px;border-radius:14px;
+  background:var(--chip)
+}
+.trk__code b{flex:1;min-width:0;font-size:15px;letter-spacing:.04em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.trk__code button,.trk__code a{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink)}
+.trk__code .ic{width:15px;height:15px}
+
+.trk__hl{display:flex;align-items:center;gap:12px;width:100%;padding:14px 0;text-align:left;font-size:14.5px;font-weight:500;color:var(--ink)}
+.trk__hl + .trk__hl{border-top:1px solid var(--line)}
+.trk__hl > .ic:first-child{flex:none;width:19px;height:19px;color:var(--ink-soft)}
+.trk__hl > span{flex:1;min-width:0}
+.trk__hl > .ic:last-child{flex:none;width:16px;height:16px;color:var(--muted2)}
+.trk__help{padding-top:8px;padding-bottom:4px}
+.trk__help .ckx__t{margin:6px 0 2px}
+.trk__hint{font-size:12.5px;line-height:1.5;color:var(--muted);padding:0 6px;text-align:center}
+.trk__rv{
+  display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12.5px;font-weight:600;color:var(--ink);
+  text-decoration:underline;text-underline-offset:2px
+}
+.trk__rv .ic{width:14px;height:14px}
+.trk__load{padding:80px 20px;text-align:center;color:var(--muted);font-size:14px}
+.trk__load .plo__sp{display:block;margin:0 auto 16px;width:34px;height:34px}
+.trk__load .plo__sp i{width:3px;height:9px;margin-left:-1.5px;transform-origin:1.5px 17px}
+.trk__load p{margin:0;animation:fadeIn .4s .2s var(--ease) both}
+
+/* Статус сменился прямо на глазах (живое обновление): новый этап загорается,
+   линия дотягивается, заголовок перетекает. Обычная тихая перерисовка
+   анимации глушит — здесь они нужны, поэтому правила сильнее. */
+@keyframes trkSwap{from{opacity:0;transform:translateY(8px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+.scr.quiet .trk--moved .trk__t{animation:trkSwap .55s var(--ease) both !important}
+.scr.quiet .trk--moved .trk__s{animation:trkSwap .55s .08s var(--ease) both !important}
+.scr.quiet .trk--moved .trk__pill{animation:popIn .4s .1s var(--ease) both !important}
+.scr.quiet .trk__st.is-new .trk__dot{animation:trkPop .55s .35s var(--ease) both !important}
+.scr.quiet .trk__ln.is-new i{animation:trkFill .5s .05s var(--ease) both !important}
+.scr.quiet .trk__ev.is-new{animation:riseIn .45s .2s var(--ease) both !important}
+
+/* «Заказ отменён» и «Время на оплату вышло»: красный круг и крестик */
+.thx__mark--bad .thx__bg{fill:var(--danger)}
+.thx__mark--bad .thx__ring{border-color:var(--danger)}
+/* Оплата подтвердилась, пока человек смотрел на «Ожидаем оплату», — часы
+   превращаются в галочку: круг, штрих, кольца и точки заново */
+.scr.quiet .thx--go .thx__bg{animation:thxPop .6s cubic-bezier(.34,1.56,.5,1) both !important}
+.scr.quiet .thx--go .thx__ck{stroke-dashoffset:80;animation:thxDraw .5s .4s cubic-bezier(.65,0,.35,1) forwards !important}
+.scr.quiet .thx--go .thx__ring{animation:thxRing 1.5s .55s var(--ease) both !important}
+.scr.quiet .thx--go .thx__ring + .thx__ring{animation-delay:.85s !important}
+.scr.quiet .thx--go .thx__dot{animation:thxBurst .95s .5s cubic-bezier(.2,.7,.3,1) both !important}
+.scr.quiet .thx--go .thx__t,
+.scr.quiet .thx--go .thx__s{animation:trkSwap .55s .2s var(--ease) both !important}
+
+@media (prefers-reduced-motion:reduce){
+  /* !important — иначе правила «статус сменился на глазах» оживили бы их снова */
+  .ckx__card,.thx__t,.thx__num,.thx__s,.thx__card,.amod__g,.trk__t,.trk__s,.trk__pill{animation:none !important}
+  .thx__bg,.thx__ck,.thx__ring,.thx__dot,.trk__st .trk__dot,.trk__st .trk__dot::after,.trk__ln i,.trk__ev,.trk__ev .trk__m::after,
+  .trk__ev .trk__m::before,.pmx__lg{animation:none !important}
+  .thx__ck{stroke-dashoffset:0 !important}
+  .pmx__fold,.pmx__note{transition:none}
+  .thx__ring,.thx__dot{display:none}
+  .plo__sp{animation-duration:2.4s}
+}
 
 /* ===================== ФОРМЫ ===================== */
 .form{padding:8px var(--pad) 20px}
@@ -2874,11 +3251,33 @@ span.sz__s:not([aria-pressed="true"]){border-color:transparent;background:none}
 
 
 
+/* Вход через Google — только с VPN: блок появляется, когда сервер ответил,
+   что адрес посетителя не российский. Возникает мягко, ниже формы. */
+.amod__g{animation:riseIn .32s var(--ease) both}
+.amod__or{
+  display:flex;align-items:center;gap:10px;margin:18px 0 10px;
+  font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2)
+}
+.amod__or::before,.amod__or::after{content:"";flex:1;height:1px;background:var(--line)}
 /* Кнопку рисует скрипт Google — ему нужно только место по центру. */
-
-
+.amod__gwrap{display:flex;justify-content:center;min-height:0}
+.amod__gwrap:empty{display:none}
 /* Google требует свой знак в фирменных цветах на белом или светло-сером
    фоне — перекрашивать его нельзя, поэтому запасная кнопка нейтральная. */
+.amod__google{
+  display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+  padding:11px 12px;border:1.5px solid var(--line2);
+  background:#fff;border-radius:var(--r-sm);
+  font-size:14px;font-weight:600;color:var(--ink);
+  transition:background var(--dur) var(--ease), border-color var(--dur) var(--ease)
+}
+@media(hover:hover){ .amod__google:hover{background:var(--chip);border-color:#cfcfcf} }
+.amod__google svg{flex:none;width:18px;height:18px;display:block}
+.amod__gnote{
+  display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;
+  font-size:11.5px;color:var(--muted)
+}
+.amod__gnote .ic{width:13px;height:13px;flex:none}
 
 
 
@@ -6486,6 +6885,8 @@ function paintDeliveryTotals(){
   if(ps) ps.innerHTML = cartSummaryHTML({pay:true});
   const pg = document.getElementById('payGo');
   if(pg) pg.innerHTML = payLabel();
+  const pt = document.getElementById('payTotal');
+  if(pt) pt.textContent = payTotalText();
   const cg = document.getElementById('cartGo');
   if(cg) cg.innerHTML = `Оформить заказ${totalTail()}`;
 }
@@ -7580,10 +7981,167 @@ function eyeBtn(inputId, cls){
 }
 const TG_ICON = '/telegram.avif';
 
-/* Вход через Google убран (05.10.2026): российским сайтам авторизация
+/* ==========================================================
+   ВХОД ЧЕРЕЗ GOOGLE — ТОЛЬКО С VPN
+   05.10.2026 вход через Google убирали: российским сайтам авторизация
    через иностранные сервисы запрещена (406-ФЗ, штрафы с 07.07.2026).
-   Остались эл. почта и пароль. Хотите быстрый вход — только российские
-   сервисы (Яндекс ID, VK ID, Сбер ID). Старую отметку lc_google_id стираем. */
+   Теперь он вернулся, но виден только тем, кто зашёл не с российского
+   адреса, — то есть с включённым VPN. Решает сервер: ответ
+   /api/auth/google/available сверяет адрес посетителя с российскими
+   сетями (server/ru-nets.js) и отдаёт Client ID, только если адрес не
+   российский. Тот же запрет стоит на самом входе — кнопку не обойти.
+
+   Работает по ID-токену (Google Identity Services): Google отдаёт
+   браузеру подписанный токен, сервер проверяет подпись публичными
+   ключами Google. Секретный ключ приложения при этом не нужен.
+   ========================================================== */
+/* Официальный знак Google. Рисуем отдельно от общего набора иконок:
+   те красятся в currentColor, а этому логотипу цвета менять нельзя. */
+const GOOGLE_MARK = `<svg viewBox="0 0 48 48" aria-hidden="true">
+  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+</svg>`;
+
+/* Включили или выключили VPN — ответ меняется, поэтому помним его недолго */
+let gAvail = null, gAvailAt = 0, gAvailReq = null;
+function googleAvailability(){
+  if(!window.LC) return Promise.resolve(null);
+  if(gAvail && Date.now() - gAvailAt < 30000) return Promise.resolve(gAvail);
+  if(!gAvailReq){
+    gAvailReq = LC.api('/api/auth/google/available')
+      .then(d => { gAvail = d || {available:false}; gAvailAt = Date.now(); return gAvail; })
+      .catch(() => null)
+      .finally(() => { gAvailReq = null; });
+  }
+  return gAvailReq;
+}
+
+let gsiLoading = null;
+function loadGoogleScript(){
+  if(window.google && google.accounts && google.accounts.id) return Promise.resolve(true);
+  if(gsiLoading) return gsiLoading;
+  gsiLoading = new Promise(resolve => {
+    let done = false;
+    const finish = ok => { if(done) return; done = true; resolve(ok); };
+    const sc = document.createElement('script');
+    sc.src = 'https://accounts.google.com/gsi/client';
+    sc.async = true;
+    sc.onload = () => finish(!!(window.google && google.accounts && google.accounts.id));
+    sc.onerror = () => finish(false);
+    /* У части провайдеров запрос к accounts.google.com просто висит —
+       без срока ожидания своя кнопка так и ждала бы вечно. */
+    setTimeout(() => finish(false), 7000);
+    document.head.appendChild(sc);
+  });
+  gsiLoading.then(ok => { if(!ok) gsiLoading = null; });   // сеть оживёт — попробуем снова
+  return gsiLoading;
+}
+
+/* initialize() зовём один раз на ключ: повторные вызовы сбрасывают
+   состояние карточки выбора аккаунта. */
+let gsiReadyFor = '';
+function googleInit(cid){
+  if(gsiReadyFor === cid) return;
+  google.accounts.id.initialize({
+    client_id: cid,
+    callback: onGoogleCredential,
+    auto_select: false,
+    cancel_on_tap_outside: true,
+    /* Chrome показывает карточку аккаунтов только через FedCM */
+    use_fedcm_for_prompt: true,
+    itp_support: true
+  });
+  gsiReadyFor = cid;
+}
+
+/** Ответ Google: токен → сервер → вход. */
+async function onGoogleCredential(resp){
+  if(!resp || !resp.credential){ toast('Google не вернул данные'); return; }
+  try{
+    const d = await LC.api('/api/auth/google/token', {
+      method:'POST', body:{ credential: resp.credential }
+    });
+    if(d && d.token) LC.setToken(d.token);
+    toast('Вы вошли через Google');
+    authDone(d && d.user, false);
+  }catch(err){
+    /* VPN выключили, пока выбирали аккаунт, — сервер так и скажет */
+    toast(errText(err, 'Вход через Google не удался'));
+    gAvail = null;
+    mountGoogleAuth();
+  }
+}
+
+/* Блок «или · Войти через Google» в окне входа и регистрации. Появляется,
+   только когда сервер ответил, что адрес не российский: без VPN его нет
+   вовсе, даже на мгновение. Своя кнопка видна сразу, настоящая от Google
+   встаёт на её место, когда их скрипт доедет. */
+async function mountGoogleAuth(){
+  if(!document.getElementById('amGoogle')) return;
+  const d = await googleAvailability();
+  const slot = document.getElementById('amGoogle');   // окно могли закрыть, пока шёл ответ
+  if(!slot) return;
+  if(!d || !d.available || !d.clientId){ slot.innerHTML = ''; return; }
+  if(slot.querySelector('.amod__g')) return;
+  slot.innerHTML = `<div class="amod__g">
+    <div class="amod__or"><span>или</span></div>
+    <div class="amod__gwrap" id="gsiBtn"></div>
+    <button type="button" class="amod__google" id="gsiFallback" data-a="auth_google">
+      ${GOOGLE_MARK}<span>Войти через Google</span></button>
+    <p class="amod__gnote">${svg('lock','ic')}<span>Вход через Google доступен с VPN</span></p>
+  </div>`;
+  mountGoogleButton(d.clientId);
+}
+
+async function mountGoogleButton(cid){
+  const ok = await loadGoogleScript();
+  const api = window.google && google.accounts && google.accounts.id;
+  const box = document.getElementById('gsiBtn');
+  if(!ok || !api || !box) return;        // остаётся своя кнопка
+  googleInit(cid);
+  google.accounts.id.renderButton(box, {
+    type: 'standard', theme: 'outline', size: 'large',
+    text: 'signin_with', shape: 'rectangular', logo_alignment: 'center',
+    locale: 'ru', width: Math.round(Math.min(400, box.clientWidth || 320))
+  });
+  /* Свою кнопку убираем ровно тогда, когда появилась настоящая: Google
+     рисует её когда угодно, и по таймеру на экране оказывались две сразу.
+     Не нарисует вовсе (домен не прописан в ключе) — своя и останется. */
+  const hideOwn = () => {
+    const fb = document.getElementById('gsiFallback');
+    if(fb) fb.classList.add('hide');
+  };
+  if(box.childElementCount) return hideOwn();
+  const watch = new MutationObserver(() => {
+    if(!box.childElementCount) return;
+    watch.disconnect();
+    hideOwn();
+  });
+  watch.observe(box, {childList:true});
+  setTimeout(() => watch.disconnect(), 15000);
+}
+
+/** Своя кнопка: сработает, если настоящая от Google не появилась. */
+async function startGoogleLogin(){
+  const d = await googleAvailability();
+  if(!d || !d.available || !d.clientId){
+    toast('Вход через Google работает только с включённым VPN');
+    mountGoogleAuth();
+    return;
+  }
+  const ok = await loadGoogleScript();
+  const api = window.google && google.accounts && google.accounts.id;
+  if(!ok || !api){
+    toast('Google сейчас недоступен — войдите по эл. почте');
+    return;
+  }
+  googleInit(d.clientId);
+  google.accounts.id.prompt();
+}
+
+/* Client ID больше не запоминаем: кнопку решает ответ сервера про VPN */
 try{ localStorage.removeItem('lc_google_id'); }catch(e){}
 
 function tgIcon(cls){
@@ -7640,7 +8198,6 @@ const YK_MARK = `<picture class="lg yk__m">
   <source srcset="data:image/avif;base64,${YK_AVIF}" type="image/avif">
   <img src="data:image/webp;base64,${YK_WEBP}" alt="ЮKassa" decoding="async">
 </picture>`;
-const YK_WORD = `<span class="yk__w"><b>Ю</b>Kassa</span>`;
 
 /* ==========================================================
    ФОТО-ЗАГЛУШКИ (плоские силуэты одежды, работают офлайн)
@@ -7720,7 +8277,7 @@ const S = {
        затирать другой. */
     courier:{city:'', street:'', flat:'', comment:''},
     quote:null,
-    pay:'card',
+    pay:'bank_card',      /* способ оплаты — ключ из PAY_METHODS */
     guest:{name:'', phone:'', email:''}
   },
   lastOrder:null, mini:null,
@@ -8403,8 +8960,9 @@ function shipQuoteNow(){
   if(S.screen === 'cart' && !addrKnown(S.checkout.delivery)) return unknownQuote();
   return tabQuote(S.checkout.delivery);
 }
+/* Сумма стоит рядом, в нижней панели («К оплате»), — на кнопке только действие */
 function payLabel(){
-  return `${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}${totalTail(' ')}`;
+  return `${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}`;
 }
 /* Дальше по шагам — только с посчитанной доставкой: иначе на экране
    оплаты сумма без доставки, а в ЮKassa уйдёт с ней. */
@@ -9922,59 +10480,186 @@ function plural(n, forms){           // 1 товар / 2 товара / 5 тов
   return forms[2];
 }
 
+/* Способы оплаты. Все идут через ЮKassa: выбранный способ уходит на сервер,
+   и ЮKassa открывает сразу его форму — QR СБП, вход в SberPay и т. д.
+   Способ не подключён в магазине — сервер откроет общую страницу ЮKassa со
+   всеми способами (server/yookassa.js), так что выбор ничего не ломает. */
+const CARD_BRANDS = `<span class="brands" aria-label="Мир, Visa, Mastercard">
+  <svg viewBox="0 0 30 12" aria-hidden="true"><text x="0" y="10.4" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="800" fill="#0f754e">МИР</text></svg>
+  <svg viewBox="0 0 33 12" aria-hidden="true"><text x="0" y="10.5" font-family="Arial,Helvetica,sans-serif" font-size="12.4" font-weight="800" font-style="italic" fill="#1a1f71">VISA</text></svg>
+  <svg viewBox="0 0 22 14" aria-hidden="true"><circle cx="7" cy="7" r="6.5" fill="#eb001b"/><circle cx="15" cy="7" r="6.5" fill="#f79e1b"/><path d="M11 1.9a6.5 6.5 0 0 1 0 10.2 6.5 6.5 0 0 1 0-10.2z" fill="#ff5f00"/></svg>
+</span>`;
+const PM_LOGO = {
+  card:`<svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true"><rect x=".75" y=".75" width="26.5" height="18.5" rx="3.5" fill="#0b0b0b"/><rect x=".75" y="5" width="26.5" height="3.6" fill="#454545"/><rect x="4" y="12.6" width="8" height="2.6" rx="1.3" fill="#fff" opacity=".85"/><rect x="14" y="12.6" width="4" height="2.6" rx="1.3" fill="#fff" opacity=".45"/></svg>`,
+  sbp:`<svg width="22" height="28" viewBox="0 0 24 30" aria-hidden="true"><path fill="#5b57a2" d="M0 6.5l3.6 6.4v3.9L0 23.2z"/><path fill="#d90751" d="M13.8 10.6l3.4-2.1h6.9l-10.3 6.3z"/><path fill="#fab718" d="M13.8 6.4v8.5l-3.6-2.2V0z"/><path fill="#ed6f26" d="M24.1 8.5h-6.9l-3.4-2.1L3.6 0z"/><path fill="#63b22f" d="M13.8 23.3v-4.1l-3.6-2.2v12.9z"/><path fill="#1487c9" d="M17.1 21.3L3.6 12.9 0 6.5l24 14.8z"/><path fill="#017f36" d="M10.2 29.9l3.6-2.1 10.2-6.5h-6.9z"/><path fill="#984995" d="M0 23.2l10.2-6.2-3.4-2.1L0 19.1z"/></svg>`,
+  sber:`<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><defs><linearGradient id="pmSberG" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f2e913"/><stop offset=".32" stop-color="#21a038"/><stop offset="1" stop-color="#05b5d4"/></linearGradient></defs><circle cx="14" cy="14" r="12.5" fill="url(#pmSberG)"/><path d="M8.6 14.2l3.9 3.9 7.4-7.6" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  tpay:`<svg width="26" height="28" viewBox="0 0 26 28" aria-hidden="true"><path d="M1 1h24v12.4c0 3.4-1.8 6.5-4.7 8.2L13 26.4l-7.3-4.8C2.8 19.9 1 16.8 1 13.4z" fill="#ffdd2d"/><path d="M6.5 7.5h13v3.6h-4.6v9.4h-3.8v-9.4H6.5z" fill="#0b0b0b"/></svg>`
+};
+const PAY_METHODS = [
+  {k:'bank_card', t:'Банковская карта', d:CARD_BRANDS, lg:PM_LOGO.card,
+   note:'Данные карты вводятся на защищённой странице ЮKassa — к нам они не попадают.'},
+  {k:'sbp', t:'СБП', d:'Система быстрых платежей', lg:PM_LOGO.sbp,
+   note:'Откроется страница с QR-кодом: отсканируйте его камерой или, если вы с телефона, выберите свой банк — оплата подтвердится в его приложении.'},
+  {k:'sberbank', t:'SberPay', d:'В приложении СберБанк Онлайн', lg:PM_LOGO.sber,
+   note:'Подтвердите оплату в приложении СберБанк Онлайн.'},
+  {k:'tinkoff_bank', t:'T-Pay', d:'В приложении Т-Банка', lg:PM_LOGO.tpay,
+   note:'Подтвердите оплату в приложении Т-Банка.'}
+];
+function payMethodNow(){
+  return PAY_METHODS.find(m => m.k === S.checkout.pay) || PAY_METHODS[0];
+}
+function payTotalText(){
+  return shipQuoteNow().unknown ? '—' : money(orderTotal());
+}
+/* Куда и кому — на шаге оплаты те же строки, что уйдут в заказ */
+function payDestLines(){
+  const t = v => String(v || '').trim();
+  if(S.checkout.delivery === 'courier'){
+    const c = S.checkout.courier || {};
+    return {
+      courier:true,
+      title:'Курьер СДЭК до двери',
+      main:[t(c.city), t(c.street)].filter(Boolean).join(', ') + (t(c.flat) ? ', кв. ' + t(c.flat) : ''),
+      sub:[t(c.entrance) && 'подъезд ' + t(c.entrance), t(c.floor) && 'этаж ' + t(c.floor),
+        t(c.intercom) && 'домофон ' + t(c.intercom)].filter(Boolean).join(' · ')
+    };
+  }
+  const p = S.checkout.pvz || {};
+  const manual = p.manual || p.code === 'manual';
+  return {
+    courier:false,
+    title:'Пункт выдачи СДЭК',
+    main:manual ? t(p.addr) : [t(p.city), t(p.addr)].filter(Boolean).join(', '),
+    sub:t(p.hours)
+  };
+}
+
 function scrPay(){
   if(!S.cart.length) return emptyCart();
-  const pv = S.checkout.pvz;
-  return `
-  <div class="pay-scr">
-  ${stepBar(2)}
-  <div class="cosec cosec--tight">
-    <div class="cosec__t">Ваш заказ</div>
-    ${S.cart.map(i => `
-      <div class="ci${i.gone ? ' ci--gone' : ''}">
-        <img class="ci__i" src="${i.img}" alt="">
-        <div class="ci__b">
-          <p class="ci__n">${i.name}</p>
-          <p class="ci__m">Размер: ${i.size}${i.colorName ? ` · ${esc(i.colorName)}` : ''}${i.qty > 1 ? ` · ${i.qty} шт.` : ''}</p>
-          ${i.gone
-            ? `<p class="ci__gone">${svg('info','ic ic--sm')} ${GONE_TEXT}</p>
-               <button class="ci__drop" data-a="del:${i.key}">Убрать из заказа</button>`
-            : ''}
-        </div>
-        ${i.gone ? '' : `<p class="pay__ip">${money(i.price * i.qty)}</p>`}
-      </div>`).join('')}
-    ${pv ? `<div class="pay__addr">${svg('pin','ic ic--sm')}
-      <span>${esc(pvzLine(pv))}${pv.hours ? ' · ' + esc(pv.hours) : ''}</span></div>` : ''}
-    ${S.checkout.guest.name ? `<div class="pay__addr">${svg('user','ic ic--sm')}
-      <span>${esc(S.checkout.guest.name)}${S.checkout.guest.phone ? ' · ' + esc(S.checkout.guest.phone) : ''}</span></div>` : ''}
-  </div>
+  const n = S.cart.reduce((s, i) => s + (i.gone ? 0 : i.qty), 0);
+  const g = S.checkout.guest || {};
+  const dest = payDestLines();
+  /* длинный список вещей сначала свёрнут — способы оплаты видно сразу */
+  const shut = S.checkout.sumShut != null ? !!S.checkout.sumShut : S.cart.length > 3;
+  const yk = !!window.__LC_YK;
+  const pm = payMethodNow();
+  const blocked = cartBlocked();
+  return `${stepBar(2)}
+  <div class="ckx">
+    <section class="ckx__card${shut ? ' is-shut' : ''}">
+      <button type="button" class="ckx__sumh" data-a="paysum" aria-expanded="${!shut}">
+        <span class="ckx__t">Ваш заказ</span>
+        <span class="ckx__sumv">${n} ${plural(n,['вещь','вещи','вещей'])}</span>
+        ${svg('chevD','ic')}
+      </button>
+      <div class="ckx__fold"><div><div class="ckx__items">
+        ${S.cart.map(i => `<div class="ckx__it${i.gone ? ' ckx__it--gone' : ''}">
+          <span class="ckx__pic"><img src="${i.img}" alt="" loading="lazy" decoding="async">${i.qty > 1 && !i.gone ? `<span class="ckx__q">${i.qty}</span>` : ''}</span>
+          <span class="ckx__in">
+            <span class="ckx__n">${esc(i.name)}</span>
+            <span class="ckx__m">${[sizeless(i.size) ? '' : 'Размер ' + esc(i.size), i.colorName ? esc(i.colorName) : ''].filter(Boolean).join(' · ')}</span>
+            ${i.gone ? `<span class="ci__gone">${svg('info','ic ic--sm')} ${GONE_TEXT}</span>
+              <button class="ci__drop" data-a="del:${i.key}">Убрать из заказа</button>` : ''}
+          </span>
+          ${i.gone ? '' : `<span class="ckx__p">${money(i.price * i.qty)}</span>`}
+        </div>`).join('')}
+      </div></div></div>
+      <div id="paySum">${cartSummaryHTML({pay:true})}</div>
+    </section>
 
-  <div id="paySum">${cartSummaryHTML({pay:true})}</div>
+    <section class="ckx__card">
+      <div class="ckx__h"><h2 class="ckx__t">Получение</h2>
+        <button type="button" class="ckx__a" data-a="back">Изменить</button></div>
+      <div class="ckx__row">
+        <span class="ckx__ic">${svg(dest.courier ? 'truck' : 'pin','ic')}</span>
+        <span class="ckx__rb">
+          <span class="ckx__rt">${dest.title}</span>
+          <span class="ckx__rv">${esc(dest.main || '—')}</span>
+          ${dest.sub ? `<span class="ckx__rs">${esc(dest.sub)}</span>` : ''}
+        </span>
+      </div>
+      ${g.name || g.phone ? `<div class="ckx__row">
+        <span class="ckx__ic">${svg('user','ic')}</span>
+        <span class="ckx__rb">
+          <span class="ckx__rt">Получатель</span>
+          <span class="ckx__rv">${esc(g.name || g.phone)}</span>
+          ${g.name && (g.phone || g.email) ? `<span class="ckx__rs">${esc([g.phone, g.email].filter(Boolean).join(' · '))}</span>` : ''}
+        </span>
+      </div>` : ''}
+    </section>
 
-  <div class="cosec cosec--tight">
-    <div class="cosec__t">Способ оплаты</div>
-    <div class="pm yk" aria-current="true">
-      ${YK_MARK}
-      <span class="pm__b">
-        ${YK_WORD}
-        <span class="pm__d">Карта, СБП или кошелёк</span>
-      </span>
-      <span class="yk__ok">${svg('check','ic ic--sm')}</span>
-    </div>
-  </div>
+    <section class="ckx__card">
+      <div class="ckx__h"><h2 class="ckx__t">Способ оплаты</h2></div>
+      ${yk ? `<div class="pmx" role="radiogroup" aria-label="Способ оплаты">
+        ${PAY_METHODS.map(m => `<div class="pmx__i">
+          <button type="button" class="pmx__o" role="radio" aria-checked="${m.k === pm.k}" data-a="paym:${m.k}">
+            <span class="pmx__lg">${m.lg}</span>
+            <span class="pmx__b"><span class="pmx__n">${m.t}</span><span class="pmx__d">${m.d}</span></span>
+            <span class="pmx__r" aria-hidden="true"></span>
+          </button>
+          <div class="pmx__fold"><div><p class="pmx__note">${svg('info','ic')}<span>${m.note}</span></p></div></div>
+        </div>`).join('')}
+      </div>
+      <p class="ckx__yk">${YK_MARK}<span>Оплата проходит на защищённой странице ЮKassa — данные карты и банка к нам не попадают.</span></p>`
+      : `<p class="ckx__off">${svg('info','ic ic--sm')}<span>Онлайн-оплата пока не подключена — заказ уйдёт в обработку, а мы свяжемся с вами насчёт оплаты.</span></p>`}
+    </section>
 
-  <div class="pay-scr__cta">
-    ${cartBlocked()
-      ? `<p class="cart__block">${svg('info','ic ic--sm')} Оформление недоступно: пока вы оформляли заказ, часть товаров разобрали. Уберите их — и продолжим.</p>
-         <button class="btn" disabled>${svg('lock','ic ic--sm')} ${window.__LC_YK ? 'Оплатить' : 'Оформить заказ'}</button>
-         <button class="ghb btn--wide" data-a="dropgone">Убрать закончившиеся</button>`
-      : `<button class="btn" id="payGo" data-a="paynow">${payLabel()}</button>`}
-    <p class="safe">${window.__LC_YK
-      ? svg('lock') + ' Безопасная оплата · данные защищены'
-      : svg('info','ic ic--sm') + ' Онлайн-оплата пока не подключена — заказ уйдёт в обработку'}</p>
+    ${blocked ? `<p class="ckx__block">${svg('info','ic ic--sm')}<span>Оформление недоступно: пока вы оформляли заказ,
+      часть товаров разобрали. Уберите их — и продолжим.</span></p>` : ''}
+    <p class="ckx__terms">Нажимая «${yk ? 'Оплатить' : 'Оформить заказ'}», вы соглашаетесь
+      с <button type="button" data-a="info:offer">условиями оферты</button></p>
   </div>
+  <div class="ckbar">
+    <div class="ckbar__sum"><span>К оплате</span><b id="payTotal">${payTotalText()}</b></div>
+    ${blocked
+      ? `<button class="ckbar__go" data-a="dropgone">Убрать закончившиеся</button>`
+      : `<button class="ckbar__go" id="payGo" data-a="paynow">${payLabel()}</button>`}
   </div>`;
 }
+
+/* «Оформляем заказ»: экран уходит в размытие, по центру крутится спиннер.
+   Пока он на экране, второй раз нажать «Оплатить» нельзя — слой ловит касания.
+   Уходим на страницу ЮKassa — слой остаётся до самого перехода. */
+let ploTimer = 0;
+function placingShow(title, sub){
+  let el = document.getElementById('plo');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'plo';
+    el.className = 'plo';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    const bars = Array.from({length:12}, (_, i) =>
+      `<i style="transform:rotate(${i * 30}deg);opacity:${(.16 + .84 * (i + 1) / 12).toFixed(2)}"></i>`).join('');
+    el.innerHTML = `<div class="plo__in"><span class="plo__sp" aria-hidden="true">${bars}</span>
+      <p class="plo__t"></p><p class="plo__s"></p></div>`;
+    document.body.appendChild(el);
+  }
+  el.querySelector('.plo__t').textContent = title || 'Оформляем заказ';
+  el.querySelector('.plo__s').textContent = sub || '';
+  clearTimeout(ploTimer);
+  if(!el.classList.contains('is-on')) el._at = Date.now();
+  document.body.classList.add('plo-on');
+  void el.offsetWidth;
+  el.classList.add('is-on');
+}
+function placingHide(){
+  const el = document.getElementById('plo');
+  document.body.classList.remove('plo-on');
+  if(!el) return;
+  el.classList.remove('is-on');
+  clearTimeout(ploTimer);
+  ploTimer = setTimeout(() => el.remove(), 320);
+}
+/* Не мельком: спиннер на сотню миллисекунд выглядит как сбой, а не как работа */
+function placingMin(ms = 900){
+  const el = document.getElementById('plo');
+  const left = el && el._at ? ms - (Date.now() - el._at) : 0;
+  return new Promise(r => setTimeout(r, Math.max(0, left)));
+}
+/* Вернулись со страницы оплаты кнопкой «Назад» — браузер мог достать
+   страницу из кэша вместе с размытием. Снимаем. */
+window.addEventListener('pageshow', e => { if(e.persisted) placingHide(); });
 
 function emptyCart(){
   return `<div class="sec empty">
@@ -10036,39 +10721,112 @@ function scrDelivery(){
   </div>`;
 }
 
-/* --- шаг 4: готово --- */
+/* --- шаг 4: «Спасибо за заказ!» ---
+   Галочка рисуется сама: зелёный круг, штрих, два кольца и разлёт точек.
+   Ждём оплату — вместо галочки часы, кольца дышат, пока идёт таймер.
+   Оплата подтвердилась прямо на этом экране — галочка рисуется заново. */
+const THX_DOTS = ['#0b0b0b','#ef8a1f','#1f9d55','#e8a33d','#5b57a2','#d64545','#1487c9','#0b0b0b'];
+const THX_PATH = {
+  ok:['M32 55.5l15 15 29-31'],
+  wait:['M54 31v24l15 10'],
+  bad:['M40 40l28 28', 'M68 40L40 68']
+};
+function thxMarkHTML(kind){
+  const dots = kind !== 'ok' ? '' : THX_DOTS.map((c, i) =>
+    `<i class="thx__dot" style="--a:${i * 45 + 22}deg;background:${c}"></i>`).join('');
+  return `<div class="thx__mark${kind !== 'ok' ? ' thx__mark--' + kind : ''}" aria-hidden="true">
+    <span class="thx__ring"></span><span class="thx__ring"></span>${dots}
+    <svg viewBox="0 0 108 108"><circle class="thx__bg" cx="54" cy="54" r="50"/>
+      ${(THX_PATH[kind] || THX_PATH.ok).map((d, i) => `<path class="thx__ck"${i ? ' style="animation-delay:.6s"' : ''} d="${d}"/>`).join('')}</svg>
+  </div>`;
+}
+/* Куда едет заказ — для экранов «Готово» и «Отслеживание» */
+function orderWhere(o){
+  const courier = o.shipMode === 'courier';
+  const p = o.pvz || {};
+  return {
+    courier,
+    title: courier ? 'Курьер СДЭК до двери' : 'Пункт выдачи СДЭК',
+    main: String(o.addr || p.addr || '').trim(),
+    hours: courier ? '' : String(p.hours || '').trim()
+  };
+}
+/* «Карта Мир •• 4242», «СБП»… Пока ЮKassa не сказала, чем платили, — общее. */
+function payNameText(o){
+  if(o.payStatus === 'manual') return 'Без онлайн-оплаты';
+  const n = String(o.payName || '').trim();
+  return !n || n === 'ЮKassa' ? 'Онлайн, ЮKassa' : n;
+}
+
+let thxKey = '';   /* что было на экране «Готово» в прошлый раз: «номер:состояние» */
 function scrDone(){
   const o = S.lastOrder;
-  const awaitingPay = o && (o.payStatus === 'pending' || o.status === 'Ожидает оплаты');
-  const title = awaitingPay ? 'Ожидаем оплату' : 'Заказ оформлен';
-  const sub = awaitingPay
-    ? `Номер заказа <b>№${o ? o.num : '—'}</b><br>Заказ появится в обработке после успешной оплаты.`
-    : `Номер заказа <b>№${o ? o.num : '—'}</b><br>Мы напишем, когда передадим его в доставку.`;
+  if(!o){
+    /* заказ не оплатили вовремя — его больше нет, но человеку надо это сказать */
+    if(S.lastGone) return `<div class="thx">${thxMarkHTML('bad')}
+      <h1 class="thx__t">Время на оплату вышло</h1>
+      <p class="thx__num">Заказ <b>№${esc(S.lastGone)}</b> отменён</p>
+      <p class="thx__s">Вещи вернулись в каталог. Если они ещё нужны — оформите заказ заново.</p></div>
+    <div class="ckbar"><button class="ckbar__alt" data-a="go:orders">Мои заказы</button>
+      <button class="ckbar__go" data-a="go:catalog">В каталог</button></div>`;
+    return `<div class="sec empty">
+      <span class="empty__ic">${svg('box')}</span>
+      <p class="empty__t">Ваши заказы</p>
+      <p class="empty__d">Все заказы и их статус — в разделе «Мои заказы».</p>
+      <div class="empty__acts"><button class="btn" data-a="go:orders">Мои заказы</button>
+        <button class="ghb btn--wide" data-a="go:catalog">В каталог</button></div></div>`;
+  }
+  const kind = o.status === 'Отменён' ? 'bad' : isAwaitingPay(o) ? 'wait' : 'ok';
+  const key = o.num + ':' + kind;
+  /* тот же заказ сменил состояние на глазах — проигрываем анимацию ещё раз */
+  const replay = !!thxKey && thxKey !== key && thxKey.split(':')[0] === String(o.num);
+  thxKey = key;
+  const wait = kind === 'wait';
+  const items = o.items || [];
+  const n = items.reduce((s, i) => s + (+i.qty || 1), 0);
+  const where = orderWhere(o);
+  const pics = items.slice(0, 4).map(i => `<span class="thx__pic">
+      <img src="${orderImg(i)}" alt="" loading="lazy" decoding="async">${(+i.qty || 1) > 1 ? `<span class="ckx__q">${+i.qty}</span>` : ''}</span>`).join('')
+    + (items.length > 4 ? `<span class="thx__more">+${items.length - 4}</span>` : '');
+  const num = esc(o.num);
+  const title = {ok:'Спасибо за заказ!', wait:'Ожидаем оплату', bad:'Заказ отменён'}[kind];
+  const sub = kind === 'bad'
+    ? (o.payStatus === 'paid' ? 'Деньги вернутся тем же способом, каким вы платили, — в течение дня.' : 'Вещи вернулись в каталог — можно оформить заказ заново.')
+    : wait
+      ? `Оплатите в течение <b>${payTimerHTML(o) || '10 минут'}</b> — и заказ сразу уйдёт в работу. Не успеете — он отменится.`
+      : (o.payStatus === 'manual'
+        ? 'Заказ принят. Свяжемся с вами, чтобы договориться об оплате.'
+        : 'Оплата прошла. Соберём заказ и сообщим, когда передадим его в доставку.');
   return `
-  ${stepBar(3)}
-  <div class="done">
-    <span class="done__ic">${svg(awaitingPay ? 'lock' : 'check','ic')}</span>
-    <h1 class="done__t">${title}</h1>
-    <p class="done__s">${sub}</p>
-    ${(window.lcApp && lcApp.installed())
+  <div class="thx${replay ? ' thx--go' : ''}">
+    ${thxMarkHTML(kind)}
+    <h1 class="thx__t">${title}</h1>
+    <p class="thx__num">Заказ <b>№${num}</b>${o.date ? ' от ' + esc(o.date) : ''}</p>
+    <p class="thx__s">${sub}</p>
+    <div class="thx__card">
+      ${pics ? `<div class="thx__pics">${pics}</div>` : ''}
+      <div class="kv"><span class="kv__k">Товары</span><span class="kv__v">${n} ${plural(n,['вещь','вещи','вещей'])}</span></div>
+      <div class="kv"><span class="kv__k">Получение</span>
+        <span class="kv__v">${esc(where.title)}${where.main ? `<small>${esc(where.main)}</small>` : ''}</span></div>
+      <div class="kv"><span class="kv__k">Оплата</span>
+        <span class="kv__v${kind === 'ok' ? ' kv__ok' : ''}">${wait ? 'Ждёт оплаты' : kind === 'bad' && o.payStatus !== 'paid' ? 'Не оплачен' : esc(payNameText(o))}</span></div>
+      <div class="kv kv--total"><span class="kv__k">Итого</span><span class="kv__v">${money(o.price)}</span></div>
+    </div>
+    ${kind === 'ok' && window.lcApp && lcApp.installed()
       ? notifCard('Сообщим, когда заказ передадут в доставку — не придётся заходить и проверять.')
       : ''}
-    ${o ? `<div class="cosec" style="margin:18px 0 0;text-align:left">
-      <div class="cosec__t">Детали заказа</div>
-      <div class="row"><span class="row__l">Сумма</span><span class="row__v">${money(o.price)}</span></div>
-      <div class="row"><span class="row__l">${shipModeName(o.shipMode)}</span>
-        <span class="row__v">${(+o.ship || 0) ? money(o.ship) : 'Бесплатно'}</span></div>
-      <div class="row"><span class="row__l">Оплата</span><span class="row__v">${awaitingPay ? 'Не оплачен' : (o.payName || '—')}</span></div>
-      ${o.addr ? `<div class="row"><span class="row__l">Куда</span>
-        <span class="row__v row__v--addr">${esc(o.addr)}</span></div>` : ''}
-    </div>` : ''}
-    ${awaitingPay && o ? `<p class="done__s" style="margin-top:12px">Оплатите в течение 10 минут ${payTimerHTML(o)}</p>
-    <button class="btn" style="margin-top:18px" data-a="ordpay:${o.num}">${svg('lock','ic ic--sm')} Перейти к оплате</button>` : ''}
-    ${o && o.guest && !awaitingPay ? `<p class="done__s" style="margin-top:16px">Заказ сохранён на этом устройстве.
-      <button data-a="go:auth" style="text-decoration:underline;font-weight:600;color:var(--ink)">Создайте аккаунт</button>,
-      чтобы видеть его с любого телефона.</p>` : ''}
-    <button class="btn${awaitingPay && o ? ' btn--gh' : ''}" style="margin-top:18px" data-a="go:orders">Мои заказы</button>
-    <button class="btn btn--gh" style="margin-top:10px" data-a="go:catalog">Продолжить покупки</button>
+    ${o.guest && kind === 'ok' ? `<p class="thx__note">Заказ сохранён на этом устройстве.
+      <button type="button" data-a="go:auth">Создайте аккаунт</button>, чтобы видеть его с любого телефона.</p>` : ''}
+  </div>
+  <div class="ckbar">
+    ${wait
+      ? `<button class="ckbar__alt" data-a="track:${num}">Подробнее</button>
+         <button class="ckbar__go" data-a="ordpay:${num}">${svg('lock','ic')} Оплатить</button>`
+      : kind === 'bad'
+        ? `<button class="ckbar__alt" data-a="track:${num}">Подробнее</button>
+           <button class="ckbar__go" data-a="go:catalog">В каталог</button>`
+        : `<button class="ckbar__alt" data-a="go:catalog">Продолжить покупки</button>
+           <button class="ckbar__go" data-a="track:${num}">Отследить заказ</button>`}
   </div>`;
 }
 
@@ -10318,7 +11076,9 @@ async function expireLocalUnpaid(){
         const i = ORDERS.findIndex(x => x.num === o.num);
         if(i >= 0) ORDERS.splice(i, 1);
       }
-      if(S.lastOrder && S.lastOrder.num === o.num) S.lastOrder = null;
+      /* «Готово» и «Отслеживание» скажут, что заказ отменён, а не «не найден» */
+      if(S.lastOrder && S.lastOrder.num === o.num){ S.lastOrder = null; S.lastGone = o.num; }
+      if(String(S.trackNum || '') === String(o.num)) S.lastGone = o.num;
     });
     saveUser();
     closeOv();
@@ -10380,7 +11140,7 @@ function liveUiBusy(){
   if(adm.querySelector('.ad')) return true;
   const tag = document.activeElement && document.activeElement.tagName;
   if(tag && ['INPUT','TEXTAREA','SELECT'].includes(tag)) return true;
-  if(ov.innerHTML && !ov.querySelector('.modal[aria-label="Заказ"]')) return true;
+  if(ov.innerHTML) return true;
   if(['auth','pdata','tryon'].includes(S.screen)) return true;
   return false;
 }
@@ -10388,16 +11148,9 @@ let livePaintQueued = false;
 function requestLivePaint(){
   if(liveUiBusy()){ livePaintQueued = true; return; }
   livePaintQueued = false;
+  /* открытый заказ человек видит своими глазами — новый статус уже прочитан */
+  if(S.screen === 'track' && S.trackNum) markOrderSeen(S.trackNum);
   render(true);
-  if(ov.querySelector('.modal[aria-label="Заказ"]')){
-    const title = ov.querySelector('.modal[aria-label="Заказ"] .modal__t');
-    const m = title && /№\s*(.+)$/.exec(String(title.textContent || '').trim());
-    const openNum = m ? m[1].trim() : '';
-    if(openNum && ORDERS.some(o => String(o.num) === String(openNum))){
-      openOv(orderModal(openNum));
-      startPayTimers();
-    }
-  }
 }
 async function refreshCatalogQuiet(){
   if(!window.LC) return;
@@ -10462,75 +11215,262 @@ function scrOrders(){
         : 'В этой категории заказов нет.'}</p>`}`;
 }
 
-function orderModal(num){
-  const o = ORDERS.find(x => x.num === num);
-  const stepRows = displayOrderSteps(o);
-  const steps = stepRows.map((s,i) => {
-    const cls = i < o.now ? 'step__i--done' : i === o.now ? 'step__i--now' : 'step__i--off';
-    const ic = ['card','cal','refresh','truck','check'][i];
-    return `<div class="step__i ${cls}"><span class="step__c">${svg(ic,'ic ic--sm')}</span>
-      <span class="step__l">${s[0]}</span>${s[1] ? `<span class="step__d">${s[1]}</span>` : ''}</div>`;
-  }).join('<span class="step__ln"></span>');
+/* ==========================================================
+   ЭКРАН: ОТСЛЕЖИВАНИЕ ЗАКАЗА
+   Отдельная страница вместо прежнего окошка: крупный статус, полоса из
+   четырёх этапов, подробный ход заказа с датами, куда и что везём, сумма
+   и помощь. Всё, что умело окошко, — здесь же: оплатить, отменить,
+   оформить возврат, повторить, оставить отзыв. Статус обновляется сам,
+   как и «Мои заказы» (repaintBuyerOrderUi), — и сменяется с анимацией:
+   новый этап загорается, заголовок перетекает в новый.
+   ========================================================== */
+const MON_SHORT = ['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
+/* «11-18» из шагов заказа → «18 нояб.» */
+function stepDay(md){
+  const m = /^(\d{2})-(\d{2})$/.exec(String(md || '').trim());
+  if(!m) return String(md || '').trim();
+  return `${+m[2]} ${MON_SHORT[+m[1] - 1] || ''}`.trim();
+}
+function stepDate(o, name){
+  const row = (o.steps || []).find(s => Array.isArray(s) && s[0] === name);
+  return row && row[1] ? stepDay(row[1]) : '';
+}
+/* createdAt с сервера — UTC «2026-11-18 16:56:48» → «18 нояб., 21:56» по часам телефона */
+function orderPlacedAt(o){
+  const raw = String(o.createdAt || '').trim();
+  const d = raw ? new Date(/(Z|[+-]\d\d:?\d\d)$/.test(raw) ? raw : raw.replace(' ', 'T') + 'Z') : null;
+  if(d && !isNaN(d)){
+    return `${d.getDate()} ${MON_SHORT[d.getMonth()]}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  return String(o.date || '');
+}
 
-  const tone = statusTone(o.status);
-  const ship = +o.ship || 0;
-  const refund = Math.max(0, (+o.goods || o.price) - (+o.discount || 0));
-  const shipping = o.status === 'Едет' || o.status === 'Доставка' || Number(o.now) >= 3;
-  const canCancel = (o.status === 'В обработке' || o.status === 'Ожидает оплаты') && !shipping;
-  const canPay = (o.payStatus === 'pending' || o.status === 'Ожидает оплаты') && o.payStatus !== 'paid' && o.payStatus !== 'manual';
-  const left = RETURN_DAYS - orderDaysPassed(o);
-  const canReturn = o.status === 'Доставлен' && left > 0;
-  const canReorder = !canPay && ['Доставлен','Отменён','Возврат','Едет','В обработке'].includes(o.status);
+/* Где сейчас заказ: этап 0 — оплата, 1 — сборка, 2 — в пути, 4 — получен. */
+function trackModel(o){
+  const st = o.status === 'Доставка' ? 'Едет' : o.status;
+  const courier = o.shipMode === 'courier';
+  const wait = isAwaitingPay(o);
+  const manual = o.payStatus === 'manual';
   const paid = o.payStatus === 'paid';
-  const waitingPay = isAwaitingPay(o);
-  const payLeft = waitingPay ? payTimerHTML(o) : '';
+  const kind = st === 'Отменён' ? 'cancel' : st === 'Возврат' ? 'ret' : wait ? 'wait'
+    : st === 'Доставлен' ? 'done' : st === 'Едет' ? 'ship' : 'work';
+  const cur = {wait:0, work:1, ship:2, done:4}[kind];
+  const head = {
+    wait:  ['Ждём оплату', 'Оплатите заказ — и мы сразу начнём его собирать.', 'Ждёт оплаты', 'wait'],
+    work:  ['Собираем заказ', manual
+      ? 'Свяжемся с вами насчёт оплаты, упакуем вещи и передадим в СДЭК.'
+      : 'Упакуем вещи и передадим в СДЭК. Как только отправим — здесь появится трек-номер.', 'В работе', ''],
+    ship:  [courier ? 'Заказ в пути' : 'Заказ едет в пункт выдачи', courier
+      ? 'Курьер СДЭК привезёт его по адресу доставки.'
+      : 'СДЭК пришлёт сообщение, когда заказ можно будет забрать.', 'В пути', ''],
+    done:  [courier ? 'Заказ доставлен' : 'Заказ получен',
+      'Спасибо, что выбрали нас! Расскажите, как вам вещи, — это поможет другим с выбором.',
+      courier ? 'Доставлен' : 'Получен', 'ok'],
+    cancel:['Заказ отменён', paid
+      ? 'Деньги вернутся тем же способом, каким вы платили, — в течение дня.'
+      : 'Вещи вернулись в каталог. Если оплата всё-таки прошла — вернём деньги в течение дня.', 'Отменён', 'bad'],
+    ret:   ['Оформлен возврат', 'Заявка принята — свяжемся с вами и подтвердим сумму.', 'Возврат', 'bad']
+  }[kind];
 
-  return `<div class="scrim"></div><div class="modal" role="dialog" aria-label="Заказ">
-    <div class="modal__h"><h2 class="modal__t">Заказ №${o.num}</h2>
-      <button class="hd__b" data-x aria-label="Закрыть">${svg('x')}</button></div>
-    <div class="step">${steps}</div>
-    <div style="margin-top:18px">
-      ${o.items.map(i => `<div class="dl"><span class="dl__k">${i.name}, ${i.size}${i.qty > 1 ? ` × ${i.qty}` : ''}
-        ${o.status === 'Доставлен' && byId(i.id) && !rvHasMine(i.id) ? `<button class="rvi__edit" style="margin-left:8px" data-a="rvnew:${i.id}">Оставить отзыв</button>` : ''}</span>
-        <span class="dl__v">${money(i.price * i.qty)}</span></div>`).join('')}
-      ${o.promoCode ? `<div class="dl"><span class="dl__k">Промокод ${esc(o.promoCode)}</span>
-        <span class="dl__v" style="color:var(--ok)">${o.discount ? '−' + money(o.discount) : 'доставка 0 ₽'}</span></div>` : ''}
-      <div class="dl"><span class="dl__k">Доставка${o.shipMode ? ' · ' + shipModeName(o.shipMode).toLowerCase() : ''}</span>
-        <span class="dl__v">${ship ? money(ship) : 'Бесплатно'}</span></div>
-      <div class="dl"><span class="dl__k">Оформлен</span><span class="dl__v">${o.date}</span></div>
-      <div class="dl"><span class="dl__k">Статус</span>
-        <span class="dl__v"><span class="sbadge sbadge--${tone}">${esc(o.status)}</span></span></div>
-      ${o.addr ? `<div class="dl"><span class="dl__k">Пункт выдачи</span>
-        <span class="dl__v">${esc(o.addr)}</span></div>` : ''}
-      ${o.track ? `<div class="dl"><span class="dl__k">Трек-номер</span><span class="dl__v">${esc(o.track)}</span></div>` : ''}
-      <div class="dl"><span class="dl__k">Итого</span><span class="dl__v" style="font-weight:700">${money(o.price)}</span></div>
-    </div>
-    ${waitingPay ? `<div class="pay-wait">
-      <div class="pay-wait__row">
-        <span class="pay-wait__lab">Осталось на оплату</span>
-        ${payLeft}
+  const shipDay = stepDate(o, 'Едет');
+  const track = String(o.track || o.tracking || '').trim();
+  const ev = [{t:'Заказ оформлен', d:orderPlacedAt(o), s:'done'}];
+  if(manual) ev.push({t:'Принят без онлайн-оплаты', d:'Договоримся об оплате', s:'done'});
+  else if(wait) ev.push({t:'Ждём оплату', d:'', s:'wait'});
+  else if(paid || kind !== 'cancel') ev.push({t:'Оплата прошла', d:[stepDate(o, 'Оплата'), payNameText(o)].filter(Boolean).join(' · '), s:'done'});
+  if(kind === 'cancel'){
+    ev.push({t:'Заказ отменён', d:o.cancelledAt || '', s:'bad'});
+  } else if(kind === 'ret'){
+    if(stepDate(o, 'Доставлен')) ev.push({t:courier ? 'Доставлен' : 'Получен', d:stepDate(o, 'Доставлен'), s:'done'});
+    ev.push({t:'Оформлен возврат', d:o.returnAt || '', s:'bad'});
+  } else {
+    ev.push({t:'Собираем заказ',
+      d:cur > 1 ? stepDate(o, 'Обработка') : cur === 1 ? 'Упаковываем вещи и готовим к отправке' : '',
+      s:cur > 1 ? 'done' : cur === 1 ? 'now' : 'off'});
+    ev.push({t:courier ? 'Передан курьеру СДЭК' : 'Передан в СДЭК',
+      d:cur >= 2 ? [shipDay, track ? 'трек ' + track : (cur === 2 ? 'едет к вам' : '')].filter(Boolean).join(' · ') : '',
+      s:cur > 2 ? 'done' : cur === 2 ? 'now' : 'off'});
+    ev.push({t:courier ? 'Доставлен' : 'Получен', d:cur >= 4 ? stepDate(o, 'Доставлен') : '', s:cur >= 4 ? 'fin' : 'off'});
+  }
+  return {kind, cur, courier, wait, paid, manual, head, ev, track};
+}
+
+/* Состояние кружка и линии полосы этапов — по ним же видно, что сменилось */
+function trkNodeState(i, cur, kind){
+  if(cur >= 4) return i === 3 ? 'is-fin' : 'is-done';
+  if(i < cur) return 'is-done';
+  if(i === cur) return kind === 'wait' ? 'is-now is-wait' : 'is-now';
+  return '';
+}
+function trkLineState(i, cur){
+  return cur >= 4 || i < cur - 1 ? 'is-on' : i === cur - 1 ? 'is-on is-to' : '';
+}
+function trackBarHTML(m, prev){
+  if(m.kind === 'cancel' || m.kind === 'ret') return '';
+  const nodes = [m.manual ? ['Оформлен','bag'] : ['Оплата','card'], ['Сборка','box'], ['В пути','truck'],
+    [m.courier ? 'Доставлен' : 'Получен','check']];
+  const was = prev && prev.cur != null && !['cancel','ret'].includes(prev.kind) ? prev : null;
+  return `<div class="trk__bar" aria-hidden="true">${nodes.map(([t, ic], i) => {
+    const st = trkNodeState(i, m.cur, m.kind);
+    const nw = was && trkNodeState(i, was.cur, was.kind) !== st ? ' is-new' : '';
+    const ls = i < 3 ? trkLineState(i, m.cur) : '';
+    const lnw = i < 3 && was && ls && trkLineState(i, was.cur) !== ls ? ' is-new' : '';
+    const line = i < 3 ? `<span class="trk__ln ${ls}${lnw}" style="--i:${i}"><i></i></span>` : '';
+    return `<div class="trk__st ${st}${nw}" style="--i:${i}"><span class="trk__dot">${svg(st === 'is-done' || st === 'is-fin' ? 'check' : ic,'ic')}</span>
+      <span class="trk__lb">${t}</span></div>${line}`;
+  }).join('')}</div>`;
+}
+
+/* Что было на экране в прошлый раз: так видно, что статус сменился на глазах */
+let trkPrev = null;
+let trkPulling = '';
+let trkTried = '';
+const TRK_SPIN = Array.from({length:12}, (_, i) =>
+  `<i style="transform:rotate(${i * 30}deg);opacity:${(.16 + .84 * (i + 1) / 12).toFixed(2)}"></i>`).join('');
+/* Подтянуть заказ с сервера; пока тянем — экран показывает «Загружаем» */
+function trkPull(num){
+  num = String(num);
+  trkPulling = num;
+  return pullOrderByNum(num).catch(() => null).then(r => {
+    trkTried = num;
+    if(trkPulling === num) trkPulling = '';
+    if(r){ saveUser(); markOrderSeen(num); }
+    if(S.screen === 'track' && String(S.trackNum) === num){ render(true); startPayTimers(); }
+    return r;
+  });
+}
+
+function scrTrack(){
+  const num = String(S.trackNum || '');
+  const o = ORDERS.find(x => String(x.num) === num);
+  if(!o){
+    /* открыли по ссылке или после перезагрузки — заказ ещё не подтянулся */
+    if(num && window.LC && trkPulling !== num && trkTried !== num) trkPull(num);
+    if(num && trkPulling === num) return `<div class="trk__load">
+      <span class="plo__sp" aria-hidden="true">${TRK_SPIN}</span><p>Загружаем заказ №${esc(num)}</p></div>`;
+    const gone = num && String(S.lastGone || '') === num;
+    return `<div class="sec empty">
+      <span class="empty__ic">${svg(gone ? 'clock' : 'box')}</span>
+      <p class="empty__t">${gone ? `Заказ №${esc(num)} отменён` : 'Заказ не найден'}</p>
+      <p class="empty__d">${gone ? 'Время на оплату вышло — вещи вернулись в каталог.' : 'Возможно, он оформлен с другого аккаунта.'}</p>
+      <div class="empty__acts"><button class="btn" data-a="go:orders">Мои заказы</button>
+        <button class="ghb btn--wide" data-a="go:catalog">В каталог</button></div></div>`;
+  }
+  const m = trackModel(o);
+  const prev = trkPrev && trkPrev.num === String(o.num) ? trkPrev : null;
+  trkPrev = {num:String(o.num), kind:m.kind, cur:m.cur, ev:Object.fromEntries(m.ev.map(e => [e.t, e.s]))};
+  const moved = !!(prev && (prev.kind !== m.kind || prev.cur !== m.cur));
+  const where = orderWhere(o);
+  const ship = +o.ship || 0;
+  const goods = (o.items || []).reduce((s, i) => s + (+i.price || 0) * (+i.qty || 1), 0);
+  const left = RETURN_DAYS - orderDaysPassed(o);
+  const canCancel = (o.status === 'В обработке' || o.status === 'Ожидает оплаты')
+    && !(o.status === 'Едет' || o.status === 'Доставка' || Number(o.now) >= 3);
+  const canReturn = o.status === 'Доставлен' && left > 0;
+  const canReorder = !m.wait && ['Доставлен','Отменён','Возврат','Едет','В обработке'].includes(o.status);
+  const refund = Math.max(0, (+o.goods || o.price) - (+o.discount || 0));
+  const n = esc(o.num);
+  const pillCls = m.head[3] ? ' trk__pill--' + m.head[3] : '';
+
+  let cta = '';
+  if(m.wait) cta = `${canCancel ? `<button class="ckbar__alt" data-a="ordcancel:${n}">Отменить</button>` : ''}
+    <button class="ckbar__go" data-a="ordpay:${n}">${svg('lock','ic')} Оплатить</button>`;
+  else if(canReturn) cta = `<button class="ckbar__alt" data-a="ordreturn:${n}">Оформить возврат</button>
+    <button class="ckbar__go" data-a="reorder:${n}">Купить снова</button>`;
+  else if(canCancel) cta = `<button class="ckbar__alt" data-a="ordcancel:${n}">Отменить заказ</button>
+    ${canReorder ? `<button class="ckbar__go" data-a="reorder:${n}">Купить снова</button>` : ''}`;
+  else if(canReorder) cta = `<button class="ckbar__go" data-a="reorder:${n}">${svg('refresh','ic')} Купить снова</button>`;
+
+  return `
+  <div class="ckx${moved ? ' trk--moved' : ''}">
+    <section class="ckx__card">
+      <div class="trk__top"><span class="trk__no">Заказ №${n} · ${esc(o.date || '')}</span>
+        <span class="trk__pill${pillCls}">${m.head[2]}</span></div>
+      <h1 class="trk__t">${m.head[0]}</h1>
+      <p class="trk__s">${m.head[1]}</p>
+      ${trackBarHTML(m, prev)}
+      ${m.wait ? `<div class="trk__pay"><p>Осталось на оплату. Не успеете — заказ отменится, вещи вернутся в каталог.</p>${payTimerHTML(o)}</div>` : ''}
+    </section>
+
+    <section class="ckx__card">
+      <div class="ckx__h"><h2 class="ckx__t">Ход заказа</h2></div>
+      <ol class="trk__tl">${m.ev.map((e, i) => `<li class="trk__ev is-${e.s}${prev && prev.ev[e.t] !== e.s ? ' is-new' : ''}" style="--i:${i}">
+        <span class="trk__m">${e.s === 'done' || e.s === 'fin' ? svg('check','ic') : e.s === 'bad' ? svg('x','ic') : ''}</span>
+        <span class="trk__eb"><span class="trk__et">${e.t}</span>${e.d ? `<span class="trk__ed">${esc(e.d)}</span>` : ''}</span>
+      </li>`).join('')}</ol>
+    </section>
+
+    <section class="ckx__card">
+      <div class="ckx__h"><h2 class="ckx__t">${m.courier ? 'Доставка' : 'Получение'}</h2></div>
+      <div class="ckx__row">
+        <span class="ckx__ic">${svg(m.courier ? 'truck' : 'pin','ic')}</span>
+        <span class="ckx__rb"><span class="ckx__rt">${where.title}</span>
+          <span class="ckx__rv">${esc(where.main || '—')}</span>
+          ${where.hours ? `<span class="ckx__rs">${esc(where.hours)}</span>` : ''}</span>
       </div>
-      <p class="pay-wait__h">Час с оформления. Если не успеете — заказ отменится, вещи вернутся в каталог.</p>
-      <div class="ord__acts">
-        <button class="btn" data-a="ordpay:${o.num}">${svg('lock','ic ic--sm')} Оплатить</button>
-        ${canCancel ? `<button class="ord__cancel" data-a="ordcancel:${o.num}">Отменить заказ</button>` : ''}
-      </div>
-    </div>` : ''}
-    ${!waitingPay && (canReorder || canCancel || canReturn) ? `<div class="ord__acts">
-      ${canReorder ? `<button class="ghb" data-a="reorder:${o.num}">${svg('refresh','ic ic--sm')} Повторить заказ</button>` : ''}
-      ${canCancel ? `<button class="ghb ghb--d" data-a="ordcancel:${o.num}">${svg('x','ic ic--sm')} Отменить заказ</button>` : ''}
-      ${canReturn ? `<button class="ghb" data-a="ordreturn:${o.num}">${svg('refresh','ic ic--sm')} Оформить возврат</button>` : ''}
-    </div>` : ''}
-    ${!waitingPay && canCancel ? `<p class="ord__hint">Пока заказ не уехал, его можно отменить.${paid ? ' Вернём деньги в течение дня.' : ''}</p>` : ''}
-    ${canReturn ? `<p class="ord__hint">На возврат осталось ${left} ${plural(left,['день','дня','дней'])}.
-      Вернём ${money(refund)} после проверки вещи.</p>` : ''}
-    ${o.status === 'Возврат' ? `<p class="ord__hint">Заявка на возврат принята${o.returnAt ? ' ' + o.returnAt : ''} —
-      свяжемся с вами и подтвердим сумму.</p>` : ''}
-    ${o.status === 'Отменён' ? `<p class="ord__hint">Заказ отменён${o.cancelledAt ? ' ' + o.cancelledAt : ''}.
-      ${paid ? 'Вернём ваши деньги в течение дня на ту же карту.' : 'Если оплата уже прошла, вернём деньги в течение дня.'}</p>` : ''}
-    ${o.status === 'Доставлен' && !canReturn ? `<p class="ord__hint">Срок возврата (${RETURN_DAYS} дней) истёк.
-      Если с вещью что-то не так — напишите нам, разберёмся.</p>` : ''}
-  </div>`;
+      ${o.customerName || o.phone ? `<div class="ckx__row">
+        <span class="ckx__ic">${svg('user','ic')}</span>
+        <span class="ckx__rb"><span class="ckx__rt">Получатель</span>
+          <span class="ckx__rv">${esc(o.customerName || o.phone)}</span>
+          ${o.customerName && o.phone ? `<span class="ckx__rs">${esc(o.phone)}</span>` : ''}</span>
+      </div>` : ''}
+      ${m.track ? `<div class="trk__code"><b>${esc(m.track)}</b>
+        <button type="button" data-a="trkcopy:${encodeURIComponent(m.track)}">${svg('copy','ic')} Скопировать</button>
+        <a href="https://www.cdek.ru/ru/tracking?order_id=${encodeURIComponent(m.track)}" target="_blank" rel="noopener">${svg('ext','ic')} СДЭК</a></div>` : ''}
+    </section>
+
+    <section class="ckx__card">
+      <div class="ckx__h"><h2 class="ckx__t">Товары</h2></div>
+      <div class="ckx__items" style="padding-top:0">${(o.items || []).map(i => `<div class="ckx__it">
+        <span class="ckx__pic"><img src="${orderImg(i)}" alt="" loading="lazy" decoding="async">${(+i.qty || 1) > 1 ? `<span class="ckx__q">${+i.qty}</span>` : ''}</span>
+        <span class="ckx__in"><span class="ckx__n">${esc(i.name)}</span>
+          <span class="ckx__m">${[sizeless(i.size) ? '' : 'Размер ' + esc(i.size), i.colorName ? esc(i.colorName) : ''].filter(Boolean).join(' · ')}</span>
+          ${o.status === 'Доставлен' && byId(i.id) && !rvHasMine(i.id)
+            ? `<button type="button" class="trk__rv" data-a="rvnew:${i.id}">${svg('star','ic')} Оставить отзыв</button>` : ''}</span>
+        <span class="ckx__p">${money((+i.price || 0) * (+i.qty || 1))}</span>
+      </div>`).join('')}</div>
+      <div class="kv" style="border-top:1px solid var(--line);margin-top:6px"><span class="kv__k">Товары</span><span class="kv__v">${money(goods || o.goods || 0)}</span></div>
+      ${o.promoCode ? `<div class="kv"><span class="kv__k">Промокод ${esc(o.promoCode)}</span>
+        <span class="kv__v kv__ok">${o.discount ? '−' + money(o.discount) : 'доставка 0 ₽'}</span></div>` : ''}
+      <div class="kv"><span class="kv__k">Доставка</span><span class="kv__v">${ship ? money(ship) : 'Бесплатно'}</span></div>
+      <div class="kv kv--total"><span class="kv__k">Итого</span><span class="kv__v">${money(o.price)}</span></div>
+    </section>
+
+    <section class="ckx__card">
+      <div class="ckx__h"><h2 class="ckx__t">О заказе</h2></div>
+      <div class="kv"><span class="kv__k">Номер</span><span class="kv__v">№${n}</span></div>
+      <div class="kv"><span class="kv__k">Оформлен</span><span class="kv__v">${esc(orderPlacedAt(o))}</span></div>
+      <div class="kv"><span class="kv__k">Оплата</span><span class="kv__v">${m.wait ? 'Ждёт оплаты' : m.kind === 'cancel' && !m.paid ? 'Не оплачен' : esc(payNameText(o))}</span></div>
+      ${o.email && !/@(phone|google)\.luxecanvas$/i.test(o.email)
+        ? `<div class="kv"><span class="kv__k">Эл. почта</span><span class="kv__v">${esc(o.email)}</span></div>` : ''}
+    </section>
+
+    <section class="ckx__card trk__help">
+      <h2 class="ckx__t">Нужна помощь?</h2>
+      <button type="button" class="trk__hl" data-a="chat">${svg('chat','ic')}<span>Написать нам</span>${svg('chev','ic')}</button>
+      <button type="button" class="trk__hl" data-a="info:returns">${svg('refresh','ic')}<span>Возврат и обмен</span>${svg('chev','ic')}</button>
+      <button type="button" class="trk__hl" data-a="info:shipping">${svg('truck','ic')}<span>Доставка и сроки</span>${svg('chev','ic')}</button>
+    </section>
+
+    ${canCancel && !m.wait ? `<p class="trk__hint">Пока заказ не уехал, его можно отменить.${m.paid ? ' Деньги вернём в течение дня.' : ''}</p>` : ''}
+    ${canReturn ? `<p class="trk__hint">На возврат осталось ${left} ${plural(left,['день','дня','дней'])} — вернём ${money(refund)} после проверки вещи.</p>` : ''}
+    ${o.status === 'Доставлен' && !canReturn ? `<p class="trk__hint">Срок возврата (${RETURN_DAYS} дней) истёк. Если с вещью что-то не так — напишите нам, разберёмся.</p>` : ''}
+  </div>
+  ${cta ? `<div class="ckbar">${cta}</div>` : ''}`;
+}
+
+/* Открыть отслеживание заказа: из «Готово», из «Моих заказов», из профиля */
+function openTrack(num){
+  if(!num) return;
+  num = String(num);
+  markOrderSeen(num);
+  closeOv();
+  S.trackNum = num;
+  trkTried = '';
+  /* свежий статус с сервера — тихо, без мигания; экран второй раз не просит */
+  if(window.LC) trkPull(num);
+  go('track');
+  startPayTimers();
 }
 
 /* ==========================================================
@@ -10665,6 +11605,7 @@ function authModalHTML(){
       ${fields}
       <button class="amod__b" type="submit">${btn}</button>
     </form>
+    ${v === 'log' || v === 'reg' ? '<div id="amGoogle"></div>' : ''}
     <div class="amod__links">${links}</div>
   </div>`;
 }
@@ -10679,6 +11620,8 @@ function authModal(view){
   if(!w) return;
   w.querySelectorAll('[data-av]').forEach(b => b.onclick = () => authModal(b.dataset.av));
   w.querySelector('#amF').onsubmit = e => { e.preventDefault(); authSubmit(); };
+  /* «Войти через Google» — только если сервер видит VPN */
+  if(authMod.view === 'log' || authMod.view === 'reg') mountGoogleAuth();
 }
 
 /* Полноэкранный вход по коду из бота (старый экран auth) */
@@ -12202,7 +13145,9 @@ function legalDocPrivacy(){
       и технические отчёты об ошибках, а вам — уведомления о заказе и ответы поддержки, если вы
       подключили бота; сервису отправки писем — для восстановления пароля; сервисам подбора адреса
       (OpenStreetMap Nominatim, Photon) — для поиска адреса доставки; службе push-уведомлений вашего
-      браузера — если вы включили уведомления; сервису примерки — фото, если вы пользуетесь примеркой.
+      браузера — если вы включили уведомления; сервису примерки — фото, если вы пользуетесь примеркой;
+      Google (Google LLC, серверы за пределами РФ) — если вы входите через Google: Google подтверждает
+      вход и передаёт нам имя и эл. почту аккаунта (кнопка входа видна только при подключении через VPN).
       Мы не продаём персональные данные.</p>
     <h3>5. Хранение и защита</h3>
     <p>Данные хранятся столько, сколько нужно для целей обработки и требований закона.
@@ -12255,6 +13200,9 @@ function legalDocCookies(){
       <li>карта пунктов выдачи при оформлении заказа — 2ГИС или OpenStreetMap и библиотека Leaflet (unpkg.com):
         они получают IP-адрес и сведения о браузере, чтобы показать карту;</li>
       <li>оплата — переход на страницу ЮKassa;</li>
+      <li>вход через Google — кнопка видна, только если вы зашли через VPN. Тогда в окне входа загружается
+        скрипт Google (accounts.google.com): он получает IP-адрес и сведения о браузере и может сохранить
+        свои cookie; после входа Google передаёт нам имя и эл. почту аккаунта;</li>
       <li>Telegram — по нажатию на ссылки.</li>
     </ul>
 
@@ -12264,7 +13212,7 @@ function legalDocCookies(){
 
     <h3>5. Контакты</h3>
     <p>По вопросам cookie и персональных данных: ${legalOr('email','email')}.</p>
-    <p style="margin-top:16px;color:var(--muted);font-size:12.5px">Редакция от 05.10.2026 · ${BRAND}</p>
+    <p style="margin-top:16px;color:var(--muted);font-size:12.5px">Редакция от 18.11.2026 · ${BRAND}</p>
   </div>`;
 }
 
@@ -12958,6 +13906,7 @@ const SCREENS = {
   delivery:{hd:() => hdStep('Оформление'), body:scrDelivery},
   pay:     {hd:() => hdStep('Оплата'), body:scrPay},
   done:    {hd:() => hdModal('Готово'), body:scrDone},
+  track:   {hd:() => hdModal('Отслеживание заказа'), body:scrTrack},
   auth:    {hd:hdBack,  body:scrAuth},
   orders:  {hd:hdBack,  body:scrOrders},
   profile: {hd:hdMain,  body:scrProfile},
@@ -13056,7 +14005,7 @@ function render(keepScroll){
   }
   renderTabs();
   document.title = ({home:'Главная',catalog:'Каталог',product:'Товар',cart:'Корзина',
-    auth:'Вход',orders:'Мои заказы',profile:'Профиль',favs:'Избранное',pay:'Оплата заказа',pdata:'Личные данные',addr:'Адрес доставки',notif:'Уведомления',delivery:'Оформление',done:'Заказ оформлен',tryon:'Примерка',
+    auth:'Вход',orders:'Мои заказы',profile:'Профиль',favs:'Избранное',pay:'Оплата заказа',pdata:'Личные данные',addr:'Адрес доставки',notif:'Уведомления',delivery:'Оформление',done:'Заказ оформлен',track:'Отслеживание заказа',tryon:'Примерка',
     info:(INFO_PAGES[S.infoKey] || INFO_PAGES.about).title})[S.screen] + ' • ' + BRAND;
   /* Главную, товар и раздел видят и поисковики (Google берёт заголовок уже
      после выполнения скриптов): те же слова, что отдаёт сервер (server/seo.js),
@@ -13066,7 +14015,7 @@ function render(keepScroll){
     const tp = byId(S.productId);
     if(tp) document.title = `${tp.name} — купить за ${String(Math.round(+tp.price || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₽ | ${BRAND}`;
   }else if(S.screen === 'catalog' && S.cat) document.title = `${S.cat} — купить в интернет-магазине | ${BRAND}`;
-  const NO_TABS = ['product','tryon','delivery','pay','done'];
+  const NO_TABS = ['product','tryon','delivery','pay','done','track'];
   document.body.classList.toggle('no-tabs', NO_TABS.includes(S.screen));
   document.body.classList.toggle('has-mini', !!S.mini);
   document.getElementById('mini').innerHTML = nextMini;
@@ -13302,6 +14251,7 @@ function shopHash(){
   if(S.screen === 'catalog') return '#catalog/' + (GENDER_LAB[S.gender] ? S.gender : 'u') +
     (S.cat ? '/' + (catMeta(S.cat) ? catMeta(S.cat).slug : encodeURIComponent(S.cat)) : '');
   if(S.screen === 'info') return '#info/' + (S.infoKey || 'about');
+  if(S.screen === 'track' && S.trackNum) return '#track/' + encodeURIComponent(S.trackNum);
   if(S.screen === 'home') return '#home';
   return '#' + S.screen;
 }
@@ -13314,6 +14264,7 @@ function persistPlace(){
     size: S.size,
     galIdx: S.galIdx,
     infoKey: S.infoKey,
+    trackNum: S.trackNum || '',
     orderTab: S.orderTab,
     filter: S.filter,
     sort: S.sort,
@@ -13360,6 +14311,13 @@ function applyRouteHash(raw){
     S.screen = 'info';
     return true;
   }
+  /* #track/10023 — отслеживание заказа (ссылка живёт и после перезагрузки) */
+  const trk = /^track\/([\w-]+)$/.exec(h);
+  if(trk){
+    S.trackNum = trk[1];
+    S.screen = 'track';
+    return true;
+  }
   if(SCREENS[h]){
     S.screen = h;
     return true;
@@ -13382,6 +14340,7 @@ function applySavedPlace(d){
     S.galIdx = +d.galIdx || 0;
   }
   if(d.infoKey && INFO_PAGES[d.infoKey]) S.infoKey = d.infoKey;
+  if(d.trackNum) S.trackNum = String(d.trackNum);
   if(d.orderTab) S.orderTab = d.orderTab;
   if(d.filter && typeof d.filter === 'object') S.filter = Object.assign({}, S.filter, d.filter);
   if(d.sort) S.sort = d.sort;
@@ -13641,14 +14600,8 @@ function applyAdminOrders(remote){
   (remote || []).forEach(o => ADMIN_ORDERS.push(normalizeServerOrder(o)));
 }
 function repaintBuyerOrderUi(){
-  const title = ov.querySelector('.modal[aria-label="Заказ"] .modal__t');
-  const m = title && /№\s*(.+)$/.exec(String(title.textContent || '').trim());
-  const openNum = m ? m[1].trim() : '';
-  if(openNum && ORDERS.some(o => String(o.num) === String(openNum))){
-    openOv(orderModal(openNum));
-    startPayTimers();
-  }
-  if(['orders','profile','done','notif'].includes(S.screen)) render(true);
+  if(S.screen === 'track' && S.trackNum) markOrderSeen(S.trackNum);
+  if(['orders','profile','done','notif','track'].includes(S.screen)) render(true);
   else renderTabs();
 }
 async function pullOrderByNum(num){
@@ -13871,8 +14824,8 @@ function orderStatusMap(){
 }
 
 /* Статус поменялся, пока человек смотрел другой экран или свернул приложение.
-   Если он как раз стоит на «Моих заказах», молчим: там всё и так перерисовалось,
-   и уведомление о том, что видно на экране, — просто шум. */
+   Если он как раз стоит на «Моих заказах» или на этом заказе, молчим: там всё и так
+   перерисовалось, и уведомление о том, что видно на экране, — просто шум. */
 function notifyOrderChanges(before){
   if(!before) return;
   if(!document.hidden && S.screen === 'orders') return;
@@ -13880,7 +14833,36 @@ function notifyOrderChanges(before){
   Object.keys(now).forEach(num => {
     const was = before[num];
     if(!was || was === now[num] || !now[num]) return;
-    notifShow('Заказ №' + num, now[num], 'lc-order-' + num, '/#orders');
+    if(!document.hidden && S.screen === 'track' && String(S.trackNum) === String(num)) return;
+    notifShow('Заказ №' + num, now[num], 'lc-order-' + num, '/#track/' + encodeURIComponent(num));
+  });
+}
+
+/* Тап по уведомлению, когда магазин уже открыт. Раньше воркер уводил
+   вкладку на адрес из уведомления, но в нём меняется одна «решётка»:
+   страница от такого перехода не перезагружается и экран не меняет, а
+   своё «Назад» вдобавок принимает его за системную кнопку и отступает на
+   экран. Теперь воркер только говорит, что открыть (notificationclick
+   в sw.js), а открываем мы сами. */
+function openFromNotif(url){
+  let h = '';
+  try{
+    const u = new URL(url || '/', location.origin);
+    if(u.origin !== location.origin) return;
+    h = u.hash;
+  }catch(_){ return; }
+  const trk = /^#track\/([\w-]+)$/.exec(h);
+  if(trk){ openTrack(trk[1]); return; }
+  if(/^#admin\b/i.test(h)){
+    if(isAdmin() && !document.body.classList.contains('adm-on')) openAdmin().then(syncBack, syncBack);
+    return;
+  }
+  if(h === '#orders'){ closeOv(); go('orders'); }
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', e => {
+    const d = e.data;
+    if(d && d.type === 'lc-open') openFromNotif(d.url);
   });
 }
 
@@ -16158,9 +17140,10 @@ document.addEventListener('click', e => {
       if(shipWait){ toast(shipWait); break; }
       if(!window.LC){ toast('Запустите сервер магазина'); break; }
       S._payBusy = true;
+      placingShow('Оформляем заказ', window.__LC_YK ? 'Сейчас откроется страница оплаты' : 'Это займёт пару секунд');
       (async () => {
+        let leaving = false;
         try{
-          toast('Создаём оплату…');
           revalidatePromo();
           const g = S.checkout.guest;
           const result = await LC.checkout({
@@ -16168,13 +17151,18 @@ document.addEventListener('click', e => {
             guest: { name: g.name.trim(), phone: g.phone.trim(), email: g.email.trim() },
             pvz: S.checkout.pvz,
             delivery: deliveryPayload(),
-            promoCode: S.promo ? S.promo.code : S.promoCode
+            promoCode: S.promo ? S.promo.code : S.promoCode,
+            /* выбранный способ: ЮKassa откроет сразу его форму */
+            payMethod: window.__LC_YK ? payMethodNow().k : ''
           });
+          /* спиннер не мелькает: ещё мгновение — и сразу «Спасибо» */
+          if(!result.confirmationUrl) await placingMin();
           const order = normalizeServerOrder(result.order);
           if(result.orderAccessToken) LC.rememberOrderToken(order.num, result.orderAccessToken);
           seedOrderSeen();
           ORDERS.unshift(order);
           S.lastOrder = order;
+          S.lastGone = '';
           S.cart = [];
           S.promo = null; S.promoCode = ''; S.promoMsg = '';
           S.mini = null;
@@ -16183,16 +17171,16 @@ document.addEventListener('click', e => {
           /* сразу синхронизировать с сервером, если залогинены */
           if(S.user) refreshMyOrders(false);
           if(result.alreadyPaid){
-            toast('Заказ оформлен');
             go('done');
             return;
           }
           if(result.confirmationUrl){
+            leaving = true;
+            placingShow('Переходим к оплате', 'Открываем защищённую страницу ЮKassa');
             location.href = result.confirmationUrl;
             return;
           }
           if(!result.paymentConfigured){
-            toast(result.message || 'Заказ принят в обработку');
             go('done');
             return;
           }
@@ -16202,6 +17190,7 @@ document.addEventListener('click', e => {
           toast(errText(err, 'Не удалось создать оплату'));
         }finally{
           S._payBusy = false;
+          if(!leaving) placingHide();
         }
       })();
       break;
@@ -16253,8 +17242,11 @@ document.addEventListener('click', e => {
       copyText('@' + bot).then(ok => toast(ok ? 'Скопировано: @' + bot : '@' + bot));
       break;
     }
-    /* Вход через Google и Telegram убран — старые ссылки ведут в окно входа по почте */
+    /* своя кнопка Google — если настоящая от Google не успела появиться */
     case 'auth_google':
+      startGoogleLogin();
+      break;
+    /* вход через Telegram убран — старые ссылки ведут в окно входа по почте */
     case 'auth_tg':
       authModal('log');
       break;
@@ -16273,16 +17265,39 @@ document.addEventListener('click', e => {
       })();
       break;
     case 'otab': S.orderTab = el.dataset.a.slice(5); render(true); break;
+    /* заказ открывается отдельной страницей отслеживания, а не окошком */
     case 'ord':
-      markOrderSeen(a);
-      (async () => {
-        try{ await pullOrderByNum(a); saveUser(); }catch(_){}
-        if(!ORDERS.find(x => String(x.num) === String(a))) return toast('Заказ не найден');
-        openOv(orderModal(a));
-        if(S.screen === 'orders' || S.screen === 'profile') render(true);
-        startPayTimers();
-      })();
+    case 'track':
+      openTrack(a);
       break;
+    case 'trkcopy': {
+      let code = '';
+      try{ code = decodeURIComponent(a || ''); }catch(_){ code = a || ''; }
+      if(code) copyText(code, 'Трек-номер скопирован');
+      break;
+    }
+    /* способ оплаты: меняем на месте, без перерисовки — так анимации
+       (обводка, точка в кружке, раскрытие подсказки) идут плавно */
+    case 'paym': {
+      if(!PAY_METHODS.some(m => m.k === a)) break;
+      S.checkout.pay = a;
+      saveUser();
+      const box = el.closest('.pmx');
+      if(!box){ render(true); break; }
+      box.querySelectorAll('.pmx__o').forEach(b => b.setAttribute('aria-checked', String(b === el)));
+      break;
+    }
+    /* «Ваш заказ» сворачивается и разворачивается тоже на месте */
+    case 'paysum': {
+      const card = el.closest('.ckx__card');
+      const shut = card ? !card.classList.contains('is-shut') : !S.checkout.sumShut;
+      S.checkout.sumShut = shut;
+      if(card){
+        card.classList.toggle('is-shut', shut);
+        el.setAttribute('aria-expanded', String(!shut));
+      } else render(true);
+      break;
+    }
     case 'reorder': {
       const o = ORDERS.find(x => String(x.num) === String(a));
       if(!o || !Array.isArray(o.items) || !o.items.length){
@@ -16416,9 +17431,10 @@ document.addEventListener('click', e => {
         else toast('Ссылка на оплату недоступна');
         break;
       }
+      placingShow('Открываем оплату', 'Сейчас откроется страница ЮKassa');
       (async () => {
+        let leaving = false;
         try{
-          toast('Открываем оплату…');
           const tok = LC.orderToken(o.num) || '';
           const result = await LC.payOrder(o.num, tok);
           if(result.orderAccessToken) LC.rememberOrderToken(o.num, result.orderAccessToken);
@@ -16432,9 +17448,12 @@ document.addEventListener('click', e => {
           }
           const url = result.confirmationUrl || o.confirmationUrl;
           if(!url){ toast('Не удалось получить ссылку на оплату'); return; }
+          leaving = true;
           location.href = url;
         }catch(err){
           toast(errText(err, 'Не удалось открыть оплату'));
+        }finally{
+          if(!leaving) placingHide();
         }
       })();
       break;
@@ -20887,6 +21906,7 @@ async function bootFromServer(){
     try{
       if(paidT) LC.rememberOrderToken(paid, paidT);
       const tok = paidT || LC.orderToken(paid);
+      placingShow('Проверяем оплату', 'Пара секунд — и всё готово');
       const waitPaid = async () => {
         let order = normalizeServerOrder(await LC.getOrder(paid, true, tok));
         for(let i = 0; i < 5 && order && order.payStatus !== 'paid' && order.payStatus !== 'manual'; i++){
@@ -20904,10 +21924,10 @@ async function bootFromServer(){
         saveUser();
         S.screen = 'done';
         bootLockPlace = true;
+        S.lastGone = '';
         if(order.payStatus === 'paid'){
           S.cart = [];
           saveUser();
-          toast('Оплата прошла · заказ №' + order.num);
         } else {
           toast('Заказ №' + order.num + ' сохранён. Если оплата не прошла — нажмите «Оплатить».');
         }
@@ -20916,6 +21936,8 @@ async function bootFromServer(){
     }catch(e){
       console.warn('paid return', e);
       toast(errText(e, 'Не удалось загрузить заказ после оплаты'));
+    }finally{
+      placingHide();
     }
   }
 
@@ -21565,7 +22587,7 @@ bootFromServer().catch((err) => {
   /* --- cookie: сообщение внизу ---
      Сайт ставит только необходимые cookie (вход, корзина, оформление, кэш
      приложения): аналитики, рекламы и стороннего на старте нет, а вход через
-     Google убран. Согласие для такого не нужно, поэтому не выбор, а
+     Google виден только с VPN и только в окне входа. Согласие для такого не нужно, поэтому не выбор, а
      сообщение: что ставим, ссылка на политику, «Понятно». Отметка «видел»
      — lc_cookie_v1; CK_VER поднять, если список изменится, — покажем снова.
      Здесь, а не в коде магазина: этот блок работает, даже если магазин упал

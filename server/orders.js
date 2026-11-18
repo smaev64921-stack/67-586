@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { db } = require('./db');
 const { getProduct, checkStock, deductStock, restoreStock } = require('./products');
-const { createPayment, configured, getPayment, lookupPayment, cancelPayment } = require('./yookassa');
+const { createPayment, configured, getPayment, lookupPayment, cancelPayment, payMethodType, paidWithLabel } = require('./yookassa');
 const shipLive = require('./ship-live');
 
 /* Сколько ждём оплату. Меньше — быстрее возвращается остаток на склад
@@ -116,7 +116,7 @@ function paymentSettled(p, order) {
 /* Просроченный заказ с платежом и ответ ЮKassa по нему: оплачен — в работу,
    ответила «не оплачен» — отмена с возвратом склада. 'paid' | 'expired' | ''. */
 function settleOverdueRow(row, p) {
-  if (paymentSettled(p, row)) { markPaid(row, p.id); return 'paid'; }
+  if (paymentSettled(p, row)) { markPaid(row, p.id, p); return 'paid'; }
   const cur = db.prepare('SELECT * FROM orders WHERE id = ?').get(row.id);
   return expireUnpaidOrder(cur) ? 'expired' : '';
 }
@@ -180,7 +180,7 @@ async function expireUnpaidOrdersChecked() {
       const a = await askPayment(row.yookassa_id);
       if (a.state === 'unavailable') break;
       if (paymentSettled(a.payment, row)) {
-        markPaid(row, a.payment.id);
+        markPaid(row, a.payment.id, a.payment);
         paid += 1;
       }
     }
@@ -542,7 +542,8 @@ function pushOrderToBuyer(order, status) {
     body: ['№' + order.num, what, pushStatusLine(order, st)].filter(Boolean).join(' · '),
     image: orderImage(order),
     tag: 'lc-order-' + order.num,
-    url: '/#orders',
+    /* «Открыть заказ» — сразу на его отслеживание */
+    url: '/#track/' + encodeURIComponent(order.num),
     actions
   }));
 }
@@ -692,7 +693,7 @@ async function quoteForCart({ items, promoCode, delivery, pvz, hint } = {}) {
   return Object.assign({}, q, { goods, discount, total: after + q.cost, alt });
 }
 
-async function createCheckout({ items, guest, pvz, delivery, promoCode, user, publicUrl }) {
+async function createCheckout({ items, guest, pvz, delivery, promoCode, user, publicUrl, payMethod }) {
   if (!user || !user.id) {
     throw Object.assign(new Error('Войдите в аккаунт, чтобы оформить заказ'), { status: 401 });
   }
@@ -1004,7 +1005,8 @@ async function createCheckout({ items, guest, pvz, delivery, promoCode, user, pu
   let payment;
   try {
     payment = await createPayment(paymentPayload({
-      orderId, num, price, returnUrl, email, phone, items: normalized, discount, ship
+      orderId, num, price, returnUrl, email, phone, items: normalized, discount, ship,
+      method: payMethodType(payMethod)
     }));
   } catch (e) {
     /* Не оставляем «висящий» заказ без оплаты */
@@ -1044,8 +1046,9 @@ function checkoutReturnUrl(publicUrl, num, accessToken) {
   return `${base}/?paid=${encodeURIComponent(num)}&t=${encodeURIComponent(accessToken)}`;
 }
 
-function paymentPayload({ orderId, num, price, returnUrl, email, phone, items, discount, ship }) {
+function paymentPayload({ orderId, num, price, returnUrl, email, phone, items, discount, ship, method }) {
   return {
+    method: method || '',
     amount: price,
     description: `Luxe Canvas · заказ №${num}`,
     orderNum: num,
@@ -1066,8 +1069,15 @@ function amountsMatch(payment, order) {
   return currency === 'RUB' && Number.isFinite(paid) && Math.abs(paid - expected) <= 0.009;
 }
 
-function markPaid(order, paymentId) {
+function markPaid(order, paymentId, payment) {
   if (!order) return order;
+  /* Чем заплатили на самом деле («Карта Мир •• 4242», «СБП») — покупателю
+     на экранах заказа и владельцу в Telegram. Выбор на сайте тут не в
+     счёт: на странице ЮKassa человек мог взять другой способ. */
+  const paidWith = paidWithLabel(payment);
+  if (paidWith) {
+    db.prepare('UPDATE orders SET pay_name = ? WHERE id = ?').run(paidWith, order.id);
+  }
   if (order.pay_status === 'paid') {
     return rowToOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(order.id)) || order;
   }
@@ -1180,7 +1190,7 @@ async function handleWebhook(event) {
       pushPaymentAnomaly('Сумма платежа не совпала с суммой заказа.', payment, order);
       return { ok: false, error: 'amount_mismatch' };
     }
-    markPaid(order, paymentId);
+    markPaid(order, paymentId, payment);
   } else if (payment.status === 'canceled' && order.pay_status !== 'paid') {
     /* Не отменяем заказ: покупатель мог закрыть страницу ЮKassa.
        Ссылку сбрасываем — «Оплатить» создаст новый платёж. */
@@ -1203,7 +1213,7 @@ async function syncPaymentStatus(num) {
   const payment = (await askPayment(order.yookassa_id)).payment;
   if (payment && payment.status === 'succeeded') {
     if (paymentSettled(payment, order)) {
-      return markPaid(order, payment.id);
+      return markPaid(order, payment.id, payment);
     }
     console.warn('yookassa sync: amount mismatch or refunded', order.num, payment.amount, order.price);
   }
@@ -1245,7 +1255,7 @@ async function ensurePayment(num, user, accessToken, publicUrl) {
       if (!amountsMatch(payment, row)) {
         throw Object.assign(new Error('Сумма оплаты не совпадает с заказом'), { status: 409 });
       }
-      const paid = markPaid(row, payment.id);
+      const paid = markPaid(row, payment.id, payment);
       return { order: toPublicOrder(paid, { admin: false }), alreadyPaid: true };
     }
     const liveUrl = payment && payment.status === 'pending'

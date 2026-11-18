@@ -30,6 +30,9 @@ const {
 } = require('./auth');
 const googleAuth = require('./google-auth');
 const googleIdToken = require('./google-id-token');
+/* «Вход через Google только с VPN»: российский ли адрес у посетителя */
+const ruNets = require('./ru-nets');
+ruNets.warmUp();
 const userPrefs = require('./user-prefs');
 const {
   requestPasswordReset, resetPassword, smtpConfigured,
@@ -353,9 +356,11 @@ function healthPayload() {
     telegram: telegramBot.configured(),
     telegramBot: telegramBot.botUsername() || '',
     telegramGateway,
-    google: false,
-    /* публичный идентификатор — по нему браузер рисует кнопку Google */
-    googleClientId: '',
+    /* Вход через Google настроен. Видно его не всем: только тем, кто пришёл
+       не с российского адреса (VPN) — см. /api/auth/google/available. */
+    google: googleIdToken.configured(),
+    /* список сетей России для этого правила загружен */
+    googleVpnCheck: ruNets.status().ready,
     smtp: smtpConfigured(),
     tryon: tryonServerConfigured(),
     cdek: cdek.configured(),
@@ -866,13 +871,30 @@ app.post('/api/auth/reset', authRateLimit('auth-reset', 12), (req, res) => {
 
 const OAUTH_STATE_COOKIE = 'lc_oauth_state';
 
-/* Вход через Google убран: российским сайтам авторизация через иностранные
-   сервисы запрещена (406-ФЗ). Маршруты отвечают 410 — старые вкладки получат
-   понятный ответ вместо входа. */
-app.use('/api/auth/google', (req, res) => {
-  const msg = 'Вход через Google отключён — войдите по эл. почте и паролю';
+/* Вход через Google — только с VPN (решение владельца 18.11.2026; убирали
+   его 05.10.2026 из-за 406-ФЗ). Пришёл с российского адреса — кнопки нет,
+   а маршруты входа отвечают отказом. С заграничного (VPN или человек за
+   границей) — вход работает как раньше. Адрес не разобрать или список сетей
+   ещё не загружен — тоже отказ: «только с VPN» строже, чем «всем».
+
+   Окно входа спрашивает здесь, рисовать ли кнопку. Ответ не кэшируем:
+   VPN включают и выключают на ходу. */
+app.get('/api/auth/google/available', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!googleIdToken.configured()) return res.json({ available: false, reason: 'off' });
+  const ru = ruNets.isRussianIp(clientIp(req));
+  if (ru !== false) return res.json({ available: false, reason: ru ? 'ru' : 'unknown' });
+  res.json({ available: true, clientId: googleIdToken.clientId() });
+});
+
+app.use('/api/auth/google', (req, res, next) => {
+  const ru = ruNets.isRussianIp(clientIp(req));
+  if (ru === false) return next();
+  const msg = ru
+    ? 'Вход через Google работает только с включённым VPN — включите его или войдите по эл. почте'
+    : 'Вход через Google сейчас недоступен — войдите по эл. почте и паролю';
   if (req.method === 'GET') return res.redirect('/?auth_err=' + encodeURIComponent(msg));
-  res.status(410).json({ error: msg });
+  res.status(403).json({ error: msg, needVpn: !!ru });
 });
 
 app.get('/api/auth/google', (req, res) => {
@@ -1186,6 +1208,7 @@ app.post('/api/checkout', authRequired, async (req, res) => {
       pvz: req.body.pvz,
       delivery: req.body.delivery,
       promoCode: req.body.promoCode,
+      payMethod: req.body.payMethod,
       user: req.user,
       publicUrl: shopUrlFromRequest(req)
     });

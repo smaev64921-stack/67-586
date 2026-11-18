@@ -25,7 +25,7 @@
    Работает это только потому, что сервер отдаёт /sw.js с no-cache.
    ========================================================================== */
 
-const VERSION = 'canvas-v6';
+const VERSION = 'canvas-v7';
 /* Сколько ждём сеть на переходе, прежде чем показать сохранённую копию.
    Меньше — чаще будет мелькать вчерашняя версия; больше — дольше висит
    заставка на плохой связи. Три с половиной секунды — заметно, но терпимо. */
@@ -159,14 +159,23 @@ self.addEventListener('notificationclick', (e) => {
       await self.clients.openWindow(url);
       return;
     }
-    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const c of open) {
-      if (new URL(c.url).origin !== self.location.origin) continue;
-      await c.focus();
-      if (c.navigate) await c.navigate(url).catch(() => {});
+    const to = new URL(url, self.location.origin);
+    const open = (await self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
+      .filter((c) => new URL(c.url).origin === self.location.origin);
+    /* Открыто и знакомство, и сам магазин — поднимаем магазин */
+    const c = open.find((w) => isShell(new URL(w.url))) || open[0];
+    if (!c) { await self.clients.openWindow(url); return; }
+    await c.focus();
+    /* Магазин уже открыт — просим его самого открыть нужный экран. Уводить
+       вкладку на новый адрес нельзя: меняется в нём одна «решётка», такой
+       переход страница не перезагружает и не разбирает, а её «Назад»
+       принимает его за системную кнопку и отступает на экран.
+       Открыта другая страница сайта — уводим её в магазин, как раньше. */
+    if (isShell(new URL(c.url)) && isShell(to)) {
+      c.postMessage({ type: 'lc-open', url: to.pathname + to.search + to.hash });
       return;
     }
-    await self.clients.openWindow(url);
+    if (c.navigate) await c.navigate(url).catch(() => {});
   })());
 });
 

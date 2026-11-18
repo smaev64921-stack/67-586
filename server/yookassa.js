@@ -135,6 +135,35 @@ function receiptRejected(data) {
   );
 }
 
+/* Способ оплаты, который покупатель выбрал на сайте. С ним ЮKassa сразу
+   открывает форму этого способа, а не общий список. */
+const METHOD_TYPES = ['bank_card', 'sbp', 'sberbank', 'tinkoff_bank', 'yoo_money'];
+function payMethodType(method) {
+  const m = String(method || '').trim();
+  return METHOD_TYPES.includes(m) ? m : '';
+}
+
+const CARD_BRANDS = { Mir: 'Мир', MasterCard: 'Mastercard', Visa: 'Visa', UnionPay: 'UnionPay', JCB: 'JCB' };
+/** Чем на самом деле заплатили — по ответу ЮKassa: «Карта Мир •• 4242», «СБП». */
+function paidWithLabel(payment) {
+  const pm = payment && payment.payment_method;
+  if (!pm || !pm.type) return '';
+  if (pm.type === 'bank_card') {
+    const card = pm.card || {};
+    const brand = CARD_BRANDS[card.card_type] || '';
+    const last4 = /^\d{4}$/.test(String(card.last4 || '')) ? ' •• ' + card.last4 : '';
+    return (brand ? 'Карта ' + brand : 'Банковская карта') + last4;
+  }
+  return ({
+    sbp: 'СБП',
+    sberbank: 'SberPay',
+    tinkoff_bank: 'T-Pay',
+    yoo_money: 'ЮMoney',
+    sber_loan: 'Кредит от СберБанка',
+    installments: 'Заплатить по частям'
+  })[pm.type] || '';
+}
+
 async function postPayment(body, idempotenceKey) {
   return fetch('https://api.yookassa.ru/v3/payments', {
     method: 'POST',
@@ -157,7 +186,8 @@ async function createPayment({
   phone,
   items,
   discount,
-  ship
+  ship,
+  method
 }) {
   if (!configured()) {
     const err = new Error('ЮKassa не настроена: укажите YOOKASSA_SHOP_ID и YOOKASSA_SECRET в .env');
@@ -202,6 +232,8 @@ async function createPayment({
     description: String(description || `Заказ №${orderNum}`).slice(0, 128),
     metadata: Object.assign({ orderNum: String(orderNum) }, metadata || {})
   };
+  const pmType = payMethodType(method);
+  if (pmType) body.payment_method_data = { type: pmType };
 
   const receipt = receiptEnabled()
     ? buildReceipt({ email, phone, items, discount, ship, amount: parseFloat(value) })
@@ -217,6 +249,24 @@ async function createPayment({
     delete body.receipt;
     res = await postPayment(body, randomUUID());
     data = await res.json().catch(() => ({}));
+  }
+
+  /* Выбранный способ не подключён в магазине (или ЮKassa не принимает его
+     для такого платежа) — покупателю не ошибка, а общая страница ЮKassa:
+     там он выберет любой доступный способ. Пара «магазин + ключ» не подошла
+     — повтор не поможет, её разбираем ниже. */
+  if (!res.ok && body.payment_method_data && res.status !== 401 &&
+      !(data && data.code === 'invalid_credentials')) {
+    console.warn('ЮKassa не приняла способ', body.payment_method_data.type, '— открываем общую страницу:',
+      (data && (data.description || data.code)) || res.status);
+    delete body.payment_method_data;
+    res = await postPayment(body, randomUUID());
+    data = await res.json().catch(() => ({}));
+    if (!res.ok && body.receipt && receiptRejected(data)) {
+      delete body.receipt;
+      res = await postPayment(body, randomUUID());
+      data = await res.json().catch(() => ({}));
+    }
   }
 
   if (!res.ok) {
@@ -320,6 +370,8 @@ async function cancelPayment(paymentId) {
 module.exports = {
   configured,
   createPayment,
+  payMethodType,
+  paidWithLabel,
   getPayment,
   lookupPayment,
   cancelPayment,
